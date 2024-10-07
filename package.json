@@ -1,0 +1,31 @@
+{
+  "name": "liquifier",
+  "version": "1.0.0",
+  "description": "Liquifier may be used to generate fluid transcription, according to the concepts of Beethovens Wekstatt",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BeethovensWerkstatt/liquifier.git"
+  },
+  "keywords": [
+    "MEI",
+    "genetic editions",
+    "digital humanities",
+    "music encoding"
+  ],
+  "author": "Johannes Kepper",
+  "license": "AGPL-3.0-or-later",
+  "bugs": {
+    "url": "https://github.com/BeethovensWerkstatt/liquifier/issues"
+  },
+  "homepage": "https://github.com/BeethovensWerkstatt/liquifier#readme",
+  "dependencies": {
+    "jsdom": "^25.0.1",
+    "verovio": "^4.3.1",
+    "xmldom-qsa": "^1.1.3"
+  }
+}
