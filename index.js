@@ -1,12 +1,17 @@
-import { walk, getFilesObject, fetchData, writeData } from './src/filehandler.js'
-import { dir } from './src/config.mjs'
-import { prepareDtForRendering } from './src/diplomaticTranscripts.js'
-import { prepareAtForRendering } from './src/annotatedTranscripts.js'
+import { JSDOM } from 'jsdom'
 import createVerovioModule from 'verovio/wasm'
 import { VerovioToolkit } from 'verovio/esm'
 
+import { walk, getFilesObject, fetchData, writeData } from './src/filehandler.js'
+import { dir } from './src/config.mjs'
+import { prepareDtForRendering, finalizeDiploTrans } from './src/diplomaticTranscripts.js'
+import { prepareAtForRendering } from './src/annotatedTranscripts.js'
+import { generateFluidTranscription } from './src/fluidTranscripts.js'
+
 import { renderData } from './src/verovioHandler.js'
 
+const { DOMParser } = new JSDOM().window
+const dom = new JSDOM(`<!DOCTYPE html><p>Hello world</p>`)
 
 const main = async () => {
     const VerovioModule = await createVerovioModule()
@@ -49,18 +54,34 @@ const main = async () => {
 main()
 
 const handleData = async (data, triple, verovio) => {
-    // const dtOutDom = prepareDtForRendering(data)
-    // const atOutDom = prepareAtForRendering(data, dtOutDom)
-
-    // const dtSvgString = renderData(dtOutDom, verovio)
-    // const atSvgString = renderData(atOutDom, verovio)
-
     const dtSvgPath = triple.dt.replace('.xml', '.svg').replace('data/', 'cache/')
     const atSvgPath = triple.at.replace('.xml', '.svg').replace('data/', 'cache/')
-    // const ftSvgPath = triple.at.replace('.xml', '.svg').replace('data/', 'cache/').replace('/annotatedTranscripts/', '/fluidTranscripts/')
-    console.log('Finished Rendering for ' + dtSvgPath)
+    const ftSvgPath = triple.at.replace('_at.xml', '_ft.svg').replace('data/', 'cache/').replace('/annotatedTranscripts/', '/fluidTranscripts/')
 
-    writeData('test diplomatic transcription', dtSvgPath)
-    writeData('test annotated transcription', atSvgPath)
-    // console.log(dtSvgString)
+    try {
+        const dtOutDom = prepareDtForRendering(data)
+        const dtSvgString = renderData(dtOutDom, verovio)
+        const finalDtDom = finalizeDiploTrans(dtSvgString)
+    
+        const atOutDom = prepareAtForRendering(data, dtOutDom)
+        const atSvgString = renderData(atOutDom, verovio)
+
+        const parser = new DOMParser()
+        const dtSvgDom = parser.parseFromString(dtSvgString, 'image/svg+xml')
+        const atSvgDom = parser.parseFromString(atSvgString, 'image/svg+xml')
+
+        const ftSvgDom = generateFluidTranscription({ atSvgDom, dtSvgDom, atOutDom, dtOutDom })
+
+        // const ftSvgPath = triple.at.replace('.xml', '.svg').replace('data/', 'cache/').replace('/annotatedTranscripts/', '/fluidTranscripts/')
+        console.log('Finished Rendering for ' + dtSvgPath)
+
+        const serializer = new dom.window.XMLSerializer()
+
+        writeData(serializer.serializeToString(finalDtDom), dtSvgPath)
+        writeData(atSvgString, atSvgPath)
+        writeData(serializer.serializeToString(ftSvgDom), ftSvgPath)
+        // console.log(dtSvgString)
+    } catch (err) {
+        console.error('[ERROR]: Unable to process files for ' + dtSvgPath + ': ' + err + '\n\n')
+    }
 }

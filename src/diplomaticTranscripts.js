@@ -205,4 +205,24 @@ export const prepareDtForRendering = ({ dtDom, atDom, sourceDom }) => {
         console.error('Error in prepareDtForRendering: ' + err, err)
     }
     return outDom
-  }
+}
+
+export const finalizeDiploTrans = (svgString) => {
+    const dtSvgDom = new DOMParser().parseFromString(svgString, 'image/svg+xml')
+
+    dtSvgDom.querySelectorAll('.staff:not(.bounding-box)').forEach(staff => {
+        const rotate = staff.getAttribute('data-rotate')
+        const height = staff.getAttribute('data-height')
+        const topLineCoordinates = staff.querySelector('path').getAttribute('d').split(' ')
+        const x = topLineCoordinates[0].substring(1)
+        const y = topLineCoordinates[1]
+        staff.style.transform = 'rotate(' + rotate + 'deg) scaleY(' + height + ')'
+        staff.style.transformOrigin = x + 'px ' + y + 'px'
+    })
+
+    dtSvgDom.querySelectorAll('.measure:not(.bounding-box)').forEach(measure => {
+        measure.querySelector('.barLine').style.display = 'none'
+    })
+
+    return dtSvgDom
+}
