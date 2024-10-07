@@ -49,18 +49,18 @@ const main = async () => {
 main()
 
 const handleData = async (data, triple, verovio) => {
-    const dtOutDom = prepareDtForRendering(data)
-    const atOutDom = prepareAtForRendering(data, dtOutDom)
+    // const dtOutDom = prepareDtForRendering(data)
+    // const atOutDom = prepareAtForRendering(data, dtOutDom)
 
-    const dtSvgString = renderData(dtOutDom, verovio)
-    const atSvgString = renderData(atOutDom, verovio)
+    // const dtSvgString = renderData(dtOutDom, verovio)
+    // const atSvgString = renderData(atOutDom, verovio)
 
     const dtSvgPath = triple.dt.replace('.xml', '.svg').replace('data/', 'cache/')
     const atSvgPath = triple.at.replace('.xml', '.svg').replace('data/', 'cache/')
     // const ftSvgPath = triple.at.replace('.xml', '.svg').replace('data/', 'cache/').replace('/annotatedTranscripts/', '/fluidTranscripts/')
     console.log('Finished Rendering for ' + dtSvgPath)
 
-    writeData(dtSvgString, dtSvgPath)
-    writeData(atSvgString, atSvgPath)
+    writeData('test diplomatic transcription', dtSvgPath)
+    writeData('test annotated transcription', atSvgPath)
     // console.log(dtSvgString)
 }
