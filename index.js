@@ -9,6 +9,7 @@ import { prepareAtForRendering } from './src/annotatedTranscripts.js'
 import { generateFluidTranscription } from './src/fluidTranscripts.js'
 
 import { renderData } from './src/verovioHandler.js'
+import { getPageDimensions } from './src/utils.js'
 
 const { DOMParser } = new JSDOM().window
 const dom = new JSDOM(`<!DOCTYPE html><p>Hello world</p>`)
@@ -59,18 +60,20 @@ const handleData = async (data, triple, verovio) => {
     const ftSvgPath = triple.at.replace('_at.xml', '_ft.svg').replace('data/', 'cache/').replace('/annotatedTranscripts/', '/fluidTranscripts/')
 
     try {
-        const dtOutDom = prepareDtForRendering(data)
-        const dtSvgString = renderData(dtOutDom, verovio)
+        const pageDimensions = getPageDimensions(data.sourceDom, data.dtDom)
+        
+        const dtOutDom = prepareDtForRendering(data, pageDimensions)
+        const dtSvgString = renderData(dtOutDom, verovio, 'diplomatic', pageDimensions)
         const finalDtDom = finalizeDiploTrans(dtSvgString)
     
-        const atOutDom = prepareAtForRendering(data, dtOutDom)
-        const atSvgString = renderData(atOutDom, verovio)
+        const atOutDom = prepareAtForRendering(data, dtOutDom, pageDimensions)
+        const atSvgString = renderData(atOutDom, verovio, 'annotated', pageDimensions)
 
         const parser = new DOMParser()
         const dtSvgDom = parser.parseFromString(dtSvgString, 'image/svg+xml')
         const atSvgDom = parser.parseFromString(atSvgString, 'image/svg+xml')
 
-        const ftSvgDom = generateFluidTranscription({ atSvgDom, dtSvgDom, atOutDom, dtOutDom })
+        const ftSvgDom = generateFluidTranscription({ atSvgDom, dtSvgDom, atOutDom, dtOutDom, sourceDom: data.sourceDom })
 
         // const ftSvgPath = triple.at.replace('.xml', '.svg').replace('data/', 'cache/').replace('/annotatedTranscripts/', '/fluidTranscripts/')
         console.log('Finished Rendering for ' + dtSvgPath)
@@ -82,6 +85,6 @@ const handleData = async (data, triple, verovio) => {
         writeData(serializer.serializeToString(ftSvgDom), ftSvgPath)
         // console.log(dtSvgString)
     } catch (err) {
-        console.error('[ERROR]: Unable to process files for ' + dtSvgPath + ': ' + err + '\n\n')
+        console.error('[ERROR]: Unable to process files for ' + dtSvgPath + ': ' + err + '\n\n', err)
     }
 }

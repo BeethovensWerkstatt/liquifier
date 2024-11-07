@@ -1,9 +1,10 @@
 import { JSDOM } from 'jsdom'
 import { appendNewElement } from './utils.js'
+import { verovioPixelDensity } from './config.mjs'
 const { DOMParser } = new JSDOM().window
 const dom = new JSDOM(`<!DOCTYPE html><p>Hello world</p>`)
 
-export const prepareDtForRendering = ({ dtDom, atDom, sourceDom }) => {
+export const prepareDtForRendering = ({ dtDom, atDom, sourceDom }, pageDimensions) => {
     // wzDetails
     // dtDoc
     // emptyPage
@@ -50,7 +51,7 @@ export const prepareDtForRendering = ({ dtDom, atDom, sourceDom }) => {
         }
         
         // Verovio uses a default of 9px per vu. This is used as factor for Verovio coordinate space
-        const factor = 9
+        const factor = verovioPixelDensity // 9
         
         const outSurface = outDom.querySelector('surface')
         outSurface.setAttribute('lrx', pageMM.w * factor)
@@ -68,7 +69,9 @@ export const prepareDtForRendering = ({ dtDom, atDom, sourceDom }) => {
             const rastrums = [...layout.querySelectorAll('rastrum')].filter(r => { 
                 return rastrumIDs.indexOf(r.getAttribute('xml:id')) !== -1
             })
-            staffDef.setAttribute('scale', (100 / defaultRastrumHeight * parseFloat(rastrums[0].getAttribute('system.height')) * factor).toFixed(1) + '%')
+            const scale = (100 / defaultRastrumHeight * parseFloat(rastrums[0].getAttribute('system.height')) * factor).toFixed(1) + '%'
+            // console.log('\n------setting scale to ' + scale)
+            staffDef.setAttribute('scale', scale)
         })
 
         dtDom.querySelectorAll('section > *').forEach(dtNode => {
@@ -103,7 +106,7 @@ export const prepareDtForRendering = ({ dtDom, atDom, sourceDom }) => {
 
                 systemZone.setAttribute('type', 'sb')
                 systemZone.setAttribute('ulx', (x * factor).toFixed(1))
-                systemZone.setAttribute('bw.lrx', (x2 * factor).toFixed(1))
+                // systemZone.setAttribute('lrx', (x2 * factor).toFixed(1))
                 systemZone.setAttribute('bw.rastrumIDs', rastrumIDs.join(' '))
                 systemZone.setAttribute('uly', (y * factor).toFixed(1)) // todo: how to determine sb/@uly properly? This is not the same as staff/@uly!!!!
                 node.setAttribute('facs', '#' + systemZone.getAttribute('xml:id')) 
@@ -123,7 +126,7 @@ export const prepareDtForRendering = ({ dtDom, atDom, sourceDom }) => {
                         const x = parseFloat(child.getAttribute('x2')) * factor
                         measureX2 = Math.max(measureX2, x)
                     }
-
+                    
                     const childName = child.localName
                     const supportedElements = ['note', 'staff', 'accid']
                     const ignoreElements = ['layer']
@@ -185,6 +188,12 @@ export const prepareDtForRendering = ({ dtDom, atDom, sourceDom }) => {
                         // todo: autogenerate an issue for unsupported elements?! If so, leave a stack trace of the file in which they occur?
                     }
                 })
+
+                measureX = Math.max(measureX - verovioPixelDensity * 8, 0)
+                measureX2 = Math.min(measureX2 + verovioPixelDensity * 8, pageMM.w * factor)
+
+                measureZone.setAttribute('ulx', measureX.toFixed(1))
+                measureZone.setAttribute('lrx', measureX2.toFixed(1))
 
                 /* TODO: make this work again
                 const sbZone = measureZone.previousElementSibling
