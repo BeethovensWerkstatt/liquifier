@@ -1,7 +1,7 @@
 import { JSDOM } from 'jsdom'
 import { appendNewElement } from './utils.js'
 import { verovioPixelDensity } from './config.mjs'
-const { DOMParser } = new JSDOM().window
+const { DOMParser, XMLSerializer } = new JSDOM().window
 const dom = new JSDOM(`<!DOCTYPE html><p>Hello world</p>`)
 
 export const prepareDtForRendering = ({ dtDom, atDom, sourceDom }, pageDimensions) => {
@@ -95,6 +95,7 @@ export const prepareDtForRendering = ({ dtDom, atDom, sourceDom }, pageDimension
                 let x = pageMM.w
                 let y = pageMM.h
                 let x2 = 0
+                const rotates = []
                 rastrums.forEach(rastrum => {
                     const rx = parseFloat(rastrum.getAttribute('system.leftmar'))
                     const ry = parseFloat(rastrum.getAttribute('system.topmar'))
@@ -102,6 +103,7 @@ export const prepareDtForRendering = ({ dtDom, atDom, sourceDom }, pageDimension
                     x = Math.min(rx, x)
                     y = Math.min(ry, y)
                     x2 = Math.max(rw, x2)
+                    rotates.push(rastrum.getAttribute('rotate'))
                 })
 
                 systemZone.setAttribute('type', 'sb')
@@ -109,7 +111,9 @@ export const prepareDtForRendering = ({ dtDom, atDom, sourceDom }, pageDimension
                 // systemZone.setAttribute('lrx', (x2 * factor).toFixed(1))
                 systemZone.setAttribute('bw.rastrumIDs', rastrumIDs.join(' '))
                 systemZone.setAttribute('uly', (y * factor).toFixed(1)) // todo: how to determine sb/@uly properly? This is not the same as staff/@uly!!!!
-                node.setAttribute('facs', '#' + systemZone.getAttribute('xml:id')) 
+                node.setAttribute('facs', '#' + systemZone.getAttribute('xml:id'))
+                node.setAttribute('rotate', rotates.join(' '))
+                console.log('sb: ', new XMLSerializer().serializeToString(node))
             } else if (name === 'measure') {
                 const measureZone = appendNewElement(outSurface, 'zone')
                 measureZone.setAttribute('type', 'measure')
@@ -218,14 +222,23 @@ export const prepareDtForRendering = ({ dtDom, atDom, sourceDom }, pageDimension
 
 export const finalizeDiploTrans = (svgString) => {
     const dtSvgDom = new DOMParser().parseFromString(svgString, 'image/svg+xml')
+    
+    dtSvgDom.querySelectorAll('.staff:not(.bounding-box)').forEach((staff, n) => {
+        const measure = staff.parentElement
+        let sb = measure.previousElementSibling
+        while (sb && !sb.matches('.sb')) {
+            sb = sb.previousElementSibling
+        }
+        // TODO: this doesn't resolve all cases, when there are multiple systems with just one staff vs. multiple staves in one system
+        const rotate = sb.getAttribute('data-rotate').split(' ')[n]
 
-    dtSvgDom.querySelectorAll('.staff:not(.bounding-box)').forEach(staff => {
-        const rotate = staff.getAttribute('data-rotate')
-        const height = staff.getAttribute('data-height')
+        // const rotate = staff.getAttribute('data-rotate')
+        console.log('trying to rotate staff by ' + rotate)
+        // const height = staff.getAttribute('data-height')
         const topLineCoordinates = staff.querySelector('path').getAttribute('d').split(' ')
         const x = topLineCoordinates[0].substring(1)
         const y = topLineCoordinates[1]
-        staff.style.transform = 'rotate(' + rotate + 'deg) scaleY(' + height + ')'
+        staff.style.transform = 'rotate(' + rotate + 'deg)' // scaleY(' + height + ')'
         staff.style.transformOrigin = x + 'px ' + y + 'px'
     })
 

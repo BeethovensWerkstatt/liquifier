@@ -10,7 +10,7 @@ const verovioOptions = {
     header: 'none',
     footer: 'none',
     breaks: 'encoded',
-    svgAdditionalAttribute: ['staff@rotate', 'staff@height', 'score@viewBox']
+    svgAdditionalAttribute: ['staff@rotate', 'staff@height', 'score@viewBox', 'sb@rotate']
   }
 
 

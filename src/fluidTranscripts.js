@@ -3,9 +3,9 @@ import { JSDOM } from 'jsdom'
 const { DOMParser, XMLSerializer } = new JSDOM().window
 const dom = new JSDOM(`<!DOCTYPE html><p>Hello world</p>`)
 
-const duration = '5s'
+const duration = '10s'
 const repeatCount = 'indefinite'
-const reverseAnimations = true
+const reverseAnimations = false
 
 /*
 ANIMATION PHASES:
@@ -16,7 +16,7 @@ ANIMATION PHASES:
 */
 
 export const generateFluidTranscription = ({ atSvgDom, dtSvgDom, atOutDom, dtOutDom, sourceDom }) => {
-    const supportedElements = ['note']
+    const supportedElements = ['note', 'accid', 'clef', 'keySig', 'meterSig']
 
     const ftSvgDom = atSvgDom.cloneNode(true)
 
@@ -76,7 +76,7 @@ export const generateFluidTranscription = ({ atSvgDom, dtSvgDom, atOutDom, dtOut
                     const dtWidth = parseFloat(dtEnd.split(' ')[0]) - parseFloat(dtStart.split(' ')[0].replace('M', ''))
                     const diff = atWidth - dtWidth
 
-                    console.log('diff: ', diff)
+                    // console.log('diff: ', diff)
 
                     const dtX1 = parseFloat(atStart.split(' ')[0].replace('M', '')) + diff
                     const atY = parseFloat(atStart.split(' ')[1])
@@ -86,33 +86,32 @@ export const generateFluidTranscription = ({ atSvgDom, dtSvgDom, atOutDom, dtOut
                     // const dtNewEnd = parseFloat(atEnd.split(' ')[0]) - diff + ' ' + atEnd.split(' ')[1]
                     const dtD = 'M' + dtX1 + ' ' + atY + ' L' + dtX2 + ' ' + atY // dtNewStart + 'L' + dtNewEnd
 
-                    console.log('dtD: ', dtD, 'atD: ', atD)
+                    // console.log('dtD: ', dtD, 'atD: ', atD)
 
                     addTransForm(line, 'd', [dtD, atD, atD, atD])
                     line.setAttribute('d', dtD)
-
-                    /* const dtLine = dtSvgDom.querySelectorAll('.staff > path')[k]
-                    const dtLineD = dtLine.getAttribute('d')
-                    const atLine = atSvgDom.querySelectorAll('.staff > path')[k]
-                    const atLineD = atLine.getAttribute('d')
-                    const atLineX = parseFloat(atLineD.split(' ')[0])
-                    const atLineY = parseFloat(atLineD.split(' ')[1])
-                    const dtLineX = parseFloat(dtLineD.split(' ')[0])
-                    const dtLineY = parseFloat(dtLineD.split(' ')[1])
-                    const atLineOffX = center.atCenter.x - atLineX
-                    const atLineOffY = center.atCenter.y - atLineY
-                    const dtLineOffX = center.dtCenter.x - dtLineX
-                    const dtLineOffY = center.dtCenter.y - dtLineY
-                    const diffX = atLineOffX - dtLineOffX
-                    const diffY = atLineOffY - dtLineOffY
-                    const dtLineNew = dtLineX + diffX + ' ' + (dtLineY + diffY)
-                    const ftLineXValues = [dtLineNew, atLineD, atLineD, atLineD]
-                    addTransForm(line, 'd', ftLineXValues) */
                 })
             } else { // suppress all other measures' staff lines
                 const staffLines = measure.querySelectorAll('.staff > path')
                 staffLines.forEach(line => line.remove())
             }
+
+            const sb = dtSvgDom.querySelectorAll('.sb')[i]
+            const rotations = sb.getAttribute('data-rotate').split(' ')
+
+            const staves = measure.querySelectorAll('.staff:not(.bounding-box)')
+
+            console.log('rotations: (' + rotations.length + ')', rotations, 'staves: ', staves.length)
+
+            rotations.forEach((rotate, l) => {
+                const staff = staves[l]
+
+                if (staff) {
+                    // TODO: this doesn't resolve all cases, when there are multiple systems with just one staff vs. multiple staves in one system
+                    // staff.style.transform = 'rotate(' + rotate + 'deg)'
+                    // staff.style.transformOrigin = x + 'px ' + y + 'px'
+                }
+            })
 
             supportedElements.forEach(name => {
                 const query = '.' + name + ':not(.bounding-box)'
@@ -121,13 +120,13 @@ export const generateFluidTranscription = ({ atSvgDom, dtSvgDom, atOutDom, dtOut
                 targets.forEach(ftSvgNode => {
                     const atNode = atOutDom.querySelector(name + '[xml\\:id="' + ftSvgNode.getAttribute('data-id') + '"]')
                     // console.log('---atNode: ', new XMLSerializer().serializeToString(atNode))
-                    if (atNode.hasAttribute('corresp')) {
+                    if (atNode && atNode.hasAttribute('corresp')) {
                         const correspID = atNode.getAttribute('corresp').split('#')[1]
                         const dtSvgNode = dtSvgDom.querySelector('*[data-id="' + correspID + '"]')
                         // const ftSvgNode = ftSvgDom.querySelector('*[data-id="' + atNode.getAttribute('xml:id') + '"]')
                         generateAnimation(name, ftSvgNode, dtSvgNode, center)
                     } else {
-                        const ftSvgNode = ftSvgDom.querySelector('*[data-id="' + atNode.getAttribute('xml:id') + '"]')
+                        // const ftSvgNode = ftSvgDom.querySelector('*[data-id="' + atNode.getAttribute('xml:id') + '"]')
                         generateHideAnimation(ftSvgNode)
                     }
                 })
@@ -145,6 +144,16 @@ export const generateFluidTranscription = ({ atSvgDom, dtSvgDom, atOutDom, dtOut
         })
     })
 
+    const foreignObject = appendNewElement(ftSvgDom.querySelectorAll('svg')[1], 'foreignObject', 'http://www.w3.org/2000/svg')
+    foreignObject.setAttribute('x', '20%')
+    foreignObject.setAttribute('y', '80%')
+    foreignObject.setAttribute('width', '60%')
+    foreignObject.setAttribute('height', '15%')
+    foreignObject.innerHTML = `<div xmlns="http://www.w3.org/1999/xhtml" style="width: 16000px;padding: 100px;"><input type="range" min="0" max="9.99999" style="width: 15%; height: 100px; scale: 5; margin: 5%; padding: 100px; left: 5230px; position: relative;" step="any" oninput="document.querySelectorAll('svg').forEach(svg => svg.setCurrentTime(value))"/></div>`
+    const script = appendNewElement(ftSvgDom.querySelectorAll('svg')[1], 'script', 'http://www.w3.org/2000/svg')
+    script.setAttribute('type', 'text/ecmascript')
+    script.innerHTML = "const innerSvg = document.querySelectorAll('svg').forEach(svg => {svg.pauseAnimations(); svg.setCurrentTime(0);})"
+
     return ftSvgDom
 }
 
@@ -157,6 +166,9 @@ const generateHideAnimation = (node) => {
     hideAnim.setAttribute('values', values)
     hideAnim.setAttribute('dur', duration)
     hideAnim.setAttribute('repeatCount', repeatCount)
+
+    node.setAttribute('fill', '#999999')
+    node.setAttribute('stroke', '#999999')
 }
 
 const generateAnimation = (name, ftSvgNode, dtSvgNode, positions) => {
@@ -186,10 +198,15 @@ const generateAnimation_note = (atSvgNode, dtSvgNode, positions) => {
         const diffX = atHeadOffX - dtHeadOffX
         const diffY = atHeadOffY - dtHeadOffY
 
-        const dtPosX = atHeadX + diffX
+        const dtPos = diffX + ' ' + diffY
+        const atPos = '0 0'
 
-        const ftHeadXValues = [dtPosX, atHeadX, atHeadX, atHeadX]
-        addTransForm(atHead, 'x', ftHeadXValues)
+        addTransformTranslate(atSvgNode, [dtPos, atPos, atPos, atPos])
+
+        // const dtPosX = atHeadX + diffX
+
+        // const ftHeadXValues = [dtPosX, atHeadX, atHeadX, atHeadX]
+        // addTransForm(atHead, 'x', ftHeadXValues)
 
         /* 
         const anim = appendNewElement(atSvgNode, 'animateTransform', 'http://www.w3.org/2000/svg')
@@ -220,14 +237,16 @@ const generateAnimation_note = (atSvgNode, dtSvgNode, positions) => {
             const dtStem_x = dtStem.split(' ')[0]
             const dtStem_l = parseFloat(dtStem.split(' ')[1]) - parseFloat(dtStem.split(' ')[3])
 
-            const dtStemNew = dtStem_x + ' ' + atStem_y + ' ' + dtStem.split(' ')[2] + ' ' + (parseFloat(atStem_y) - dtStem_l)
-
+            const dtStemNew = atStem_x + ' ' + atStem_y + ' ' + atStem.split(' ')[2] + ' ' + (parseFloat(atStem_y) - dtStem_l)
+            
+            addTransForm(atStemNode, 'd', [dtStemNew, atStem, atStem, atStem])
+            /*
             const stemAnim = appendNewElement(atStemNode, 'animate', 'http://www.w3.org/2000/svg')
             stemAnim.setAttribute('attributeName', 'd')
             stemAnim.setAttribute('attributeType', 'XML')
             stemAnim.setAttribute('values', dtStemNew + '; ' + atStem + '; ' + atStem + '; ' + atStem + '; ' + dtStemNew)
             stemAnim.setAttribute('dur', duration)
-            stemAnim.setAttribute('repeatCount', repeatCount)
+            stemAnim.setAttribute('repeatCount', repeatCount) */
 
             const atFlagNode = atSvgNode.querySelector('.flag use')
             if (atFlagNode) {
@@ -238,7 +257,7 @@ const generateAnimation_note = (atSvgNode, dtSvgNode, positions) => {
                 const dtX = parseFloat(dtStem_x.substring(1)) - 7
                 const dtY = parseFloat(atStem_y) - dtStem_l
 
-                const flagAnimX = appendNewElement(atFlagNode, 'animate', 'http://www.w3.org/2000/svg')
+                /* const flagAnimX = appendNewElement(atFlagNode, 'animate', 'http://www.w3.org/2000/svg')
                 flagAnimX.setAttribute('attributeName', 'x')
                 flagAnimX.setAttribute('values', dtX + ';' + atX + ';' + atX + ';' + atX + ';' + dtX)
                 flagAnimX.setAttribute('dur', duration)
@@ -248,7 +267,7 @@ const generateAnimation_note = (atSvgNode, dtSvgNode, positions) => {
                 flagAnimY.setAttribute('attributeName', 'y')
                 flagAnimY.setAttribute('values', dtY + ';' + atY + ';' + atY + ';' + atY + ';' + dtY)
                 flagAnimY.setAttribute('dur', duration)
-                flagAnimY.setAttribute('repeatCount', repeatCount)
+                flagAnimY.setAttribute('repeatCount', repeatCount) */
                 // const dtY = 
             }
         }
@@ -281,6 +300,7 @@ const addTransformTranslate = (node, values = []) => {
     anim.setAttribute('values', values.concat(reverse).join(';'))
     anim.setAttribute('repeatCount', repeatCount)
     anim.setAttribute('dur', duration)
+    // anim.setAttribute('calcMode', 'spline')
 }
 
 const addTransForm = (node, attribute, values = []) => {
@@ -291,6 +311,7 @@ const addTransForm = (node, attribute, values = []) => {
     anim.setAttribute('values', values.concat(reverse).join(';'))
     anim.setAttribute('repeatCount', repeatCount)
     anim.setAttribute('dur', duration)
+    // anim.setAttribute('calcMode', 'spline')
 }
 
 const generateAnimation_system = (atSvgNode, dtSvgNode, offset) => {
