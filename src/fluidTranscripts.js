@@ -26,6 +26,17 @@ export const generateFluidTranscription = ({ atSvgDom, dtSvgDom, atOutDom, dtOut
         dtSystemCenters.push(getSystemCenter(measures))
     })
 
+    const dtBBox = { x: 10000000, y: 10000000, width: 0, height: 0 }
+    dtSystemCenters.forEach(center => {
+        if (center.left < dtBBox.x) dtBBox.x = center.left
+        if (center.right > dtBBox.width) dtBBox.width = center.right
+        if (center.top < dtBBox.y) dtBBox.y = center.top
+        if (center.bottom > dtBBox.height) dtBBox.height = center.bottom
+    })
+    // console.log('\ndtBBox (' + dtSystemCenters.length + '): ', dtBBox)
+    // console.log('dtSvgDom w:' + dtSvgDom.querySelector('svg').getAttribute('width') + ' h:' + dtSvgDom.querySelector('svg').getAttribute('height'))
+    // console.log('dtSvgDom viewBox: ' + dtSvgDom.querySelector('svg svg').getAttribute('viewBox') + '\n\n')
+
     const atSystemCenters = []
     atSvgDom.querySelectorAll('.system:not(.bounding-box) > .sb').forEach((elem, i) => {
         const measures = []
@@ -39,7 +50,22 @@ export const generateFluidTranscription = ({ atSvgDom, dtSvgDom, atOutDom, dtOut
         const atCenter = getSystemCenter(measures)
         atSystemCenters.push({ atCenter, dtCenter: dtSystemCenters[i], measures: ids })
     })
+    const atBBox = { x: 10000000, y: 10000000, width: 0, height: 0 }
+    atSystemCenters.forEach(center => {
+        if (center.atCenter.left < atBBox.x) atBBox.x = center.atCenter.left
+        if (center.atCenter.right > atBBox.width) atBBox.width = center.atCenter.right
+        if (center.atCenter.top < atBBox.y) atBBox.y = center.atCenter.top
+        if (center.atCenter.bottom > atBBox.height) atBBox.height = center.atCenter.bottom
+    })
+    // console.log('\natBBox (' + atSystemCenters.length + '): ', atBBox)
+    // console.log('atSvgDom w:' + atSvgDom.querySelector('svg').getAttribute('width') + ' h:' + atSvgDom.querySelector('svg').getAttribute('height'))
+    // console.log('atSvgDom viewBox: ' + atSvgDom.querySelector('svg svg').getAttribute('viewBox') + '\n\n')
     
+    ftSvgDom.querySelector('svg').setAttribute('width', dtSvgDom.querySelector('svg').getAttribute('width'))
+    const dtViewBox = dtSvgDom.querySelector('svg svg').getAttribute('viewBox').split(' ')
+    const atViewBox = atSvgDom.querySelector('svg svg').getAttribute('viewBox').split(' ')
+    ftSvgDom.querySelector('svg svg').setAttribute('viewBox', atViewBox[0] + ' ' + atViewBox[1] + ' ' + dtViewBox[2] + ' ' + atViewBox[3])
+
     const dtVerticalCenter = atSystemCenters.reduce((sum, system) => sum + system.dtCenter.y, 0) / atSystemCenters.length
     atSystemCenters.forEach(system => {
         system.offset = { x: system.dtCenter.x - system.atCenter.x, y: dtVerticalCenter - system.dtCenter.y }
@@ -197,6 +223,8 @@ const generateAnimation = (name, ftSvgNode, dtSvgNode, positions) => {
 
 const generateAnimation_note = (atSvgNode, dtSvgNode, positions) => {
     try {
+        const noteId = atSvgNode.getAttribute('data-id')
+
         // notehead animation
         const atHead = atSvgNode.querySelector('.notehead use')
         const atHeadX = parseFloat(atHead.getAttribute('x'))
@@ -218,12 +246,16 @@ const generateAnimation_note = (atSvgNode, dtSvgNode, positions) => {
 
         addTransformTranslate(atSvgNode, [dtPos, atPos, atPos, atPos])
 
+        const ledgers = atSvgNode.closest('.measure:not(.bounding-box)').querySelectorAll('.ledgerLines .lineDash[data-related~="#' + noteId + '"]')
+        ledgers.forEach(ledger => {
+            addTransformTranslate(ledger.querySelector('path'), [dtPos, atPos, atPos, atPos])
+        })
         // TODO: remove these dirty fixes for ledger lines
-        const ledgerFixes = ['x6abdd336-0f62-4534-ace7-fc8cfb06a91c', 'x25e09f35-11c6-40ff-8940-48066d15e536', 'xe0e98be6-394f-48ab-a76d-73b40689ce47', 'xeb8b6a64-c31b-4515-9514-1471e2e31f1a']
+        /* const ledgerFixes = ['x6abdd336-0f62-4534-ace7-fc8cfb06a91c', 'x25e09f35-11c6-40ff-8940-48066d15e536', 'xe0e98be6-394f-48ab-a76d-73b40689ce47', 'xeb8b6a64-c31b-4515-9514-1471e2e31f1a']
         if (ledgerFixes.indexOf(atSvgNode.getAttribute('data-id')) !== -1) {
             const ledger = atSvgNode.parentNode.parentNode.querySelector('.ledgerLines')
             addTransformTranslate(ledger, [dtPos, atPos, atPos, atPos])
-        }
+        } */
 
         // const dtPosX = atHeadX + diffX
 
@@ -324,7 +356,6 @@ const generateAnimation_barLine = (atSvgNode, dtSvgNode, positions) => {
 
         const dtPos = diffX + ' 0'
         const atPos = '0 0'
-        console.log('adding addTransFormTranslate to barLine: ' + atSvgNode.getAttribute('data-id'), dtPos, atPos)
         addTransformTranslate(atSvgNode, [dtPos, atPos, atPos, atPos])
     } catch(err) {
         console.warn('Error in generateAnimation_barLine: ' + err, err)

@@ -50,7 +50,7 @@ export const getSystemCenter = (measures) => {
     const centerX = (topLeftX + bottomRightX) / 2
     const centerY = (topLeftY + bottomRightY) / 2
 
-    return { x: centerX, y: centerY }
+    return { x: centerX, y: centerY, left: topLeftX, right: bottomRightX, top: topLeftY, bottom: bottomRightY }
 }
 
 const uuid = () => {
