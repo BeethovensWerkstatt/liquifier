@@ -16,7 +16,7 @@ ANIMATION PHASES:
 */
 
 export const generateFluidTranscription = ({ atSvgDom, dtSvgDom, atOutDom, dtOutDom, sourceDom }) => {
-    const supportedElements = ['note', 'accid', 'clef', 'keySig', 'meterSig', 'chord', 'barLine']
+    const supportedElements = ['note', 'accid', 'clef', 'keySig', 'meterSig', 'chord', 'barLine', 'beam', 'beamSpan']
 
     const ftSvgDom = atSvgDom.cloneNode(true)
 
@@ -216,6 +216,9 @@ const generateAnimation = (name, ftSvgNode, dtSvgNode, positions) => {
     } else if (name === 'chord') {
         // chords actually can use the same animation as notes
         generateAnimation_note(ftSvgNode, dtSvgNode, positions)
+    } else if (name === 'beamSpan' || name === 'beam') {
+        // chords actually can use the same animation as notes
+        generateAnimation_beam(ftSvgNode, dtSvgNode, positions)
     } else {
         console.warn('Unable to animate element ' + name)
     }
@@ -354,6 +357,43 @@ const generateAnimation_barLine = (atSvgNode, dtSvgNode, positions) => {
     } catch(err) {
         console.warn('Error in generateAnimation_barLine: ' + err, err)
     }
+}
+
+const generateAnimation_beam = (atSvgNode, dtSvgNode, positions) => {
+    console.log('need to animate beam')
+    const atPolygons = atSvgNode.querySelectorAll('polygon')
+    const dtPolygons = dtSvgNode.querySelectorAll('polygon')
+
+    atPolygons.forEach((atPolygon, i) => {
+        const dtPolygon = dtPolygons[i]
+        if (dtPolygon) {
+            const atPoints = atPolygon.getAttribute('points').split(' ')
+            const dtPoints = dtPolygon.getAttribute('points').split(' ')
+            
+            const ftPoints = []
+            atPoints.forEach((point, j) => {
+                const atX = parseFloat(point.split(',')[0])
+                const atY = parseFloat(point.split(',')[1])
+                const dtX = parseFloat(dtPoints[j].split(',')[0])
+                const dtY = parseFloat(dtPoints[j].split(',')[1])
+
+                const atOffX = positions.atCenter.x - atX
+                const atOffY = positions.atCenter.y - atY
+                const dtOffX = positions.dtCenter.x - dtX
+                const dtOffY = positions.dtCenter.y - dtY
+
+                const diffX = atOffX - dtOffX
+                const diffY = atOffY - dtOffY
+
+                const dtPos = (atX + diffX) + ',' + (atY + diffY)
+                ftPoints.push(dtPos)
+            })
+            const ftPointsValues = ftPoints.join(' ')
+            addTransForm(atPolygon, 'points', [ftPointsValues, atPoints, atPoints, atPoints])
+        } else {
+            generateHideAnimation(atPolygon)
+        }
+    })
 }
 
 const addTransformTranslate = (node, values = []) => {
