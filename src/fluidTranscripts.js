@@ -250,13 +250,7 @@ const generateAnimation_note = (atSvgNode, dtSvgNode, positions) => {
         ledgers.forEach(ledger => {
             addTransformTranslate(ledger.querySelector('path'), [dtPos, atPos, atPos, atPos])
         })
-        // TODO: remove these dirty fixes for ledger lines
-        /* const ledgerFixes = ['x6abdd336-0f62-4534-ace7-fc8cfb06a91c', 'x25e09f35-11c6-40ff-8940-48066d15e536', 'xe0e98be6-394f-48ab-a76d-73b40689ce47', 'xeb8b6a64-c31b-4515-9514-1471e2e31f1a']
-        if (ledgerFixes.indexOf(atSvgNode.getAttribute('data-id')) !== -1) {
-            const ledger = atSvgNode.parentNode.parentNode.querySelector('.ledgerLines')
-            addTransformTranslate(ledger, [dtPos, atPos, atPos, atPos])
-        } */
-
+        
         // const dtPosX = atHeadX + diffX
 
         // const ftHeadXValues = [dtPosX, atHeadX, atHeadX, atHeadX]
