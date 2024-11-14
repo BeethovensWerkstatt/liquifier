@@ -16,7 +16,7 @@ ANIMATION PHASES:
 */
 
 export const generateFluidTranscription = ({ atSvgDom, dtSvgDom, atOutDom, dtOutDom, sourceDom }) => {
-    const supportedElements = ['note', 'accid', 'clef', 'keySig', 'meterSig']
+    const supportedElements = ['note', 'accid', 'clef', 'keySig', 'meterSig', 'chord', 'barLine']
 
     const ftSvgDom = atSvgDom.cloneNode(true)
 
@@ -119,8 +119,12 @@ export const generateFluidTranscription = ({ atSvgDom, dtSvgDom, atOutDom, dtOut
                 // console.log('---targets: ', targets.length, new XMLSerializer().serializeToString(targets[0]))
                 targets.forEach(ftSvgNode => {
                     const atNode = atOutDom.querySelector(name + '[xml\\:id="' + ftSvgNode.getAttribute('data-id') + '"]')
-                    // console.log('---atNode: ', new XMLSerializer().serializeToString(atNode))
-                    if (atNode && atNode.hasAttribute('corresp')) {
+                    /* if (name === 'chord') {
+                        console.log('---atNode: ', new XMLSerializer().serializeToString(atNode)) 
+                    } */
+                    if (name === 'barLine') {
+                        // barlines need different handling, as seen below
+                    } else if (atNode && atNode.hasAttribute('corresp')) {
                         const correspID = atNode.getAttribute('corresp').split('#')[1]
                         const dtSvgNode = dtSvgDom.querySelector('*[data-id="' + correspID + '"]')
                         // const ftSvgNode = ftSvgDom.querySelector('*[data-id="' + atNode.getAttribute('xml:id') + '"]')
@@ -132,15 +136,20 @@ export const generateFluidTranscription = ({ atSvgDom, dtSvgDom, atOutDom, dtOut
                 })
             })
 
-            /* const anim = appendNewElement(measure, 'animateTransform', 'http://www.w3.org/2000/svg')
-            anim.setAttribute('attributeName', 'transform')
-            anim.setAttribute('attributeType', 'XML')
-            anim.setAttribute('type', 'translate')
-            const newPos = (center.offset.x) + ' ' + (center.offset.y * -1)
-            anim.setAttribute('values', '0 0;0 0;' + newPos + ';0 0;0 0')
-            anim.setAttribute('repeatCount', repeatCount)
-            anim.setAttribute('dur', duration) */
-            // <animateTransform xmlns="http://www.w3.org/2000/svg" attributeName="transform" attributeType="XML" type="translate" values="0 0;1000 500;0 0" repeatCount="indefinite" dur="3s"/>
+            // handling of barLines
+            const atMeiMeasure = [...atOutDom.querySelectorAll('measure')].find(measure => measure.getAttribute('xml:id') === id)
+            const barLineIDs = atMeiMeasure.hasAttribute('corresp') ? atMeiMeasure.getAttribute('corresp').split(' ') : []
+            
+            const atBarLine = ftSvgDom.querySelector('.measure:not(.bounding-box)[data-id="' + id + '"] .barLine:not(.bounding-box)')
+            
+            const dtSvgBarLines = [...dtSvgDom.querySelectorAll('.barLine')].filter(barLine => barLineIDs.some(value => value.endsWith('#' + barLine.getAttribute('data-id'))))
+            dtSvgBarLines.forEach(dtBarLine => {
+                // console.log('found a transcribed barLine in measure ' + id, new XMLSerializer().serializeToString(dtBarLine))
+                generateAnimation_barLine(atBarLine, dtBarLine, center)
+            })
+            if (dtSvgBarLines.length === 0) {
+                generateHideAnimation(atBarLine)
+            }
         })
     })
 
@@ -149,7 +158,7 @@ export const generateFluidTranscription = ({ atSvgDom, dtSvgDom, atOutDom, dtOut
     foreignObject.setAttribute('y', '80%')
     foreignObject.setAttribute('width', '60%')
     foreignObject.setAttribute('height', '15%')
-    foreignObject.innerHTML = `<div xmlns="http://www.w3.org/1999/xhtml" style="width: 16000px;padding: 100px;"><input type="range" min="0" max="9.99999" style="width: 15%; height: 100px; scale: 5; margin: 5%; padding: 100px; left: 5230px; position: relative;" step="any" oninput="document.querySelectorAll('svg').forEach(svg => svg.setCurrentTime(value))"/></div>`
+    foreignObject.innerHTML = `<div xmlns="http://www.w3.org/1999/xhtml" style="width: 12000px;padding: 100px;"><input type="range" min="0" max="9.99999" style="width: 15%; height: 100px; scale: 5; margin: 5%; padding: 100px; left: 5230px; position: relative;" step="any" oninput="document.querySelectorAll('svg').forEach(svg => svg.setCurrentTime(value))"/></div>`
     const script = appendNewElement(ftSvgDom.querySelectorAll('svg')[1], 'script', 'http://www.w3.org/2000/svg')
     script.setAttribute('type', 'text/ecmascript')
     script.innerHTML = "const innerSvg = document.querySelectorAll('svg').forEach(svg => {svg.pauseAnimations(); svg.setCurrentTime(0);})"
@@ -173,7 +182,13 @@ const generateHideAnimation = (node) => {
 
 const generateAnimation = (name, ftSvgNode, dtSvgNode, positions) => {
     // console.log('----positions: ', positions)
-    if (name === 'note') {
+    if (name === 'note' && ftSvgNode.parentNode.matches('.chord')) {
+        // chords are animated separately below, so notes inside chords must not get double animation
+        // console.log('skipping to animate notes in chords')
+    } else if (name === 'note') {
+        generateAnimation_note(ftSvgNode, dtSvgNode, positions)
+    } else if (name === 'chord') {
+        // chords actually can use the same animation as notes
         generateAnimation_note(ftSvgNode, dtSvgNode, positions)
     } else {
         console.warn('Unable to animate element ' + name)
@@ -202,6 +217,13 @@ const generateAnimation_note = (atSvgNode, dtSvgNode, positions) => {
         const atPos = '0 0'
 
         addTransformTranslate(atSvgNode, [dtPos, atPos, atPos, atPos])
+
+        // TODO: remove these dirty fixes for ledger lines
+        const ledgerFixes = ['x6abdd336-0f62-4534-ace7-fc8cfb06a91c', 'x25e09f35-11c6-40ff-8940-48066d15e536', 'xe0e98be6-394f-48ab-a76d-73b40689ce47', 'xeb8b6a64-c31b-4515-9514-1471e2e31f1a']
+        if (ledgerFixes.indexOf(atSvgNode.getAttribute('data-id')) !== -1) {
+            const ledger = atSvgNode.parentNode.parentNode.querySelector('.ledgerLines')
+            addTransformTranslate(ledger, [dtPos, atPos, atPos, atPos])
+        }
 
         // const dtPosX = atHeadX + diffX
 
@@ -287,6 +309,25 @@ const generateAnimation_note = (atSvgNode, dtSvgNode, positions) => {
         */
     } catch(err) {
         console.warn('Error in generateAnimation_note: ' + err, err)
+    }
+}
+
+const generateAnimation_barLine = (atSvgNode, dtSvgNode, positions) => {
+    try {
+        const atX = atSvgNode.querySelector('path').getAttribute('d').split(' ')[0].substring(1)
+        const dtX = dtSvgNode.querySelector('path').getAttribute('d').split(' ')[0].substring(1)
+
+        const atOffX = positions.atCenter.x - atX
+        const dtOffX = positions.dtCenter.x - dtX
+        
+        const diffX = atOffX - dtOffX
+
+        const dtPos = diffX + ' 0'
+        const atPos = '0 0'
+        console.log('adding addTransFormTranslate to barLine: ' + atSvgNode.getAttribute('data-id'), dtPos, atPos)
+        addTransformTranslate(atSvgNode, [dtPos, atPos, atPos, atPos])
+    } catch(err) {
+        console.warn('Error in generateAnimation_barLine: ' + err, err)
     }
 }
 

@@ -10,7 +10,7 @@ const verovioOptions = {
     header: 'none',
     footer: 'none',
     breaks: 'encoded',
-    svgAdditionalAttribute: ['staff@rotate', 'staff@height', 'score@viewBox', 'sb@rotate']
+    svgAdditionalAttribute: ['staff@rotate', 'staff@height', 'score@viewBox', 'sb@rotate', 'chord@stem.dir']
   }
 
 
@@ -33,9 +33,9 @@ export const renderData = (dom, verovio, target, pageDimensions) => {
     } else if (target === 'annotated') {
       verovioOptions.breaks = 'none'
       verovioOptions.pageMarginTop = 300
-      verovioOptions.pageMarginRight = 300
+      verovioOptions.pageMarginRight = 500
       verovioOptions.pageMarginBottom = 300
-      verovioOptions.pageMarginLeft = 300
+      verovioOptions.pageMarginLeft = 100
     }
 
     verovio.setOptions(verovioOptions)
