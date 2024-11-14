@@ -219,6 +219,9 @@ const generateAnimation = (name, ftSvgNode, dtSvgNode, positions) => {
     } else if (name === 'beamSpan' || name === 'beam') {
         // chords actually can use the same animation as notes
         generateAnimation_beam(ftSvgNode, dtSvgNode, positions)
+    } else if (name === 'accid') {
+        // chords actually can use the same animation as notes
+        generateAnimation_accid(ftSvgNode, dtSvgNode, positions)
     } else {
         console.warn('Unable to animate element ' + name)
     }
@@ -394,6 +397,32 @@ const generateAnimation_beam = (atSvgNode, dtSvgNode, positions) => {
             generateHideAnimation(atPolygon)
         }
     })
+}
+
+const generateAnimation_accid = (atSvgNode, dtSvgNode, positions) => {
+    try {
+        const atUse = atSvgNode.querySelector('use')
+        const atX = parseFloat(atUse.getAttribute('x'))
+        const atY = parseFloat(atUse.getAttribute('y'))
+        const dtUse = dtSvgNode.querySelector('use')
+        const dtX = parseFloat(dtUse.getAttribute('x'))
+        const dtY = parseFloat(dtUse.getAttribute('y'))
+
+        const atOffX = positions.atCenter.x - atX
+        const atOffY = positions.atCenter.y - atY
+        const dtOffX = positions.dtCenter.x - dtX
+        const dtOffY = positions.dtCenter.y - dtY
+
+        const diffX = atOffX - dtOffX
+        const diffY = atOffY - dtOffY
+
+        const dtPos = diffX + ' ' + diffY
+        const atPos = '0 0'
+
+        addTransformTranslate(atSvgNode, [dtPos, atPos, atPos, atPos])
+    } catch(err) {
+        console.warn('Error in generateAnimation_accid: ' + err, err)
+    }
 }
 
 const addTransformTranslate = (node, values = []) => {
