@@ -89,7 +89,7 @@ out
 
 # Nuxt.js build / generate output
 .nuxt
-dist
+# dist -> needed for local Verovio package
 
 # Gatsby files
 .cache/

@@ -25,7 +25,7 @@
   "homepage": "https://github.com/BeethovensWerkstatt/liquifier#readme",
   "dependencies": {
     "jsdom": "^25.0.1",
-    "verovio": "^4.3.1",
+    "verovio": "file:verovio",
     "xmldom-qsa": "^1.1.3"
   }
 }
