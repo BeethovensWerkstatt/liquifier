@@ -78,3 +78,76 @@ export const getAtSystemCenters = (atSvgDom) => {
     const arr = []
 
 }
+
+// calculates the outer bounding rect of a rotated rectangle
+export function getOuterBoundingRect (x, y, w, h, deg) {
+    const center = {
+      x: parseFloat(x) + parseFloat(w) / 2,
+      y: parseFloat(y) + parseFloat(h) / 2
+    }
+  
+    if (parseFloat(deg) === 0) {
+      return { x, y, w, h }
+    }
+  
+    const absDeg = Math.abs(deg)
+    const rad = deg2rad(absDeg)
+    const newWidth = parseFloat(w) * Math.cos(rad) + parseFloat(h) * Math.sin(rad)
+    const newHeight = parseFloat(w) * Math.sin(rad) + parseFloat(h) * Math.cos(rad)
+  
+    const tlUnrotated = {
+      x: center.x - newWidth / 2,
+      y: center.y - newHeight / 2
+    }
+  
+    const tl = rotatePoint(tlUnrotated, center, deg * -1)
+    // console.log('x:' + tl.x + ' vs ' + newX + ' / y: ' + tl.y + ' vs ' + newY)
+    const rect = {
+      x: tl.x,
+      y: tl.y,
+      w: newWidth,
+      h: newHeight
+    }
+  
+    return rect
+    // (305 * Math.cos(5 * Math.PI / 180)) + (232 * Math.sin(5 * Math.PI / 180))
+  }
+
+/**
+ * calculates radians from degrees
+ * @param  {[type]} deg               [description]
+ * @return {[type]}     [description]
+ */
+function deg2rad (deg) {
+    // console.log('\n\ndeg2rad. deg="' + deg + '", rad="' + deg * (Math.PI / 180) + '"')
+    return deg * (Math.PI / 180)
+  }
+
+/**
+ * rotate point around specified center
+ * @param  {[type]} point                a point with x and y props
+ * @param  {[type]} center               a point with x and y props
+ * @param  {[type]} deg                  the rotation in degrees
+ * @return {[type]}        a point with x and y props
+ */
+function rotatePoint (point, center, deg) {
+    const xOff = center.x
+    const yOff = center.y
+  
+    const x = point.x - xOff
+    const y = point.y - yOff
+  
+    const rad = deg2rad(deg)
+  
+    const x1 = x * Math.cos(rad) - y * Math.sin(rad)
+    const y1 = x * Math.sin(rad) + y * Math.cos(rad)
+  
+    const newPoint = {
+      x: x1 + xOff, // Math.cos(rad) * dist + xOff,
+      y: y1 + yOff // Math.sin(rad) * dist + xOff
+    }
+  
+    // console.log('rotating points', deg, /* point, { x, y }, dist, */ rad, newPoint, center)
+  
+    return newPoint
+  }

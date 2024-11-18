@@ -2,7 +2,7 @@ import { JSDOM } from 'jsdom'
 import createVerovioModule from 'verovio/wasm'
 import { VerovioToolkit } from 'verovio/esm'
 
-import { walk, getFilesObject, fetchData, writeData } from './src/filehandler.js'
+import { walk, getFilesObject, fetchData, writeData, generateHtmlWrapper } from './src/filehandler.js'
 import { dir } from './src/config.mjs'
 import { prepareDtForRendering, finalizeDiploTrans } from './src/diplomaticTranscripts.js'
 import { prepareAtForRendering } from './src/annotatedTranscripts.js'
@@ -58,7 +58,7 @@ const handleData = async (data, triple, verovio) => {
     const dtSvgPath = triple.dt.replace('.xml', '.svg').replace('data/', 'cache/')
     const atSvgPath = triple.at.replace('.xml', '.svg').replace('data/', 'cache/')
     const ftSvgPath = triple.at.replace('_at.xml', '_ft.svg').replace('data/', 'cache/').replace('/annotatedTranscripts/', '/fluidTranscripts/')
-
+    const htmlPath = ftSvgPath.replace('.svg', '.html').replace('/fluidTranscripts/', '/fluidHTML/')
     try {
         const pageDimensions = getPageDimensions(data.sourceDom, data.dtDom)
         
@@ -83,6 +83,9 @@ const handleData = async (data, triple, verovio) => {
         writeData(serializer.serializeToString(finalDtDom), dtSvgPath)
         writeData(atSvgString, atSvgPath)
         writeData(serializer.serializeToString(ftSvgDom), ftSvgPath)
+        
+        const html = generateHtmlWrapper(ftSvgDom, data.sourceDom, data.dtDom, data.atDom, htmlPath.split('/').pop())
+        writeData(serializer.serializeToString(html), htmlPath)
         // console.log(dtSvgString)
     } catch (err) {
         console.error('[ERROR]: Unable to process files for ' + dtSvgPath + ': ' + err + '\n\n', err)

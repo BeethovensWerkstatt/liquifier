@@ -5,7 +5,7 @@ const dom = new JSDOM(`<!DOCTYPE html><p>Hello world</p>`)
 
 const duration = '10s'
 const repeatCount = 'indefinite'
-const reverseAnimations = false
+const reverseAnimations = true
 
 /*
 ANIMATION PHASES:
@@ -127,7 +127,7 @@ export const generateFluidTranscription = ({ atSvgDom, dtSvgDom, atOutDom, dtOut
 
             const staves = measure.querySelectorAll('.staff:not(.bounding-box)')
 
-            console.log('rotations: (' + rotations.length + ')', rotations, 'staves: ', staves.length)
+            // console.log('rotations: (' + rotations.length + ')', rotations, 'staves: ', staves.length)
 
             rotations.forEach((rotate, l) => {
                 const staff = staves[l]
@@ -179,7 +179,7 @@ export const generateFluidTranscription = ({ atSvgDom, dtSvgDom, atOutDom, dtOut
         })
     })
 
-    const foreignObject = appendNewElement(ftSvgDom.querySelectorAll('svg')[1], 'foreignObject', 'http://www.w3.org/2000/svg')
+    /* const foreignObject = appendNewElement(ftSvgDom.querySelectorAll('svg')[1], 'foreignObject', 'http://www.w3.org/2000/svg')
     foreignObject.setAttribute('x', '20%')
     foreignObject.setAttribute('y', '80%')
     foreignObject.setAttribute('width', '60%')
@@ -187,7 +187,7 @@ export const generateFluidTranscription = ({ atSvgDom, dtSvgDom, atOutDom, dtOut
     foreignObject.innerHTML = `<div xmlns="http://www.w3.org/1999/xhtml" style="width: 12000px;padding: 100px;"><input type="range" min="0" max="9.99999" style="width: 15%; height: 100px; scale: 5; margin: 5%; padding: 100px; left: 5230px; position: relative;" step="any" oninput="document.querySelectorAll('svg').forEach(svg => svg.setCurrentTime(value))"/></div>`
     const script = appendNewElement(ftSvgDom.querySelectorAll('svg')[1], 'script', 'http://www.w3.org/2000/svg')
     script.setAttribute('type', 'text/ecmascript')
-    script.innerHTML = "const innerSvg = document.querySelectorAll('svg').forEach(svg => {svg.pauseAnimations(); svg.setCurrentTime(0);})"
+    script.innerHTML = "const innerSvg = document.querySelectorAll('svg').forEach(svg => {svg.pauseAnimations(); svg.setCurrentTime(0);})" */
 
     return ftSvgDom
 }
@@ -202,8 +202,11 @@ const generateHideAnimation = (node) => {
     hideAnim.setAttribute('dur', duration)
     hideAnim.setAttribute('repeatCount', repeatCount)
 
-    node.setAttribute('fill', '#999999')
-    node.setAttribute('stroke', '#999999')
+    node.setAttribute('fill', '#009900')
+    node.setAttribute('stroke', '#009900')
+    //node.setAttribute.add('data-supplied',1)
+    const existingClasses = node.getAttribute('class') || ''
+    node.setAttribute('class', `${existingClasses} supplied`.trim())
 }
 
 const generateAnimation = (name, ftSvgNode, dtSvgNode, positions) => {
@@ -363,7 +366,6 @@ const generateAnimation_barLine = (atSvgNode, dtSvgNode, positions) => {
 }
 
 const generateAnimation_beam = (atSvgNode, dtSvgNode, positions) => {
-    console.log('need to animate beam')
     const atPolygons = atSvgNode.querySelectorAll('polygon')
     const dtPolygons = dtSvgNode.querySelectorAll('polygon')
 
