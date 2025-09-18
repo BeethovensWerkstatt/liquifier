@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { readFile } from 'node:fs/promises'
+import { execSync } from 'child_process'
 import { annotatedRegex, diplomaticRegex, verovioPixelDensity } from './config.mjs'
 import { getOuterBoundingRect } from './utils.js'
 // import { get } from 'http'
@@ -279,4 +280,18 @@ export function generateHtmlWrapper (svg, meiSourceDom, meiDtDom, meiAtDom, path
     
     
     return file
+}
+
+export const gitFileDate = (file) => {
+    let date = 0
+    try {
+        date = execSync(
+            `git log -n 1 --pretty=format:%cI -- "${file}"`, 
+            { encoding: 'utf-8' }
+        ) || 0
+        // console.log(`${file}: ${date}`)
+    } catch (e) {
+        console.error(e)
+    }
+    return new Date(date)
 }

@@ -2,7 +2,7 @@ import { JSDOM } from 'jsdom'
 import createVerovioModule from 'verovio/wasm'
 import { VerovioToolkit } from 'verovio/esm'
 
-import { walk, getFilesObject, fetchData, writeData, generateHtmlWrapper } from './src/filehandler.js'
+import { walk, getFilesObject, fetchData, writeData, generateHtmlWrapper, gitFileDate } from './src/filehandler.js'
 import { dir } from './src/config.mjs'
 import { prepareDtForRendering, finalizeDiploTrans } from './src/diplomaticTranscripts.js'
 import { prepareAtForRendering } from './src/annotatedTranscripts.js'
@@ -42,7 +42,7 @@ const main = async () => {
             }
             // console.log('results: ', results)
             results.forEach(async triple => {
-                const data = await fetchData(triple)
+                const data = {} // await fetchData(triple)
                 // console.log('data: ')
                 // console.log(data)
                 
@@ -59,6 +59,14 @@ const handleData = async (data, triple, verovio) => {
     const atSvgPath = triple.at.replace('.xml', '.svg').replace('data/', 'cache/')
     const ftSvgPath = triple.at.replace('_at.xml', '_ft.svg').replace('data/', 'cache/').replace('/annotatedTranscripts/', '/fluidTranscripts/')
     const htmlPath = ftSvgPath.replace('.svg', '.html').replace('/fluidTranscripts/', '/fluidHTML/')
+
+    const dtDate = gitFileDate(triple.dt)
+    const dtSvgDate = gitFileDate(dtSvgPath)
+
+    console.log(triple.dt, dtDate, dtSvgDate)
+
+    return
+
     try {
         const pageDimensions = getPageDimensions(data.sourceDom, data.dtDom)
         
