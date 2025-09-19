@@ -1,5 +1,5 @@
-import { controlpointsToVerovioSvgBezier } from '.'
-import { appendNewElement } from './mei'
+import { controlpointsToVerovioSvgBezier } from './index.js'
+import { appendNewElement } from './mei.js'
 
 /**
  * get control points for curve bezier attribute for rastrum on position x/y with factor (default 90)
