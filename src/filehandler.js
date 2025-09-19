@@ -59,7 +59,7 @@ export async function walk (dir, done) {
 }
 
 /**
- * given either the path of an annotated transcript, return the paths to all three relevant files
+ * given either the path of a diplomatic transcript, return the paths to all three relevant files
  * @param {*} path 
  */
 export function getFilesObject (file) {
@@ -280,6 +280,24 @@ export function generateHtmlWrapper (svg, meiSourceDom, meiDtDom, meiAtDom, path
     
     
     return file
+}
+
+export const changedFiles = (commit='HEAD') => {
+    const lines = execSync(
+        `git show --name-only --pretty="format:--- %H %cI" ${commit}`
+    ).toString().split('\n').filter(f => f)
+    let hash = '', date = new Date()
+    const files = []
+    for (const line of lines) {
+        if (line.startsWith('---')) {
+            const com = line.split(' ')
+            hash = com[1]
+            date = new Date(com[2])
+        } else {
+            files.push(line)
+        }
+    }
+    return { files, hash, date }
 }
 
 export const gitFileDate = (file) => {
