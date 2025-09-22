@@ -1,4 +1,4 @@
-import store from '@/store'
+// import store from '@/store'
 
 /**
  * improves display of <sb> and <pb> indicators in the SVG rendered from Verovio
@@ -305,7 +305,7 @@ export const prepareAtDomForRendering = (atDom) => {
  * @param {*} svgDom
  * @param {*} atDom
  */
-export const improveAtSvg = (svgDom, atDom) => {
+export const improveAtSvg = (svgDom, atDom, dtDom) => {
   console.log(279, 'improveAtSvg', svgDom, atDom)
   const dotBearers = svgDom.querySelectorAll('*[data-dot-corresp]')
   dotBearers.forEach((dotBearer) => {
@@ -331,8 +331,8 @@ export const improveAtSvg = (svgDom, atDom) => {
   // we need the current WZ DT Dom to resolve the type of the corresponding element
   // because the corresp attribute in the staff element doesn't contain the type, but only the ID of the corresponding elements
   const staffCorresp = svgDom.querySelectorAll('g.staff:not(.bounding-box)[data-corresp]')
-  const dtPath = store.getters.currentWzDtPath
-  const dtDom = dtPath ? store.getters.documentByPath(dtPath) : null
+  // const dtPath = store.getters.currentWzDtPath
+  // const dtDom = dtPath ? store.getters.documentByPath(dtPath) : null
   console.log(279, 'improveAtSvg', 'staffCorresp', staffCorresp, dtPath, dtDom)
   staffCorresp.forEach((staff) => {
     const corresps = staff.getAttribute('data-corresp').split(' ')

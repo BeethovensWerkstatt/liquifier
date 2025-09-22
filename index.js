@@ -4,9 +4,9 @@ import { VerovioToolkit } from 'verovio/esm'
 
 import { walk, getFilesObject, fetchData, writeData, generateHtmlWrapper, gitFileDate, changedFiles } from './src/filehandler.js'
 import { diplomaticRegex, dir } from './src/config.mjs'
-import { prepareDtForRendering, finalizeDiploTrans } from './src/diplomaticTranscripts.js'
-import { prepareAtForRendering } from './src/annotatedTranscripts.js'
-import { generateFluidTranscription } from './src/fluidTranscripts.js'
+// import { prepareDtForRendering } from './src/diplomaticTranscripts.js'
+import { prepareAtDomForRendering } from './src/annotatedTranscripts.js'
+// import { generateFluidTranscription } from './src/fluidTranscripts.js'
 
 import { renderData } from './src/verovioHandler.js'
 import { getPageDimensions } from './src/utils.js'
@@ -37,7 +37,7 @@ const main = async () => {
     } else {
         const headFiles = changedFiles()
         const results = headFiles.files.filter(fileName => fileName.match(diplomaticRegex)).map(fileName => getFilesObject(fileName))
-        console.log(results)
+        console.log(headFiles, results)
         
         results.forEach(async triple => {
             const data = await fetchData(triple)
@@ -76,12 +76,17 @@ const handleData = async (data, triple, verovio) => {
 
     try {
         const pageDimensions = getPageDimensions(data.sourceDom, data.dtDom)
+
+        const atOutDom = prepareAtDomForRendering(data, dtOutDom, pageDimensions)
+        const atSvgString = renderData(atOutDom, verovio, 'annotated', pageDimensions)
+        writeData(atSvgString, atSvgPath)
         
+        /*
         const dtOutDom = prepareDtForRendering(data, pageDimensions)
         const dtSvgString = renderData(dtOutDom, verovio, 'diplomatic', pageDimensions)
         const finalDtDom = finalizeDiploTrans(dtSvgString)
     
-        const atOutDom = prepareAtForRendering(data, dtOutDom, pageDimensions)
+        const atOutDom = prepareAtDomForRendering(data, dtOutDom, pageDimensions)
         const atSvgString = renderData(atOutDom, verovio, 'annotated', pageDimensions)
 
         const parser = new DOMParser()
@@ -102,6 +107,7 @@ const handleData = async (data, triple, verovio) => {
         const html = generateHtmlWrapper(ftSvgDom, data.sourceDom, data.dtDom, data.atDom, htmlPath.split('/').pop())
         writeData(serializer.serializeToString(html), htmlPath)
         // console.log(dtSvgString)
+        */
     } catch (err) {
         console.error('[ERROR]: Unable to process files for ' + dtSvgPath + ': ' + err + '\n\n', err)
     }
