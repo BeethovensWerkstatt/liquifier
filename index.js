@@ -78,7 +78,7 @@ const handleData = async (data, triple, verovio) => {
     try {
         const pageDimensions = getPageDimensions(data.sourceDom, data.dtDom)
 
-        const atOutDom = prepareAtDomForRendering(data, data.dtDom, pageDimensions)
+        const atOutDom = prepareAtDomForRendering(data.atDom, data.dtDom, pageDimensions)
         const atSvgString = renderData(atOutDom, verovio, 'annotated', pageDimensions)
         writeData(atSvgString, atSvgPath)
         

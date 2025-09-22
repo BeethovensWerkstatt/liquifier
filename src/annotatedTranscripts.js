@@ -262,8 +262,7 @@ export const addSbIndicators = (svgDom, atDom) => {
  * @param {*} atDom
  * @returns
  */
-export const prepareAtDomForRendering = (atDom) => {
-  console.log(611, 'prepareAtDomForRendering', atDom)
+export const prepareAtDomForRendering = (atDom, dtDom, pageDimensions) => {
   const clone = atDom.cloneNode(true)
   const map = new Map()
   const dots = clone.querySelectorAll('dot')
