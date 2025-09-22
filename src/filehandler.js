@@ -282,22 +282,33 @@ export function generateHtmlWrapper (svg, meiSourceDom, meiDtDom, meiAtDom, path
     return file
 }
 
-export const changedFiles = (commit='HEAD') => {
-    const lines = execSync(
-        `git show --name-only --pretty="format:--- %H %cI" ${commit}`
-    ).toString().split('\n').filter(f => f)
+const collectFiles = (lines) => {
     let hash = '', date = new Date()
-    const files = []
+    const files = {}
     for (const line of lines) {
         if (line.startsWith('---')) {
             const com = line.split(' ')
             hash = com[1]
             date = new Date(com[2])
-        } else {
-            files.push(line)
+        } else if (line) {
+            files[line] = { date, hash }
         }
     }
-    return { files, hash, date }
+    return files
+}
+
+export const changedFiles = (commit='HEAD') => {
+    const cmd = `git show --name-only --pretty="format:--- %H %cI" ${commit}`
+    console.log(cmd)
+    const lines = execSync(cmd).toString().split('\n').filter(f => !!f.trim())
+    return collectFiles(lines)
+}
+
+export const changedFilesSince = (sinceDate) => {
+    const cmd = `git log --name-only --since="${sinceDate.toISOString()}" --pretty="format:--- %H %cI"`
+    console.log(cmd)
+    const lines = execSync(cmd).toString().split('\n').filter(f => !!f.trim())
+    return collectFiles(lines)
 }
 
 export const gitFileDate = (file) => {

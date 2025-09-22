@@ -2,7 +2,7 @@ import { JSDOM } from 'jsdom'
 import createVerovioModule from 'verovio/wasm'
 import { VerovioToolkit } from 'verovio/esm'
 
-import { walk, getFilesObject, fetchData, writeData, generateHtmlWrapper, gitFileDate, changedFiles } from './src/filehandler.js'
+import { walk, getFilesObject, fetchData, writeData, generateHtmlWrapper, gitFileDate, changedFiles, changedFilesSince } from './src/filehandler.js'
 import { diplomaticRegex, dir } from './src/config.mjs'
 // import { prepareDtForRendering } from './src/diplomaticTranscripts.js'
 import { prepareAtDomForRendering } from './src/annotatedTranscripts.js'
@@ -35,8 +35,9 @@ const main = async () => {
             }
         })
     } else {
-        const headFiles = changedFiles()
-        const results = headFiles.files.filter(fileName => fileName.match(diplomaticRegex)).map(fileName => getFilesObject(fileName))
+        const since = new Date(Date.now() - (24*60*60*1000))
+        const headFiles = changedFilesSince(since) // changedFiles('HEAD')
+        const results = Object.keys(headFiles).filter(fileName => fileName.match(diplomaticRegex)).map(fileName => getFilesObject(fileName)).filter(triple => triple)
         console.log(headFiles, results)
         
         results.forEach(async triple => {
@@ -77,7 +78,7 @@ const handleData = async (data, triple, verovio) => {
     try {
         const pageDimensions = getPageDimensions(data.sourceDom, data.dtDom)
 
-        const atOutDom = prepareAtDomForRendering(data, dtOutDom, pageDimensions)
+        const atOutDom = prepareAtDomForRendering(data, data.dtDom, pageDimensions)
         const atSvgString = renderData(atOutDom, verovio, 'annotated', pageDimensions)
         writeData(atSvgString, atSvgPath)
         
