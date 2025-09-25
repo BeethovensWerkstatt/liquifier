@@ -1,6 +1,7 @@
 import { JSDOM } from 'jsdom'
 import createVerovioModule from 'verovio/wasm'
 import { VerovioToolkit } from 'verovio/esm'
+import minimist from 'minimist'
 
 import { walk, getFilesObject, fetchData, writeData, generateHtmlWrapper, gitFileDate, changedFiles, changedFilesSince } from './src/filehandler.js'
 import { diplomaticRegex, dir } from './src/config.mjs'
@@ -15,12 +16,13 @@ const { DOMParser } = new JSDOM().window
 const dom = new JSDOM(`<!DOCTYPE html><p>Hello world</p>`)
 
 const main = async () => {
+    const args = minimist(process.argv.slice(2))
     const VerovioModule = await createVerovioModule()
     const verovio = new VerovioToolkit(VerovioModule)
 
     // Check if the 'fileNames' parameter is provided
-    if (process.env.fileNames) {
-        const fileNames = process.env.fileNames.split(',')
+    if (args._ || process.env.fileNames) {
+        const fileNames = args._ || process.env.fileNames.split(',')
 
         // Run a function on each file
         fileNames.forEach((fileName) => {
@@ -31,7 +33,7 @@ const main = async () => {
             if (triple) {
                 const data = fetchData(triple)
                 // console.log(data)
-                handleData(data, verovio)
+                handleData(data, triple, verovio, args)
             }
         })
     } else {
@@ -42,7 +44,7 @@ const main = async () => {
         
         results.forEach(async triple => {
             const data = await fetchData(triple)
-            handleData(data, triple, verovio)
+            handleData(data, triple, verovio, args)
         })
         /*
         await walk(dir, (err, results) => {
@@ -64,7 +66,7 @@ const main = async () => {
 
 main()
 
-const handleData = async (data, triple, verovio) => {
+const handleData = async (data, triple, verovio, args) => {
     const dtSvgPath = triple.dt.replace('.xml', '.svg').replace('data/', 'cache/')
     const atSvgPath = triple.at.replace('.xml', '.svg').replace('data/', 'cache/')
     const ftSvgPath = triple.at.replace('_at.xml', '_ft.svg').replace('data/', 'cache/').replace('/annotatedTranscripts/', '/fluidTranscripts/')
@@ -73,7 +75,9 @@ const handleData = async (data, triple, verovio) => {
     const dtDate = gitFileDate(triple.dt)
     const dtSvgDate = gitFileDate(dtSvgPath)
 
-    console.log(triple.dt, dtDate, dtSvgDate)
+    if (!args.q) {
+        console.log(triple.dt, dtDate, dtSvgDate)
+    }
 
     try {
         const pageDimensions = getPageDimensions(data.sourceDom, data.dtDom)
@@ -82,6 +86,11 @@ const handleData = async (data, triple, verovio) => {
         const atSvgString = renderData(atOutDom, verovio, 'annotated', pageDimensions)
         writeData(atSvgString, atSvgPath)
         
+        if (args.c) {
+            if (!args.q) {
+                console.log('TODO git commit ...')
+            }
+        }
         /*
         const dtOutDom = prepareDtForRendering(data, pageDimensions)
         const dtSvgString = renderData(dtOutDom, verovio, 'diplomatic', pageDimensions)
