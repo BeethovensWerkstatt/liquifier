@@ -88,14 +88,30 @@ The liquifier can also be run as a GitHub Action on a server. To set this up, fo
 
 Make sure to monitor the Actions tab in your fork to see the status of the workflow runs.
 
+The GitHub action is responsible for committing the newly created or modified files back
+to the repository. It is configured to use a generic "github-actions" user for the commits.
+The liquifier node application will not make any commits itself!
+
 ## Command line arguments
+
+```bash
+node index.js [-q] [--recreate] [fileNames*]
+```
 
 The liquifier script can be run with the following command line arguments:
 - `-q`: quiet mode, suppresses non-essential output
-- `-c`: commit mode, automatically commits changes to the git repository *(not implemented yet)*
+- `--recreate`: forces the recreation of all output files, even if they are up-to-date
+- `--hours <number>`: specifies the number of hours to look back for modified files (default `24`)
+- `--since <date>`: specifies a date to look back for modified files (supersedes `--hours`)
+- `--full`: generates full fluid transcriptions instead of only the changes (supersedes `--hours` and `--since`)
 - `fileNames`: any number of file names to process, separated by spaces. If not provided, the files are selected by the most recently modified ones *(work in progress)*.
 
-## environement variables
+Any filter options are ignored, when a list of files is given.
+
+The dates are compared by the last commit date of any file. If the files are modified but
+not yet committed, they will be recreated even if they are already up-to-date.
+
+## Environment variables
 
 If the environment variable `fileNames` is set, it will be used as a comma-separated list of
 file names to process. This can be useful when running the script in a Docker container or

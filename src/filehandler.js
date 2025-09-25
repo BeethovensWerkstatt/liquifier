@@ -299,14 +299,14 @@ const collectFiles = (lines) => {
 
 export const changedFiles = (commit='HEAD') => {
     const cmd = `git show --name-only --pretty="format:--- %H %cI" ${commit}`
-    console.log(cmd)
+    // console.log(cmd)
     const lines = execSync(cmd).toString().split('\n').filter(f => !!f.trim())
     return collectFiles(lines)
 }
 
 export const changedFilesSince = (sinceDate) => {
     const cmd = `git log --name-only --since="${sinceDate.toISOString()}" --pretty="format:--- %H %cI"`
-    console.log(cmd)
+    // console.log(cmd)
     const lines = execSync(cmd).toString().split('\n').filter(f => !!f.trim())
     return collectFiles(lines)
 }

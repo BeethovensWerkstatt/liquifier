@@ -21,7 +21,7 @@ const main = async () => {
     const verovio = new VerovioToolkit(VerovioModule)
 
     // Check if the 'fileNames' parameter is provided
-    if (args._ || process.env.fileNames) {
+    if (args._?.length > 0 || process.env.fileNames) {
         const fileNames = args._ || process.env.fileNames.split(',')
 
         // Run a function on each file
@@ -36,31 +36,33 @@ const main = async () => {
                 handleData(data, triple, verovio, args)
             }
         })
-    } else {
-        const since = new Date(Date.now() - (24*60*60*1000))
-        const headFiles = changedFilesSince(since) // changedFiles('HEAD')
-        const results = Object.keys(headFiles).filter(fileName => fileName.match(diplomaticRegex)).map(fileName => getFilesObject(fileName)).filter(triple => triple)
-        console.log(headFiles, results)
-        
-        results.forEach(async triple => {
-            const data = await fetchData(triple)
-            handleData(data, triple, verovio, args)
-        })
-        /*
+    } if(args.full) {
         await walk(dir, (err, results) => {
             if (err) {
                 console.warn('filewalker has problems: ' + err, err)
             }
             // console.log('results: ', results)
             results.forEach(async triple => {
-                const data = {} // await fetchData(triple)
+                const data = await fetchData(triple)
                 // console.log('data: ')
-                // console.log(data)
-                
+                // console.log(data)               
                 handleData(data, triple, verovio)
             })
         })
-        */
+    } else {
+        const hours = args.hours || 24
+        const since = args.since ? new Date(args.since) : new Date(Date.now() - ((+hours)*60*60*1000))
+        if (!args.q) {
+            console.log('files committed since ...', since)
+        }
+        const headFiles = changedFilesSince(since) // changedFiles('HEAD')
+        const results = Object.keys(headFiles).filter(fileName => fileName.match(diplomaticRegex)).map(fileName => getFilesObject(fileName)).filter(triple => triple)
+        // console.log(headFiles, results)
+        
+        results.forEach(async triple => {
+            const data = await fetchData(triple)
+            handleData(data, triple, verovio, args)
+        })
     }
 }
 
@@ -72,25 +74,32 @@ const handleData = async (data, triple, verovio, args) => {
     const ftSvgPath = triple.at.replace('_at.xml', '_ft.svg').replace('data/', 'cache/').replace('/annotatedTranscripts/', '/fluidTranscripts/')
     const htmlPath = ftSvgPath.replace('.svg', '.html').replace('/fluidTranscripts/', '/fluidHTML/')
 
+    const atDate = gitFileDate(triple.at)
+    const atSvgDate = gitFileDate(atSvgPath)
     const dtDate = gitFileDate(triple.dt)
     const dtSvgDate = gitFileDate(dtSvgPath)
 
     if (!args.q) {
+        console.log(triple.at, atDate, atSvgDate)
         console.log(triple.dt, dtDate, dtSvgDate)
     }
 
     try {
         const pageDimensions = getPageDimensions(data.sourceDom, data.dtDom)
 
-        const atOutDom = prepareAtDomForRendering(data.atDom, data.dtDom, pageDimensions)
-        const atSvgString = renderData(atOutDom, verovio, 'annotated', pageDimensions)
-        writeData(atSvgString, atSvgPath)
-        
-        if (args.c) {
+        if (args.recreate || atDate.getTime() > atSvgDate.getTime()) {
             if (!args.q) {
-                console.log('TODO git commit ...')
+                console.log('Rendering Annotated Transcript for ' + atSvgPath + ' ...')
+            }
+            const atOutDom = prepareAtDomForRendering(data.atDom, data.dtDom, pageDimensions)
+            const atSvgString = renderData(atOutDom, verovio, 'annotated', pageDimensions)
+            writeData(atSvgString, atSvgPath)
+        } else {
+            if (!args.q) {
+                console.log('Skipping Annotated Transcript for ' + atSvgPath)
             }
         }
+        
         /*
         const dtOutDom = prepareDtForRendering(data, pageDimensions)
         const dtSvgString = renderData(dtOutDom, verovio, 'diplomatic', pageDimensions)
