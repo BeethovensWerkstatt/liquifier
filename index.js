@@ -9,7 +9,7 @@ import { diplomaticRegex, dir } from './src/config.mjs'
 import { prepareAtDomForRendering } from './src/annotatedTranscripts.js'
 // import { generateFluidTranscription } from './src/fluidTranscripts.js'
 
-import { renderData } from './src/verovioHandler.js'
+import { renderData, renderMidi } from './src/verovioHandler.js'
 import { getPageDimensions } from './src/utils.js'
 
 const { DOMParser } = new JSDOM().window
@@ -71,11 +71,13 @@ main()
 const handleData = async (data, triple, verovio, args) => {
     const dtSvgPath = triple.dt.replace('.xml', '.svg').replace('data/', 'cache/')
     const atSvgPath = triple.at.replace('.xml', '.svg').replace('data/', 'cache/')
+    const atMidPath = triple.at.replace('.xml', '.mid').replace('data/', 'cache/').replace('/annotatedTranscripts/', '/annotatedMidi/')
     const ftSvgPath = triple.at.replace('_at.xml', '_ft.svg').replace('data/', 'cache/').replace('/annotatedTranscripts/', '/fluidTranscripts/')
-    const htmlPath = ftSvgPath.replace('.svg', '.html').replace('/fluidTranscripts/', '/fluidHTML/')
+    const ftHtmlPath = ftSvgPath.replace('.svg', '.html').replace('/fluidTranscripts/', '/fluidHTML/')
 
     const atDate = gitFileDate(triple.at)
     const atSvgDate = gitFileDate(atSvgPath)
+    const atMidDate = gitFileDate(atMidPath)
     const dtDate = gitFileDate(triple.dt)
     const dtSvgDate = gitFileDate(dtSvgPath)
 
@@ -97,6 +99,18 @@ const handleData = async (data, triple, verovio, args) => {
         } else {
             if (!args.q) {
                 console.log('Skipping Annotated Transcript for ' + atSvgPath)
+            }
+        }
+        if (args.recreate || atDate.getTime() > atMidDate.getTime()) {
+            if (!args.q) {
+                console.log('Rendering Annotated MIDI for ' + atMidPath + ' ...')
+            }
+            const atOutDom = prepareAtDomForRendering(data.atDom, data.dtDom, pageDimensions)
+            const atMidBuffer = renderMidi(atOutDom, verovio)
+            writeData(atMidBuffer, atMidPath)
+        } else {
+            if (!args.q) {
+                console.log('Skipping Annotated MIDI for ' + atMidPath)
             }
         }
         

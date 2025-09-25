@@ -43,3 +43,12 @@ export const renderData = (dom, verovio, target, pageDimensions) => {
     const svgString = verovio.renderData(domString, {})
     return svgString
 }
+
+export const renderMidi = (dom, verovio) => {
+    const domString = new XMLSerializer().serializeToString(dom)
+    verovio.loadData(domString)
+    const midi64 = verovio.renderToMIDI()
+    return Buffer.from(midi64, 'base64')
+}
+
+  
