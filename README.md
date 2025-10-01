@@ -19,8 +19,7 @@ To run and test the liquifier locally, follow these steps:
      ```bash
      cd <path/to/BeethovensWerkstatt/data>
      ```
-     *(This might be* `cd ../data` *if the liquifier repo is cloned
-      into the BeethovensWerkstatt directory.)*
+     *(This might be* `cd ../data` *if the `liquifier` repo is cloned next to `data`.)*
   4. Run the docker image:  
      ```bash
      docker run --rm -ti -v $(pwd)/data:/usr/src/app/data -v $(pwd)/cache:/usr/src/app/cache -v $(pwd)/.git:/usr/src/app/.git:ro -w /usr/src/app liquifier node index.js
