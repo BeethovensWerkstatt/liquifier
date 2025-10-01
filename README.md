@@ -23,7 +23,7 @@ To run and test the liquifier locally, follow these steps:
       into the BeethovensWerkstatt directory.)*
   4. Run the docker image:  
      ```bash
-     docker run --rm -ti -v $(pwd)/data:/usr/src/app/data -v $(pwd)/cache:/usr/src/app/cache -v $(pwd)/.git:/usr/src/app/.git:ro -w /usr/src/app jpvoigt/liquifier node index.js
+     docker run --rm -ti -v $(pwd)/data:/usr/src/app/data -v $(pwd)/cache:/usr/src/app/cache -v $(pwd)/.git:/usr/src/app/.git:ro -w /usr/src/app liquifier node index.js
      ```
 
 The `-v` flags mount the `data` and `cache` directories from the host machine into the
