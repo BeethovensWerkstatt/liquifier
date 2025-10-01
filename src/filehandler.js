@@ -13,6 +13,69 @@ const dom = new JSDOM(`<!DOCTYPE html><p>Hello world</p>`)
 const serializer = new dom.window.XMLSerializer()
 
 /**
+ * collect files from <code>git show --name-only --pretty="format:--- %H %cI" <i>COMMIT</></code>
+ * @param {string[]} lines 
+ * @returns {string[]} list of file paths
+ */
+const collectFiles = (lines) => {
+    let hash = '', date = new Date()
+    const files = {}
+    for (const line of lines) {
+        if (line.startsWith('---')) {
+            const com = line.split(' ')
+            hash = com[1]
+            date = new Date(com[2])
+        } else if (line) {
+            files[line] = { date, hash }
+        }
+    }
+    return files
+}
+
+/**
+ * return changed files in 
+ * @param {string|'HEAD'} commit 
+ * @returns 
+ */
+export const changedFiles = (commit='HEAD') => {
+    const cmd = `git show --name-only --pretty="format:--- %H %cI" ${commit}`
+    // console.log(cmd)
+    const lines = execSync(cmd).toString().split('\n').filter(f => !!f.trim())
+    return collectFiles(lines)
+}
+
+/**
+ * return changed files since date
+ * @param {datetime} sinceDate 
+ * @returns 
+ */
+export const changedFilesSince = (sinceDate) => {
+    const cmd = `git log --name-only --since="${sinceDate.toISOString()}" --pretty="format:--- %H %cI"`
+    // console.log(cmd)
+    const lines = execSync(cmd).toString().split('\n').filter(f => !!f.trim())
+    return collectFiles(lines)
+}
+
+/**
+ * return datetime of last commit for file
+ * @param {datetime} file 
+ * @returns 
+ */
+export const gitFileDate = (file) => {
+    let date = 0
+    try {
+        date = execSync(
+            `git log -n 1 --pretty=format:%cI -- "${file}"`, 
+            { encoding: 'utf-8' }
+        ) || 0
+        // console.log(`${file}: ${date}`)
+    } catch (e) {
+        console.error(e)
+    }
+    return new Date(date)
+}
+
+/**
 * Walk through the directory and return all files
 * @param {*} dir 
 * @param {*} regex 
@@ -76,13 +139,53 @@ export function getFilesObject (file) {
     if (dtFileExists && atFileExists && sourceFileExists) {
         return {
             dt: file,
+            get dtDate () {
+                return gitFileDate(this.dt)
+            },
+            get dtSvgPath () {
+                return this.dt.replace('.xml', '.svg').replace('data/', 'cache/')
+            },
+            get dtSvgDate () {
+                return gitFileDate(this.dtSvgPath)
+            },
             at: atFile,
-            source: sourceFile
+            get atDate () {
+                return gitFileDate(this.at)
+            },
+            get atSvgPath () {
+                return this.at.replace('.xml', '.svg').replace('data/', 'cache/')
+            },
+            get atSvgDate () {
+                return gitFileDate(this.atSvgPath)
+            },
+            get atMidPath () {
+                return this.at.replace('.xml', '.mid').replace('data/', 'cache/').replace('/annotatedTranscripts/', '/annotatedMidi/')
+            },
+            get atMidDate () {
+                return gitFileDate(this.atMidPath)
+            },
+            get ftSvgPath () {
+                return this.at.replace('_at.xml', '_ft.svg').replace('data/', 'cache/').replace('/annotatedTranscripts/', '/fluidTranscripts/')
+            },
+            get ftSvgDate () {
+                return gitFileDate(this.ftSvgPath)
+            },
+            get ftHtmlPath () {
+                return this.ftSvgPath.replace('.svg', '.html').replace('/fluidTranscripts/', '/fluidHTML/')
+            },
+            get ftHtmlDate () {
+                return gitFileDate(this.ftHtmlPath)
+            },
+            source: sourceFile,
+            get sourceDate () {
+                return gitFileDate(this.source)
+            }
         }
     }
+    return undefined
 }
 
-export async function fetchData (triple) {
+export async function fetchData (triple, verbose=false) {
     const prefix =  './' //'/usr/src/app/'
     const sourcePath = prefix + triple.source
     const dtPath = prefix + triple.dt
@@ -90,7 +193,9 @@ export async function fetchData (triple) {
 
     const parser = new DOMParser()
 
-    console.log('sourcePath: ' + sourcePath)
+    if (verbose) {
+        console.log('sourcePath: ' + sourcePath)
+    }
 
     try {
       const responses = await Promise.all([
@@ -280,47 +385,4 @@ export function generateHtmlWrapper (svg, meiSourceDom, meiDtDom, meiAtDom, path
     
     
     return file
-}
-
-const collectFiles = (lines) => {
-    let hash = '', date = new Date()
-    const files = {}
-    for (const line of lines) {
-        if (line.startsWith('---')) {
-            const com = line.split(' ')
-            hash = com[1]
-            date = new Date(com[2])
-        } else if (line) {
-            files[line] = { date, hash }
-        }
-    }
-    return files
-}
-
-export const changedFiles = (commit='HEAD') => {
-    const cmd = `git show --name-only --pretty="format:--- %H %cI" ${commit}`
-    // console.log(cmd)
-    const lines = execSync(cmd).toString().split('\n').filter(f => !!f.trim())
-    return collectFiles(lines)
-}
-
-export const changedFilesSince = (sinceDate) => {
-    const cmd = `git log --name-only --since="${sinceDate.toISOString()}" --pretty="format:--- %H %cI"`
-    // console.log(cmd)
-    const lines = execSync(cmd).toString().split('\n').filter(f => !!f.trim())
-    return collectFiles(lines)
-}
-
-export const gitFileDate = (file) => {
-    let date = 0
-    try {
-        date = execSync(
-            `git log -n 1 --pretty=format:%cI -- "${file}"`, 
-            { encoding: 'utf-8' }
-        ) || 0
-        // console.log(`${file}: ${date}`)
-    } catch (e) {
-        console.error(e)
-    }
-    return new Date(date)
 }

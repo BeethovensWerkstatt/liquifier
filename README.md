@@ -99,10 +99,13 @@ node index.js [-q] [--recreate] [fileNames*]
 
 The liquifier script can be run with the following command line arguments:
 - `-q`: quiet mode, suppresses non-essential output
+- `-v`: verbose mode, log some more information (superseded by `-q`)
 - `--recreate`: forces the recreation of all output files, even if they are up-to-date
 - `--hours <number>`: specifies the number of hours to look back for modified files (default `24`)
 - `--since <date>`: specifies a date to look back for modified files (supersedes `--hours`)
 - `--full`: generates full fluid transcriptions instead of only the changes (supersedes `--hours` and `--since`)
+- `--types`: comma separated list of transcription types (`at`,`dt`,`ft`  | *default all*)
+- `--media`: comma separated list of files to create (`svg`,`midi`,`html` | *default all*)
 - `fileNames`: any number of file names to process, separated by spaces. If not provided, the files are selected by the most recently modified ones *(work in progress)*.
 
 Any filter options are ignored, when a list of files is given.

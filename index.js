@@ -20,6 +20,14 @@ const main = async () => {
     const VerovioModule = await createVerovioModule()
     const verovio = new VerovioToolkit(VerovioModule)
 
+    args.types = args.types?.split(',') || ['at', 'dt', 'ft']
+    args.media = args.media?.split(',') || ['svg', 'midi', 'html']
+    args.v = !args.q && args.v
+
+    if (args.v) {
+        console.log('types:', args.types, 'media:', args.media)
+    }
+
     // Check if the 'fileNames' parameter is provided
     if (args._?.length > 0 || process.env.fileNames) {
         const fileNames = args._ || process.env.fileNames.split(',')
@@ -31,7 +39,7 @@ const main = async () => {
             // yourFunction(fileName)
             const triple = getFilesObject(fileName)
             if (triple) {
-                const data = fetchData(triple)
+                const data = fetchData(triple, args.v)
                 // console.log(data)
                 handleData(data, triple, verovio, args)
             }
@@ -43,24 +51,24 @@ const main = async () => {
             }
             // console.log('results: ', results)
             results.forEach(async triple => {
-                const data = await fetchData(triple)
+                const data = await fetchData(triple, args.v)
                 // console.log('data: ')
                 // console.log(data)               
-                handleData(data, triple, verovio)
+                handleData(data, triple, verovio, args)
             })
         })
     } else {
         const hours = args.hours || 24
         const since = args.since ? new Date(args.since) : new Date(Date.now() - ((+hours)*60*60*1000))
-        if (!args.q) {
-            console.log('files committed since ...', since)
-        }
         const headFiles = changedFilesSince(since) // changedFiles('HEAD')
         const results = Object.keys(headFiles).filter(fileName => fileName.match(diplomaticRegex)).map(fileName => getFilesObject(fileName)).filter(triple => triple)
-        // console.log(headFiles, results)
+        if (args.v) {
+            console.log('files committed since ', since, ':\n', headFiles)
+            console.log('files to process:', results)
+        }
         
         results.forEach(async triple => {
-            const data = await fetchData(triple)
+            const data = await fetchData(triple, args.v)
             handleData(data, triple, verovio, args)
         })
     }
@@ -69,6 +77,12 @@ const main = async () => {
 main()
 
 const handleData = async (data, triple, verovio, args) => {
+    const {
+        dt: dtPath, dtDate, dtSvgPath, dtSvgDate,
+        at: atPath, atDate, atSvgPath, atSvgDate, atMidPath, atMidDate,
+        ftSvgPath, ftSvgDate, ftHtmlPath, ftHtmlDate
+    } = triple
+    /*
     const dtSvgPath = triple.dt.replace('.xml', '.svg').replace('data/', 'cache/')
     const atSvgPath = triple.at.replace('.xml', '.svg').replace('data/', 'cache/')
     const atMidPath = triple.at.replace('.xml', '.mid').replace('data/', 'cache/').replace('/annotatedTranscripts/', '/annotatedMidi/')
@@ -80,39 +94,96 @@ const handleData = async (data, triple, verovio, args) => {
     const atMidDate = gitFileDate(atMidPath)
     const dtDate = gitFileDate(triple.dt)
     const dtSvgDate = gitFileDate(dtSvgPath)
-
+    */
     if (!args.q) {
-        console.log(triple.at, atDate, atSvgDate)
-        console.log(triple.dt, dtDate, dtSvgDate)
+        if (args.types.indexOf('at') >= 0) {
+            console.log(atPath, atDate, atSvgDate)
+        }
+        if (args.types.indexOf('dt') >= 0) {
+            console.log(dtPath, dtDate, dtSvgDate)
+        }
+        if (args.types.indexOf('ft') >= 0) {
+            console.log(ftSvgDate, ftSvgDate)
+        }
     }
 
     try {
         const pageDimensions = getPageDimensions(data.sourceDom, data.dtDom)
 
-        if (args.recreate || atDate.getTime() > atSvgDate.getTime()) {
-            if (!args.q) {
-                console.log('Rendering Annotated Transcript for ' + atSvgPath + ' ...')
+        if (args.types.indexOf('at') >= 0) {
+            if (args.media.indexOf('svg') >= 0) {
+                if (args.recreate || atDate.getTime() > atSvgDate.getTime()) {
+                    if (!args.q) {
+                        console.log('Rendering Annotated Transcript for ' + atSvgPath + ' ...')
+                    }
+                    const atOutDom = prepareAtDomForRendering(data.atDom, data.dtDom, pageDimensions)
+                    const atSvgString = renderData(atOutDom, verovio, 'annotated', pageDimensions)
+                    writeData(atSvgString, atSvgPath)
+                } else {
+                    if (!args.q) {
+                        console.log('Skipping Annotated Transcript for ' + atSvgPath)
+                    }
+                }
             }
-            const atOutDom = prepareAtDomForRendering(data.atDom, data.dtDom, pageDimensions)
-            const atSvgString = renderData(atOutDom, verovio, 'annotated', pageDimensions)
-            writeData(atSvgString, atSvgPath)
-        } else {
-            if (!args.q) {
-                console.log('Skipping Annotated Transcript for ' + atSvgPath)
+            if (args.media.indexOf('midi') >= 0) {
+                if (args.recreate || atDate.getTime() > atMidDate.getTime()) {
+                    if (!args.q) {
+                        console.log('Rendering Annotated MIDI for ' + atMidPath + ' ...')
+                    }
+                    const atOutDom = prepareAtDomForRendering(data.atDom, data.dtDom, pageDimensions)
+                    const atMidBuffer = renderMidi(atOutDom, verovio)
+                    writeData(atMidBuffer, atMidPath)
+                } else {
+                    if (!args.q) {
+                        console.log('Skipping Annotated MIDI for ' + atMidPath)
+                    }
+                }
             }
         }
-        if (args.recreate || atDate.getTime() > atMidDate.getTime()) {
-            if (!args.q) {
-                console.log('Rendering Annotated MIDI for ' + atMidPath + ' ...')
-            }
-            const atOutDom = prepareAtDomForRendering(data.atDom, data.dtDom, pageDimensions)
-            const atMidBuffer = renderMidi(atOutDom, verovio)
-            writeData(atMidBuffer, atMidPath)
-        } else {
-            if (!args.q) {
-                console.log('Skipping Annotated MIDI for ' + atMidPath)
+
+        if (args.types.indexOf('dt') >= 0) {
+            if (args.media.indexOf('svg') >= 0) {
+                if (args.recreate || dtDate.getTime() > dtSvgDate.getTime()) {
+                    if (!args.q) {
+                        console.log('Rendering Diplomatic Transcript for ' + dtSvgPath + ' ...')
+                    }
+                    console.log('TODO create diplomatic SVG', dtSvgPath)
+                } else {
+                    if (!args.q) {
+                        console.log('Skipping Annotated Transcript for ' + dtSvgPath)
+                    }
+                }
             }
         }
+
+        if (args.types.indexOf('ft') >= 0) {
+            if (args.media.indexOf('svg') >= 0) {
+                if (args.recreate || atDate.getTime() > ftSvgDate.getTime() || dtDate.getTime() > ftSvgDate.getTime()) {
+                    if (!args.q) {
+                        console.log('Rendering Fluid Transcript for ' + ftSvgPath + ' ...')
+                    }
+                    console.log('TODO create fluid SVG', ftSvgPath)
+                } else {
+                    if (!args.q) {
+                        console.log('Skipping Fluid Transcript for ' + ftSvgPath)
+                    }
+                }
+            }
+            if (args.media.indexOf('html') >= 0) {
+                if (args.recreate || atDate.getTime() > ftHtmlDate.getTime() || dtDate.getTime() > ftHtmlDate.getTime()) {
+                    if (!args.q) {
+                        console.log('Rendering Fluid HTML for ' + ftHtmlPath + ' ...')
+                    }
+                    console.log('TODO create fluid HTML', ftHtmlPath)
+                } else {
+                    if (!args.q) {
+                        console.log('Skipping Fluid HTML for ' + ftHtmlPath)
+                    }
+                }
+            }
+        }
+
+        
         
         /*
         const dtOutDom = prepareDtForRendering(data, pageDimensions)
