@@ -1,6 +1,6 @@
-import { boundingboxDefaultControlpoints } from './index.js'
-import { uuid } from './uuid.js'
-import { getOsdRects } from './facsimileHelpers.js'
+import { boundingboxDefaultControlpoints } from '../utils/geometry.js'
+import { uuid } from '../utils/uuid.js'
+import { getOsdRects } from '../utils/facsimileHelpers.js'
 import { JSDOM } from 'jsdom'
 
 const { DOMParser, Node } = (new JSDOM()).window

@@ -1,4 +1,4 @@
-import { controlpointsToVerovioSvgBezier } from './index.js'
+import { controlpointsToVerovioSvgBezier } from '../utils/geometry.js'
 import { appendNewElement } from './mei.js'
 
 /**

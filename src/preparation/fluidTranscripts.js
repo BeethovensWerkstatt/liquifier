@@ -1,4 +1,4 @@
-import { appendNewElement, getSystemCenter } from './utils.js'
+import { appendNewElement, getSystemCenter } from '../utils/utils.js'
 
 const duration = '10s'
 const repeatCount = 'indefinite'

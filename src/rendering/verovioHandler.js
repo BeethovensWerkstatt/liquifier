@@ -1,5 +1,5 @@
 import { XMLSerializer } from 'xmldom-qsa'
-import { verovioPixelDensity } from './config.mjs'
+import { verovioPixelDensity } from '../config.mjs'
 
 const verovioOptions = {
   scale: 40,
