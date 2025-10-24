@@ -1,11 +1,9 @@
-// import store from '@/store'
-
 /**
  * improves display of <sb> and <pb> indicators in the SVG rendered from Verovio
  * @param {*} svgDom
  * @param {*} atDom
  */
-export const resolveSbIndicators = (svgDom, atDom, getters) => {
+export function resolveSbIndicators (svgDom, atDom, getters) {
   const wzBegins = svgDom.querySelectorAll('g.annot:not(.bounding-box)')
 
   const getMeasure = (node) => {
@@ -22,11 +20,6 @@ export const resolveSbIndicators = (svgDom, atDom, getters) => {
   const staffLines = getMeasure(wzBegins[0]).querySelectorAll('g.staff > path')
   const staffHeight = +staffLines[4].getAttribute('d').split(' ')[1] - +staffLines[0].getAttribute('d').split(' ')[1]
   const fontSize = staffHeight / 1.5
-
-  // const path = getters.filepath
-  // const pages = getters.documentPagesForSidebars(path)
-
-  // console.log('\n\n\n911 wzBegins', wzBegins)
 
   wzBegins.forEach((wzb, i) => {
     const content = []
@@ -218,7 +211,7 @@ export const resolveSbIndicators = (svgDom, atDom, getters) => {
  * @param {*} svgDom
  * @param {*} atDom
  */
-export const addSbIndicators = (svgDom, atDom) => {
+export function addSbIndicators (svgDom, atDom) {
   atDom.querySelectorAll('annot[class="#bw_writingZoneBegin"]').forEach((annot) => {
     annot.setAttribute('type', '#bw_writingZoneBegin')
   })
@@ -262,7 +255,7 @@ export const addSbIndicators = (svgDom, atDom) => {
  * @param {*} atDom
  * @returns
  */
-export const prepareAtDomForRendering = (atDom, dtDom, pageDimensions) => {
+export function prepareAtDomForRendering (atDom, dtDom, pageDimensions) {
   const clone = atDom.cloneNode(true)
   const map = new Map()
   const dots = clone.querySelectorAll('dot')
@@ -305,7 +298,7 @@ export const prepareAtDomForRendering = (atDom, dtDom, pageDimensions) => {
  * @param {*} svgDom
  * @param {*} atDom
  */
-export const improveAtSvg = (svgDom, atDom, dtDom) => {
+export function improveAtSvg (svgDom, atDom, dtDom) {
   console.log(279, 'improveAtSvg', svgDom, atDom)
   const dotBearers = svgDom.querySelectorAll('*[data-dot-corresp]')
   dotBearers.forEach((dotBearer) => {

@@ -1,0 +1,14 @@
+{
+  "javascript.validate.enable": false,
+  "javascript.format.enable": false,
+  "typescript.validate.enable": false,
+  "standard.enable": true,
+  "standard.run": "onType",
+  "editor.formatOnSave": false,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.standard": "explicit"
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "standard.vscode-standard"
+  }
+}
