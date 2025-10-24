@@ -10,6 +10,33 @@ import { JSDOM } from 'jsdom'
 const { DOMParser } = new JSDOM().window
 
 /**
+ * Extract page number from filename (e.g., "_p005_" -> "p005")
+ * @param {string} filename - Filename containing page pattern
+ * @returns {string|null} Page identifier (e.g., "p005") or null if not found
+ */
+function extractPageFromFilename (filename) {
+  const match = filename.match(/_p(\d{3})_/)
+  return match ? `p${match[1]}` : null
+}
+
+/**
+ * Insert page folder into output path
+ * @param {string} outputPath - Base output path
+ * @param {string} page - Page identifier (e.g., "p005")
+ * @returns {string} Path with page folder inserted
+ */
+function insertPageFolder (outputPath, page) {
+  if (!page) return outputPath
+
+  // Split path into directory and filename
+  const dir = path.dirname(outputPath)
+  const file = path.basename(outputPath)
+
+  // Insert page folder before filename
+  return path.join(dir, page, file)
+}
+
+/**
  * collect files from <code>git show --name-only --pretty="format:--- %H %cI" <i>COMMIT</></code>
  * @param {string[]} lines
  * @returns {string[]} list of file paths
@@ -155,7 +182,7 @@ export function getFilesObject (file, inputDir = './', outputDir = './cache') {
   const atFile = relativeFile.replace('diplomaticTranscripts', 'annotatedTranscripts').replace('_dt.xml', '_at.xml')
   const atFileFull = dtFile.replace('diplomaticTranscripts', 'annotatedTranscripts').replace('_dt.xml', '_at.xml')
   const atFileExists = fs.existsSync(atFileFull)
-  
+
   const regex = /_p\d+_wz\d+_dt/
   const sourceFile = relativeFile.replace('/diplomaticTranscripts/', '/').replace(regex, '')
   const sourceFileFull = dtFile.replace('/diplomaticTranscripts/', '/').replace(regex, '')
@@ -167,14 +194,19 @@ export function getFilesObject (file, inputDir = './', outputDir = './cache') {
     const atFullPath = atFileFull
     const sourceFullPath = sourceFileFull
 
+    // Extract page number for folder organization
+    const page = extractPageFromFilename(relativeFile)
+
     return {
       dt: relativeFile,
       dtFullPath,
+      page,
       get dtDate () {
         return gitFileDate(dtFullPath)
       },
       get dtSvgPath () {
-        return path.join(outputDir, this.dt.replace('.xml', '.svg'))
+        const basePath = path.join(outputDir, this.dt.replace('.xml', '.svg'))
+        return insertPageFolder(basePath, this.page)
       },
       get dtSvgDate () {
         return gitFileDate(this.dtSvgPath)
@@ -185,25 +217,29 @@ export function getFilesObject (file, inputDir = './', outputDir = './cache') {
         return gitFileDate(atFullPath)
       },
       get atSvgPath () {
-        return path.join(outputDir, this.at.replace('.xml', '.svg'))
+        const basePath = path.join(outputDir, this.at.replace('.xml', '.svg'))
+        return insertPageFolder(basePath, this.page)
       },
       get atSvgDate () {
         return gitFileDate(this.atSvgPath)
       },
       get atMidPath () {
-        return path.join(outputDir, this.at.replace('.xml', '.mid').replace('/annotatedTranscripts/', '/annotatedMidi/'))
+        const basePath = path.join(outputDir, this.at.replace('.xml', '.mid').replace('/annotatedTranscripts/', '/annotatedMidi/'))
+        return insertPageFolder(basePath, this.page)
       },
       get atMidDate () {
         return gitFileDate(this.atMidPath)
       },
       get ftSvgPath () {
-        return path.join(outputDir, this.at.replace('_at.xml', '_ft.svg').replace('/annotatedTranscripts/', '/fluidTranscripts/'))
+        const basePath = path.join(outputDir, this.at.replace('_at.xml', '_ft.svg').replace('/annotatedTranscripts/', '/fluidTranscripts/'))
+        return insertPageFolder(basePath, this.page)
       },
       get ftSvgDate () {
         return gitFileDate(this.ftSvgPath)
       },
       get ftHtmlPath () {
-        return this.ftSvgPath.replace('.svg', '.html').replace('/fluidTranscripts/', '/fluidHTML/')
+        const basePath = this.ftSvgPath.replace('.svg', '.html').replace('/fluidTranscripts/', '/fluidHTML/')
+        return basePath // Already has page folder from ftSvgPath
       },
       get ftHtmlDate () {
         return gitFileDate(this.ftHtmlPath)
@@ -376,8 +412,8 @@ export function generateHtmlWrapper (svg, meiSourceDom, meiDtDom, meiAtDom, path
 
   console.log('left coordinate of image should be ' + imageX)
 
-  const renderedStaffLines = [...file.querySelector('svg g.staff:not(.bounding-box)').childNodes].filter(node => node.nodeName === 'path')
-  const renderedStaffLineHeight = parseFloat(renderedStaffLines[0].getAttribute('d').split(' ')[1]) - parseFloat(renderedStaffLines[4].getAttribute('d').split(' ')[1])
+  // const renderedStaffLines = [...file.querySelector('svg g.staff:not(.bounding-box)').childNodes].filter(node => node.nodeName === 'path')
+  // const renderedStaffLineHeight = parseFloat(renderedStaffLines[0].getAttribute('d').split(' ')[1]) - parseFloat(renderedStaffLines[4].getAttribute('d').split(' ')[1])
 
   // const layout = meiSourceDom.querySelector('layout[xml\\:id="' + surface.getAttribute('decls').substr(1) + '"]')
 

@@ -9,11 +9,13 @@ import { JSDOM } from 'jsdom'
 /**
  * Render a diplomatic transcript using Thulemeier
  * This function renders a single draft (writing zone) from a prepared MEI document
- * that has been merged with source information using prepareDtForRendering.
+ * that has been merged with source information using prepareDtForThulemeier.
  *
- * @param {Document} meiDoc - The prepared MEI document to render (output of prepareDtForRendering)
+ * @param {Document} meiDoc - The prepared MEI document to render (output of prepareDtForThulemeier)
  * @param {Object} options - Rendering options
- * @param {string} options.draftId - Optional draft ID to render (if not provided, will use first draft found)
+ * @param {string} [options.mode] - Rendering mode: 'singleDraftStandalone' (default) or 'singleSystem'
+ * @param {string} [options.draftId] - Optional draft ID to render (if not provided, will use first draft found)
+ * @param {string} [options.systemId] - System ID (required for 'singleSystem' mode)
  * @returns {Promise<string>} The rendered SVG as a string
  */
 export async function renderDiplomaticTranscript (meiDoc, options = {}) {
@@ -31,9 +33,12 @@ export async function renderDiplomaticTranscript (meiDoc, options = {}) {
       }
     }
 
-    // Use 'singleDraft' mode as in Facsimile Explorer
+    // Determine rendering mode (default to singleDraftStandalone for full DT)
+    const mode = options.mode || 'singleDraftStandalone'
+
+    // Build render options
     const renderOptions = {
-      mode: 'singleDraft',
+      mode,
       id: draftId,
       ...options
     }

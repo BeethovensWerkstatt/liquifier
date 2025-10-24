@@ -74,6 +74,16 @@ export function renderAnnotatedTranscriptMidi ({ data, triple, verovio, pageDime
  * @param {boolean} params.recreate - Force recreation flag
  * @param {Object} params.logger - Logger instance
  */
+/**
+ * Render Diplomatic Transcript SVG
+ * Renders both the full DT and individual system files
+ * @param {Object} params - Rendering parameters
+ * @param {Object} params.data - Source data (atDom, dtDom, sourceDom)
+ * @param {Object} params.triple - File paths and dates
+ * @param {Object} params.verovio - Verovio toolkit instance
+ * @param {Object} params.pageDimensions - Page dimensions for rendering
+ * @param {boolean} params.recreate - Force recreation flag
+ */
 export async function renderDiplomaticTranscriptSvg ({ data, triple, verovio, pageDimensions, recreate, logger }) {
   const { dtDate, dtSvgPath, dtSvgDate, sourceFullPath } = triple
 
@@ -92,13 +102,45 @@ export async function renderDiplomaticTranscriptSvg ({ data, triple, verovio, pa
         return
       }
 
-      // Render using Thulemeier
+      // Render full DT using Thulemeier
       const dtSvgString = await renderDiplomaticTranscript(preparedDt)
       writeData(dtSvgString, dtSvgPath)
       logger.info('Successfully rendered ' + dtSvgPath)
+
+      // Extract system IDs from original DT DOM
+      const systems = data.dtDom.querySelectorAll('draft > system, draft > bw\\:system')
+      const systemIds = Array.from(systems).map(s => s.getAttribute('xml:id')).filter(id => id)
+
+      if (systemIds.length > 0) {
+        logger.info(`Rendering ${systemIds.length} individual systems...`)
+
+        // Render each system individually
+        for (const systemId of systemIds) {
+          try {
+            // Generate system-specific filename
+            // Pattern: {source}_{page}_{wz}_sys{systemId}_dt.svg
+            const systemSvgPath = dtSvgPath.replace('_dt.svg', `_sys${systemId}_dt.svg`)
+
+            // Render using singleSystem mode
+            const systemSvgString = await renderDiplomaticTranscript(preparedDt, {
+              mode: 'singleSystem',
+              systemId
+            })
+
+            writeData(systemSvgString, systemSvgPath)
+            logger.debug(`  Rendered system ${systemId}`)
+          } catch (systemError) {
+            // Fail completely if any system fails (as per requirement)
+            throw new Error(`Failed to render system ${systemId}: ${systemError.message}`)
+          }
+        }
+
+        logger.info(`Successfully rendered all ${systemIds.length} systems`)
+      }
     } catch (error) {
       logger.error('Error rendering diplomatic transcript: ' + error.message)
       logger.debug('Source file: ' + sourceFullPath)
+      throw error // Re-throw to ensure failure is visible
     }
   } else {
     logger.info('Skipping Diplomatic Transcript for ' + dtSvgPath)
