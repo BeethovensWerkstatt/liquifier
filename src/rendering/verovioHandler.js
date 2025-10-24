@@ -2,7 +2,7 @@ import { XMLSerializer } from 'xmldom-qsa'
 import { verovioPixelDensity } from '../config.mjs'
 
 const verovioOptions = {
-  scale: 40,
+  scale: 30,
   openControlEvents: true,
   svgBoundingBoxes: true,
   svgRemoveXlink: true,
@@ -89,6 +89,7 @@ export const renderSystemBasedAt = (dom, verovio, pageDimensions) => {
   for (let pageNo = 1; pageNo <= pageCount; pageNo++) {
     const svgString = verovio.renderToSVG(pageNo)
     const systemId = systemIds[pageNo - 1] // pageNo is 1-indexed
+
     systemSvgs.push({
       systemId,
       svg: svgString
