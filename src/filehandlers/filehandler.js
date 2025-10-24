@@ -63,7 +63,7 @@ export const gitFileDate = (file) => {
   try {
     date = execSync(
             `git log -n 1 --pretty=format:%cI -- "${file}"`,
-            { encoding: 'utf-8' }
+            { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] } // Suppress stderr
     ) || 0
     // console.log(`${file}: ${date}`)
   } catch (e) {
@@ -135,21 +135,43 @@ export async function walk (dir, done, inputDir = './', outputDir = './cache') {
  * @param {*} path
  */
 export function getFilesObject (file, inputDir = './', outputDir = './cache') {
-  const dtFileExists = fs.existsSync(path.join(inputDir, file))
-  console.log(1, 'dtFileExists', dtFileExists)
+  // Determine if file path is absolute or already includes inputDir
+  // Check if file exists as-is (full path scenario)
+  let dtFile = file
+  let dtFileExists = fs.existsSync(file)
+
+  // If not, try joining with inputDir
+  if (!dtFileExists) {
+    dtFile = path.join(inputDir, file)
+    dtFileExists = fs.existsSync(dtFile)
+  }
+
+  // Extract just the relative path portion for output paths
+  // Find the sources/... part of the path
+  const sourcesMatch = dtFile.match(/(sources\/.+)/)
+  const relativeFile = sourcesMatch ? sourcesMatch[1] : file
+
   // file is a diplomatic transcript, now check for other types
-  const atFile = file.replace('diplomaticTranscripts', 'annotatedTranscripts').replace('_dt.xml', '_at.xml')
-  const atFileExists = fs.existsSync(path.join(inputDir, atFile))
-  console.log(2, 'atFileExists', atFileExists)
+  const atFile = relativeFile.replace('diplomaticTranscripts', 'annotatedTranscripts').replace('_dt.xml', '_at.xml')
+  const atFileFull = dtFile.replace('diplomaticTranscripts', 'annotatedTranscripts').replace('_dt.xml', '_at.xml')
+  const atFileExists = fs.existsSync(atFileFull)
+  
   const regex = /_p\d+_wz\d+_dt/
-  const sourceFile = file.replace('/diplomaticTranscripts/', '/').replace(regex, '')
-  const sourceFileExists = fs.existsSync(path.join(inputDir, sourceFile))
-  console.log(3, 'sourceFileExists', sourceFileExists)
+  const sourceFile = relativeFile.replace('/diplomaticTranscripts/', '/').replace(regex, '')
+  const sourceFileFull = dtFile.replace('/diplomaticTranscripts/', '/').replace(regex, '')
+  const sourceFileExists = fs.existsSync(sourceFileFull)
+
   if (dtFileExists && atFileExists && sourceFileExists) {
+    // Store full paths for reading
+    const dtFullPath = dtFile
+    const atFullPath = atFileFull
+    const sourceFullPath = sourceFileFull
+
     return {
-      dt: file,
+      dt: relativeFile,
+      dtFullPath,
       get dtDate () {
-        return gitFileDate(path.join(inputDir, this.dt))
+        return gitFileDate(dtFullPath)
       },
       get dtSvgPath () {
         return path.join(outputDir, this.dt.replace('.xml', '.svg'))
@@ -158,8 +180,9 @@ export function getFilesObject (file, inputDir = './', outputDir = './cache') {
         return gitFileDate(this.dtSvgPath)
       },
       at: atFile,
+      atFullPath,
       get atDate () {
-        return gitFileDate(path.join(inputDir, this.at))
+        return gitFileDate(atFullPath)
       },
       get atSvgPath () {
         return path.join(outputDir, this.at.replace('.xml', '.svg'))
@@ -186,8 +209,9 @@ export function getFilesObject (file, inputDir = './', outputDir = './cache') {
         return gitFileDate(this.ftHtmlPath)
       },
       source: sourceFile,
+      sourceFullPath,
       get sourceDate () {
-        return gitFileDate(path.join(inputDir, this.source))
+        return gitFileDate(sourceFullPath)
       }
     }
   }
@@ -195,9 +219,10 @@ export function getFilesObject (file, inputDir = './', outputDir = './cache') {
 }
 
 export async function fetchData (triple, verbose = false, inputDir = './') {
-  const sourcePath = path.join(inputDir, triple.source)
-  const dtPath = path.join(inputDir, triple.dt)
-  const atPath = path.join(inputDir, triple.at)
+  // Use full paths if available, otherwise join with inputDir
+  const sourcePath = triple.sourceFullPath || path.join(inputDir, triple.source)
+  const dtPath = triple.dtFullPath || path.join(inputDir, triple.dt)
+  const atPath = triple.atFullPath || path.join(inputDir, triple.at)
 
   const parser = new DOMParser()
 
@@ -353,9 +378,6 @@ export function generateHtmlWrapper (svg, meiSourceDom, meiDtDom, meiAtDom, path
 
   const renderedStaffLines = [...file.querySelector('svg g.staff:not(.bounding-box)').childNodes].filter(node => node.nodeName === 'path')
   const renderedStaffLineHeight = parseFloat(renderedStaffLines[0].getAttribute('d').split(' ')[1]) - parseFloat(renderedStaffLines[4].getAttribute('d').split(' ')[1])
-
-  console.log('imgPath: ' + imgPath)
-  console.log('renderedStaffLineHeight: ' + renderedStaffLineHeight)
 
   // const layout = meiSourceDom.querySelector('layout[xml\\:id="' + surface.getAttribute('decls').substr(1) + '"]')
 

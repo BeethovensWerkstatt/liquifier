@@ -1,5 +1,5 @@
 import { prepareAtDomForRendering } from '../preparation/annotatedTranscripts.js'
-import { renderData, renderMidi } from './verovioHandler.js'
+import { renderContinuousAt, renderMidi } from './verovioHandler.js'
 import { writeData } from '../filehandlers/filehandler.js'
 
 /**
@@ -30,7 +30,7 @@ export function renderAnnotatedTranscriptSvg ({ data, triple, verovio, pageDimen
   if (shouldRender(recreate, [atDate], atSvgDate)) {
     logger.info('Rendering Annotated Transcript for ' + atSvgPath + ' ...')
     const atOutDom = prepareAtDomForRendering(data.atDom, data.dtDom, pageDimensions)
-    const atSvgString = renderData(atOutDom, verovio, 'annotated', pageDimensions)
+    const atSvgString = renderContinuousAt(atOutDom, verovio, 'annotated', pageDimensions)
     writeData(atSvgString, atSvgPath)
   } else {
     logger.info('Skipping Annotated Transcript for ' + atSvgPath)

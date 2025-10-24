@@ -13,21 +13,13 @@ const verovioOptions = {
   svgAdditionalAttribute: ['staff@rotate', 'staff@height', 'score@viewBox', 'sb@rotate', 'chord@stem.dir']
 }
 
-export const renderData = (dom, verovio, target, pageDimensions) => {
+export const renderContinuousAt = (dom, verovio, target, pageDimensions) => {
   const domString = new XMLSerializer().serializeToString(dom)
 
   verovioOptions.pageHeight = pageDimensions.height * verovioPixelDensity
   verovioOptions.pageWidth = pageDimensions.width * verovioPixelDensity
 
-  if (target === 'diplomatic') {
-    verovioOptions.breaks = 'encoded'
-    verovioOptions.pageMarginTop = 0
-    verovioOptions.pageMarginRight = 0
-    verovioOptions.pageMarginBottom = 0
-    verovioOptions.pageMarginLeft = 0
-
-    // console.log('\n\n\nfacsimile:', new XMLSerializer().serializeToString(dom.querySelector('surface')))
-  } else if (target === 'annotated') {
+  if (target === 'annotated') {
     verovioOptions.breaks = 'none'
     verovioOptions.pageMarginTop = 300
     verovioOptions.pageMarginRight = 500
