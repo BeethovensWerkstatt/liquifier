@@ -121,10 +121,12 @@ export async function renderDiplomaticTranscriptSvg ({ data, triple, verovio, pa
             // Pattern: {source}_{page}_{wz}_sys{systemId}_dt.svg
             const systemSvgPath = dtSvgPath.replace('_dt.svg', `_sys${systemId}_dt.svg`)
 
-            // Render using singleSystem mode
+            // Render using singleSystem mode with margin around content
+            // systemMargin: 90 = 1cm at 90dpi (configurable)
             const systemSvgString = await renderDiplomaticTranscript(preparedDt, {
               mode: 'singleSystem',
-              systemId
+              systemId,
+              systemMargin: 270 // 3cm margin around system content
             })
 
             writeData(systemSvgString, systemSvgPath)
