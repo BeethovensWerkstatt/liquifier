@@ -1,6 +1,6 @@
 import { prepareAtDomForRendering } from '../preparation/annotatedTranscripts.js'
 import { prepareDtForThulemeier } from '../preparation/mei.js'
-import { renderContinuousAt, renderMidi } from './verovioHandler.js'
+import { renderContinuousAt, renderSystemBasedAt, renderMidi } from './verovioHandler.js'
 import { renderDiplomaticTranscript } from './thulemeierHandler.js'
 import { writeData } from '../filehandlers/filehandler.js'
 
@@ -18,6 +18,7 @@ function shouldRender (recreate, sourceDates, outputDate) {
 
 /**
  * Render Annotated Transcript SVG
+ * Renders both the full continuous AT and individual system ATs
  * @param {Object} params - Rendering parameters
  * @param {Object} params.data - Source data (atDom, dtDom, sourceDom)
  * @param {Object} params.triple - File paths and dates
@@ -32,8 +33,35 @@ export function renderAnnotatedTranscriptSvg ({ data, triple, verovio, pageDimen
   if (shouldRender(recreate, [atDate], atSvgDate)) {
     logger.info('Rendering Annotated Transcript for ' + atSvgPath + ' ...')
     const atOutDom = prepareAtDomForRendering(data.atDom, data.dtDom, pageDimensions)
+
+    // Render full continuous AT
     const atSvgString = renderContinuousAt(atOutDom, verovio, 'annotated', pageDimensions)
     writeData(atSvgString, atSvgPath)
+    logger.info('Successfully rendered ' + atSvgPath)
+
+    // Render individual system ATs
+    try {
+      const systemSvgs = renderSystemBasedAt(atOutDom, verovio, pageDimensions)
+
+      if (systemSvgs.length > 0) {
+        logger.info(`Rendering ${systemSvgs.length} individual AT systems...`)
+
+        systemSvgs.forEach(({ systemId, svg }) => {
+          if (systemId && svg) {
+            // Generate system-specific filename
+            // Pattern: {source}_{page}_{wz}_sys{systemId}_at.svg
+            const systemSvgPath = atSvgPath.replace('_at.svg', `_sys${systemId}_at.svg`)
+            writeData(svg, systemSvgPath)
+            logger.debug(`  Rendered AT system ${systemId}`)
+          }
+        })
+
+        logger.info(`Successfully rendered all ${systemSvgs.length} AT systems`)
+      }
+    } catch (error) {
+      logger.error('Error rendering AT systems: ' + error.message)
+      throw error
+    }
   } else {
     logger.info('Skipping Annotated Transcript for ' + atSvgPath)
   }
