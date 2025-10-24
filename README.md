@@ -134,9 +134,180 @@ Any filter options are ignored, when a list of files is given.
 The dates are compared by the last commit date of any file. If the files are modified but
 not yet committed, they will be recreated even if they are already up-to-date.
 
+## Output Structure
+
+The liquifier generates multiple output files organized in a page-based folder hierarchy. This organization ensures manageable folder sizes (typically ~20 files per page) and enables efficient API access patterns.
+
+### Folder Organization
+
+All output files are organized into page-based folders using the pattern `{type}/{page}/`:
+
+```
+cache/sources/D-BNba_MH_60_Engelmann/
+├── annotatedTranscripts/
+│   └── p005/
+│       ├── D-BNba_MH_60_Engelmann_p005_wz06_at.svg
+│       ├── D-BNba_MH_60_Engelmann_p005_wz07_at.svg
+│       └── ...
+├── annotatedMidi/
+│   └── p005/
+│       ├── D-BNba_MH_60_Engelmann_p005_wz06_at.mid
+│       └── ...
+├── diplomaticTranscripts/
+│   └── p005/
+│       ├── D-BNba_MH_60_Engelmann_p005_wz06_dt.svg
+│       ├── D-BNba_MH_60_Engelmann_p005_wz06_syss289fb17d-10e3-4b27-9b64-8d2d6a560c1d_dt.svg
+│       ├── D-BNba_MH_60_Engelmann_p005_wz06_sys{anotherSystemId}_dt.svg
+│       └── ...
+├── fluidTranscripts/
+│   └── p005/
+│       └── D-BNba_MH_60_Engelmann_p005_wz06_ft.svg
+└── fluidHTML/
+    └── p005/
+        └── D-BNba_MH_60_Engelmann_p005_wz06_ft.html
+```
+
+**Page folder naming:**
+- Extracted from input filename using pattern `_p(\d{3})_`
+- Always three-digit page numbers: `p005`, `p042`, `p123`, etc.
+- Applied to all output types: AT, DT, FT, MIDI, HTML
+
+### Diplomatic Transcript System Files
+
+For each diplomatic transcript, the liquifier generates **multiple output files**:
+
+1. **Full diplomatic transcript**: Contains all systems from the writing zone
+   - Filename: `{source}_{page}_{wz}_dt.svg`
+   - Example: `D-BNba_MH_60_Engelmann_p005_wz06_dt.svg`
+   - Renders the complete diplomatic transcript with all systems and their rastrums
+
+2. **Individual system files**: One file per system in the diplomatic transcript
+   - Filename: `{source}_{page}_{wz}_sys{systemId}_dt.svg`
+   - Example: `D-BNba_MH_60_Engelmann_p005_wz06_syss289fb17d-10e3-4b27-9b64-8d2d6a560c1d_dt.svg`
+   - Each file contains only one system with its associated rastrums (staff lines)
+   - Optimized for file size by including only the rastrums used by that specific system
+   - Enables assembly into "virtual continuous staves" across multiple pages
+
+**System file characteristics:**
+- System IDs are taken from the MEI document's `<system xml:id="...">` or `<bw:system xml:id="...">` elements
+- Each system file is standalone and can be loaded independently
+- Rastrums (staff lines) are filtered to include only those used by that specific system
+- All system files use the same coordinate system as the full DT for consistent positioning
+
+**Use cases:**
+- **Full DT files**: Display complete diplomatic transcripts in context
+- **Individual system files**: Assemble continuous notation across page boundaries, create excerpt views, or display systems independently in a web application
+
+**Metadata and ordering:**
+- No separate JSON metadata files are generated (all metadata remains in source MEI)
+- System ordering can be reconstructed from annotated transcripts
+- API implementations can retrieve file lists and construct ordering from MEI source data
+
+### File Naming Patterns
+
+All output files follow consistent naming conventions:
+
+| Type | Pattern | Example |
+|------|---------|---------|
+| Annotated Transcript | `{source}_{page}_{wz}_at.svg` | `D-BNba_MH_60_Engelmann_p005_wz06_at.svg` |
+| Annotated MIDI | `{source}_{page}_{wz}_at.mid` | `D-BNba_MH_60_Engelmann_p005_wz06_at.mid` |
+| Diplomatic Transcript (Full) | `{source}_{page}_{wz}_dt.svg` | `D-BNba_MH_60_Engelmann_p005_wz06_dt.svg` |
+| Diplomatic System | `{source}_{page}_{wz}_sys{systemId}_dt.svg` | `D-BNba_MH_60_Engelmann_p005_wz06_syss289fb17d-10e3-4b27-9b64-8d2d6a560c1d_dt.svg` |
+| Fluid Transcript | `{source}_{page}_{wz}_ft.svg` | `D-BNba_MH_60_Engelmann_p005_wz06_ft.svg` |
+| Fluid HTML | `{source}_{page}_{wz}_ft.html` | `D-BNba_MH_60_Engelmann_p005_wz06_ft.html` |
+
+Where:
+- `{source}`: Source manuscript identifier (e.g., `D-BNba_MH_60_Engelmann`)
+- `{page}`: Three-digit page number (e.g., `p005`)
+- `{wz}`: Writing zone identifier (e.g., `wz06`)
+- `{systemId}`: MEI system element ID (e.g., `s289fb17d-10e3-4b27-9b64-8d2d6a560c1d`)
+
 ## Environment variables
 
 If the environment variable `fileNames` is set, it will be used as a comma-separated list of
 file names to process. This can be useful when running the script in a Docker container or
 on a server where command line arguments may not be easily passed.
 The command line arguments take precedence over the environment variable.
+
+## Code Structure
+
+The liquifier application follows a modular architecture with clear separation of concerns. The codebase is organized into logical directories that reflect the application's execution flow:
+
+### Entry Point
+
+**`index.js`** - Main orchestrator that coordinates the high-level application flow:
+1. Parse CLI arguments
+2. Initialize logger
+3. Initialize tools (Verovio, Thulemeier)
+4. Process files
+
+### Source Directory Structure
+
+```
+src/
+├── config.mjs                         # Global configuration
+│
+├── core/                              # Application orchestration
+│   ├── cli.js                         # CLI argument parsing
+│   ├── logger.js                      # Logging utility
+│   ├── init.js                        # Tool initialization
+│   └── processor.js                   # File processing orchestration
+│
+├── rendering/                         # Rendering engines & orchestration
+│   ├── renderers.js                   # Rendering decisions (what/when to render)
+│   ├── verovioHandler.js             # Verovio rendering engine interface
+│   └── thulemeierHandler.js          # Thulemeier rendering engine interface
+│
+├── preparation/                       # Data preparation for rendering
+│   ├── annotatedTranscripts.js       # Annotated transcript preparation
+│   ├── diplomaticTranscripts.js      # Diplomatic transcript preparation
+│   ├── fluidTranscripts.js           # Fluid transcript preparation
+│   └── mei.js                         # MEI XML manipulation utilities
+│
+├── filehandlers/                      # File I/O operations
+│   └── filehandler.js                 # File reading, writing, triple management
+│
+└── utils/                             # Generic utility functions
+    ├── geometry.js                    # Vector & geometric calculations
+    ├── utils.js                       # General utility functions
+    ├── trigonometry.js                # Trigonometric calculations
+    ├── facsimileHelpers.js           # Facsimile-specific helpers
+    └── uuid.js                        # UUID generation
+```
+
+### Module Descriptions
+
+#### Core Modules
+- **cli.js**: Parses command-line arguments using minimist and returns a normalized configuration object
+- **logger.js**: Provides a configurable logger with support for quiet and verbose modes
+- **init.js**: Initializes Verovio and Thulemeier rendering engines
+- **processor.js**: Orchestrates the processing of multiple files, handling data fetching and rendering coordination
+
+#### Rendering Modules
+- **renderers.js**: Contains specialized rendering functions for each output type (AT SVG, AT MIDI, DT SVG, FT SVG, FT HTML) with date-based rendering decisions
+- **verovioHandler.js**: Wrapper for the Verovio rendering engine, handles MEI-to-SVG and MEI-to-MIDI conversion
+- **thulemeierHandler.js**: Integration layer for the Thulemeier rendering library
+
+#### Preparation Modules
+- **annotatedTranscripts.js**: Prepares annotated transcript DOM structures for rendering
+- **diplomaticTranscripts.js**: Prepares diplomatic transcript data structures
+- **fluidTranscripts.js**: Generates fluid transcription animations and transitions
+- **mei.js**: Core MEI XML manipulation functions used across transcript types
+
+#### File Handling
+- **filehandler.js**: Manages file I/O operations, creates file triples (input/output path mappings), fetches data from multiple sources, and writes rendered output
+
+#### Utilities
+- **geometry.js**: Vector mathematics and geometric calculations (formerly `index.js`)
+- **utils.js**: General-purpose utility functions (DOM manipulation, bounding boxes, etc.)
+- **trigonometry.js**: Mathematical functions for rotations and transformations
+- **facsimileHelpers.js**: Helper functions for working with facsimile measurements and OpenSeadragon
+- **uuid.js**: UUID generation for MEI elements
+
+### Design Principles
+
+1. **Separation of Concerns**: Each module has a single, well-defined responsibility
+2. **Modularity**: Functions are organized by their role in the application flow
+3. **Testability**: Each module can be tested independently with clear input/output contracts
+4. **Maintainability**: Related functionality is grouped together, making it easy to locate and modify code
+5. **Extensibility**: New rendering types or transcript formats can be added by following established patterns
