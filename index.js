@@ -40,49 +40,51 @@ const main = async () => {
   // Check if the 'fileNames' parameter is provided
   if (args._?.length > 0 || process.env.fileNames) {
     const fileNames = args._ || process.env.fileNames.split(',')
-    console.log(889, fileNames)
-    // Run a function on each file
-    fileNames.forEach(async (fileName) => {
-      // Call your function here with the 'fileName'
-      // For example:
-      // yourFunction(fileName)
+    if (args.v) {
+      console.log('Processing files:', fileNames)
+    }
+    // Process files sequentially
+    for (const fileName of fileNames) {
       const triple = getFilesObject(fileName, inputDir, outputDir)
-      console.log(890, triple)
+      if (args.v) {
+        console.log('File triple:', triple)
+      }
       if (triple) {
         const data = await fetchData(triple, args.v, inputDir)
-        console.log(891, data)
+        if (args.v) {
+          console.log('Fetched data:', data)
+        }
+        await handleData(data, triple, verovio, args)
+      }
+    }
+  } else if (args.full) {
+    await walk(dir, (err, results) => {
+      if (err) {
+        console.warn('filewalker has problems: ' + err, err)
+      }
+      // console.log('results: ', results)
+      results.forEach(async triple => {
+        const data = await fetchData(triple, args.v, inputDir)
+        // console.log('data: ')
         // console.log(data)
         handleData(data, triple, verovio, args)
-      }
+      })
     })
-  } /* else if(args.full) {
-        await walk(dir, (err, results) => {
-            if (err) {
-                console.warn('filewalker has problems: ' + err, err)
-            }
-            // console.log('results: ', results)
-            results.forEach(async triple => {
-                const data = await fetchData(triple, args.v, inputDir)
-                // console.log('data: ')
-                // console.log(data)
-                handleData(data, triple, verovio, args)
-            })
-        })
-    } else {
-        const hours = args.hours || 24
-        const since = args.since ? new Date(args.since) : new Date(Date.now() - ((+hours)*60*60*1000))
-        const headFiles = changedFilesSince(since) // changedFiles('HEAD')
-        const results = Object.keys(headFiles).filter(fileName => fileName.match(diplomaticRegex)).map(fileName => getFilesObject(fileName, inputDir, outputDir)).filter(triple => triple)
-        if (args.v) {
-            console.log('files committed since ', since, ':\n', headFiles)
-            console.log('files to process:', results)
-        }
+  } else {
+    const hours = args.hours || 24
+    const since = args.since ? new Date(args.since) : new Date(Date.now() - ((+hours) * 60 * 60 * 1000))
+    const headFiles = changedFilesSince(since) // changedFiles('HEAD')
+    const results = Object.keys(headFiles).filter(fileName => fileName.match(diplomaticRegex)).map(fileName => getFilesObject(fileName, inputDir, outputDir)).filter(triple => triple)
+    if (args.v) {
+      console.log('files committed since ', since, ':\n', headFiles)
+      console.log('files to process:', results)
+    }
 
-        results.forEach(async triple => {
-            const data = await fetchData(triple, args.v, inputDir)
-            handleData(data, triple, verovio, args)
-        })
-    } */
+    results.forEach(async triple => {
+      const data = await fetchData(triple, args.v, inputDir)
+      handleData(data, triple, verovio, args)
+    })
+  }
 }
 
 main()
@@ -94,21 +96,11 @@ const handleData = async (data, triple, verovio, args) => {
     ftSvgPath, ftSvgDate, ftHtmlPath, ftHtmlDate
   } = triple
 
-  console.log(661, triple)
-  console.log(662, data)
-  /*
-    const dtSvgPath = triple.dt.replace('.xml', '.svg').replace('data/', 'cache/')
-    const atSvgPath = triple.at.replace('.xml', '.svg').replace('data/', 'cache/')
-    const atMidPath = triple.at.replace('.xml', '.mid').replace('data/', 'cache/').replace('/annotatedTranscripts/', '/annotatedMidi/')
-    const ftSvgPath = triple.at.replace('_at.xml', '_ft.svg').replace('data/', 'cache/').replace('/annotatedTranscripts/', '/fluidTranscripts/')
-    const ftHtmlPath = ftSvgPath.replace('.svg', '.html').replace('/fluidTranscripts/', '/fluidHTML/')
+  if (args.v) {
+    console.log('Processing triple:', triple)
+    console.log('Processing data:', data)
+  }
 
-    const atDate = gitFileDate(triple.at)
-    const atSvgDate = gitFileDate(atSvgPath)
-    const atMidDate = gitFileDate(atMidPath)
-    const dtDate = gitFileDate(triple.dt)
-    const dtSvgDate = gitFileDate(dtSvgPath)
-    */
   if (!args.q) {
     if (args.types.indexOf('at') >= 0) {
       console.log(atPath, atDate, atSvgDate)
@@ -123,7 +115,9 @@ const handleData = async (data, triple, verovio, args) => {
 
   try {
     const pageDimensions = getPageDimensions(data.sourceDom, data.dtDom)
-    console.log(663, pageDimensions)
+    if (args.v) {
+      console.log('Page dimensions:', pageDimensions)
+    }
 
     if (args.types.indexOf('at') >= 0) {
       if (args.media.indexOf('svg') >= 0) {
@@ -198,6 +192,14 @@ const handleData = async (data, triple, verovio, args) => {
       }
     }
 
+    /*
+     * OLD IMPLEMENTATION - Keep for reference when implementing TODOs above
+     * This code shows how DT/FT rendering used to work before the refactor.
+     * Functions exist in: src/mei.js (prepareDtForRendering),
+     *                    src/fluidTranscripts.js (generateFluidTranscription),
+     *                    src/filehandler.js (generateHtmlWrapper)
+     * Note: finalizeDiploTrans() doesn't exist - needs to be recreated or removed
+     */
     /*
         const dtOutDom = prepareDtForRendering(data, pageDimensions)
         const dtSvgString = renderData(dtOutDom, verovio, 'diplomatic', pageDimensions)
