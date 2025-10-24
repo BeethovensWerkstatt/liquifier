@@ -2,227 +2,236 @@ import fs from 'fs'
 import path from 'path'
 import { readFile } from 'node:fs/promises'
 import { execSync } from 'child_process'
-import { annotatedRegex, diplomaticRegex, verovioPixelDensity } from './config.mjs'
+import { diplomaticRegex, verovioPixelDensity } from './config.mjs'
 import { getOuterBoundingRect } from './utils.js'
 // import { get } from 'http'
 // import { DOMParser } from 'xmldom-qsa'
 import { JSDOM } from 'jsdom'
 const { DOMParser } = new JSDOM().window
 
-const dom = new JSDOM(`<!DOCTYPE html><p>Hello world</p>`)
-const serializer = new dom.window.XMLSerializer()
-
 /**
  * collect files from <code>git show --name-only --pretty="format:--- %H %cI" <i>COMMIT</></code>
- * @param {string[]} lines 
+ * @param {string[]} lines
  * @returns {string[]} list of file paths
  */
 const collectFiles = (lines) => {
-    let hash = '', date = new Date()
-    const files = {}
-    for (const line of lines) {
-        if (line.startsWith('---')) {
-            const com = line.split(' ')
-            hash = com[1]
-            date = new Date(com[2])
-        } else if (line) {
-            files[line] = { date, hash }
-        }
+  let hash = ''; let date = new Date()
+  const files = {}
+  for (const line of lines) {
+    if (line.startsWith('---')) {
+      const com = line.split(' ')
+      hash = com[1]
+      date = new Date(com[2])
+    } else if (line) {
+      files[line] = { date, hash }
     }
-    return files
+  }
+  return files
 }
 
 /**
- * return changed files in 
- * @param {string|'HEAD'} commit 
- * @returns 
+ * return changed files in
+ * @param {string|'HEAD'} commit
+ * @returns
  */
-export const changedFiles = (commit='HEAD') => {
-    const cmd = `git show --name-only --pretty="format:--- %H %cI" ${commit}`
-    // console.log(cmd)
-    const lines = execSync(cmd).toString().split('\n').filter(f => !!f.trim())
-    return collectFiles(lines)
+export const changedFiles = (commit = 'HEAD') => {
+  const cmd = `git show --name-only --pretty="format:--- %H %cI" ${commit}`
+  // console.log(cmd)
+  const lines = execSync(cmd).toString().split('\n').filter(f => !!f.trim())
+  return collectFiles(lines)
 }
 
 /**
  * return changed files since date
- * @param {datetime} sinceDate 
- * @returns 
+ * @param {datetime} sinceDate
+ * @returns
  */
 export const changedFilesSince = (sinceDate) => {
-    const cmd = `git log --name-only --since="${sinceDate.toISOString()}" --pretty="format:--- %H %cI"`
-    // console.log(cmd)
-    const lines = execSync(cmd).toString().split('\n').filter(f => !!f.trim())
-    return collectFiles(lines)
+  const cmd = `git log --name-only --since="${sinceDate.toISOString()}" --pretty="format:--- %H %cI"`
+  // console.log(cmd)
+  const lines = execSync(cmd).toString().split('\n').filter(f => !!f.trim())
+  return collectFiles(lines)
 }
 
 /**
  * return datetime of last commit for file
- * @param {datetime} file 
- * @returns 
+ * @param {datetime} file
+ * @returns
  */
 export const gitFileDate = (file) => {
-    let date = 0
-    try {
-        date = execSync(
-            `git log -n 1 --pretty=format:%cI -- "${file}"`, 
+  let date = 0
+  try {
+    date = execSync(
+            `git log -n 1 --pretty=format:%cI -- "${file}"`,
             { encoding: 'utf-8' }
-        ) || 0
-        // console.log(`${file}: ${date}`)
+    ) || 0
+    // console.log(`${file}: ${date}`)
+  } catch (e) {
+    try {
+      const stats = fs.statSync(file)
+      date = stats.mtime
     } catch (e) {
-        console.error(e)
+      date = 0 // console.error(e)
     }
-    return new Date(date)
+  }
+  return new Date(date)
 }
 
 /**
 * Walk through the directory and return all files
-* @param {*} dir 
-* @param {*} regex 
-* @param {*} done 
+* @param {*} dir
+* @param {*} regex
+* @param {*} done
 */
-export async function walk (dir, done) {
-    let results = []
- 
-    fs.readdir(dir, function (err, list) {
-        if (err) return done(err)
- 
-        let pending = list.length
-        if (!pending) return done(null, results)
- 
-        list.forEach(function (file) {
-            // console.log('examining file: ', file)
-            file = path.join(dir, file)
-            
-            // Check if its a folder
-            fs.stat(file, function (err, stat) {
-                if (stat && stat.isDirectory()) {
+export async function walk (dir, done, inputDir = './', outputDir = './cache') {
+  let results = []
 
-                    // If it is, walk again
-                    walk(file, function (err, res) {
-                        results = results.concat(res)
+  fs.readdir(dir, function (err, list) {
+    if (err) return done(err)
 
-                        if (!--pending) { done(null, results) }
-                    })
-                } else {
-                    if(file.match(diplomaticRegex)) {
-                        const obj = getFilesObject(file)
-                        
-                        if (obj) {
-                            results.push(obj)
-                        }
-                    }
+    let pending = list.length
+    if (!pending) return done(null, results)
 
-                    if (!--pending) { done(null, results) }
-                }
-            })
+    list.forEach(function (file) {
+      // console.log('examining file: ', file)
+      file = path.join(dir, file)
 
-        })
+      // Check if its a folder
+      fs.stat(file, function (err, stat) {
+        if (err) {
+          console.error('Error reading file:', file, err)
+          if (!--pending) { done(null, results) }
+          return
+        }
+        if (stat && stat.isDirectory()) {
+          // If it is, walk again
+          walk(file, function (err, res) {
+            if (err) {
+              console.error('Error walking directory:', file, err)
+            } else {
+              results = results.concat(res)
+            }
+
+            if (!--pending) { done(null, results) }
+          }, inputDir, outputDir)
+        } else {
+          if (file.match(diplomaticRegex)) {
+            const obj = getFilesObject(file, inputDir, outputDir)
+
+            if (obj) {
+              results.push(obj)
+            }
+          }
+
+          if (!--pending) { done(null, results) }
+        }
+      })
     })
+  })
 }
 
 /**
  * given either the path of a diplomatic transcript, return the paths to all three relevant files
- * @param {*} path 
+ * @param {*} path
  */
-export function getFilesObject (file) {
-    const dtFileExists = fs.existsSync(file)
-                        
-    // file is a diplomatic transcript, now check for other types
-    const atFile = file.replace('diplomaticTranscripts', 'annotatedTranscripts').replace('_dt.xml', '_at.xml')
-    const atFileExists = fs.existsSync(atFile)
-    
-    const regex = /_p\d+_wz\d+_dt/
-    const sourceFile = file.replace('/diplomaticTranscripts/', '/').replace(regex, '')
-    const sourceFileExists = fs.existsSync(sourceFile)
-    
-    if (dtFileExists && atFileExists && sourceFileExists) {
-        return {
-            dt: file,
-            get dtDate () {
-                return gitFileDate(this.dt)
-            },
-            get dtSvgPath () {
-                return this.dt.replace('.xml', '.svg').replace('data/', 'cache/')
-            },
-            get dtSvgDate () {
-                return gitFileDate(this.dtSvgPath)
-            },
-            at: atFile,
-            get atDate () {
-                return gitFileDate(this.at)
-            },
-            get atSvgPath () {
-                return this.at.replace('.xml', '.svg').replace('data/', 'cache/')
-            },
-            get atSvgDate () {
-                return gitFileDate(this.atSvgPath)
-            },
-            get atMidPath () {
-                return this.at.replace('.xml', '.mid').replace('data/', 'cache/').replace('/annotatedTranscripts/', '/annotatedMidi/')
-            },
-            get atMidDate () {
-                return gitFileDate(this.atMidPath)
-            },
-            get ftSvgPath () {
-                return this.at.replace('_at.xml', '_ft.svg').replace('data/', 'cache/').replace('/annotatedTranscripts/', '/fluidTranscripts/')
-            },
-            get ftSvgDate () {
-                return gitFileDate(this.ftSvgPath)
-            },
-            get ftHtmlPath () {
-                return this.ftSvgPath.replace('.svg', '.html').replace('/fluidTranscripts/', '/fluidHTML/')
-            },
-            get ftHtmlDate () {
-                return gitFileDate(this.ftHtmlPath)
-            },
-            source: sourceFile,
-            get sourceDate () {
-                return gitFileDate(this.source)
-            }
-        }
+export function getFilesObject (file, inputDir = './', outputDir = './cache') {
+  const dtFileExists = fs.existsSync(path.join(inputDir, file))
+  console.log(1, 'dtFileExists', dtFileExists)
+  // file is a diplomatic transcript, now check for other types
+  const atFile = file.replace('diplomaticTranscripts', 'annotatedTranscripts').replace('_dt.xml', '_at.xml')
+  const atFileExists = fs.existsSync(path.join(inputDir, atFile))
+  console.log(2, 'atFileExists', atFileExists)
+  const regex = /_p\d+_wz\d+_dt/
+  const sourceFile = file.replace('/diplomaticTranscripts/', '/').replace(regex, '')
+  const sourceFileExists = fs.existsSync(path.join(inputDir, sourceFile))
+  console.log(3, 'sourceFileExists', sourceFileExists)
+  if (dtFileExists && atFileExists && sourceFileExists) {
+    return {
+      dt: file,
+      get dtDate () {
+        return gitFileDate(path.join(inputDir, this.dt))
+      },
+      get dtSvgPath () {
+        return path.join(outputDir, this.dt.replace('.xml', '.svg'))
+      },
+      get dtSvgDate () {
+        return gitFileDate(this.dtSvgPath)
+      },
+      at: atFile,
+      get atDate () {
+        return gitFileDate(path.join(inputDir, this.at))
+      },
+      get atSvgPath () {
+        return path.join(outputDir, this.at.replace('.xml', '.svg'))
+      },
+      get atSvgDate () {
+        return gitFileDate(this.atSvgPath)
+      },
+      get atMidPath () {
+        return path.join(outputDir, this.at.replace('.xml', '.mid').replace('/annotatedTranscripts/', '/annotatedMidi/'))
+      },
+      get atMidDate () {
+        return gitFileDate(this.atMidPath)
+      },
+      get ftSvgPath () {
+        return path.join(outputDir, this.at.replace('_at.xml', '_ft.svg').replace('/annotatedTranscripts/', '/fluidTranscripts/'))
+      },
+      get ftSvgDate () {
+        return gitFileDate(this.ftSvgPath)
+      },
+      get ftHtmlPath () {
+        return this.ftSvgPath.replace('.svg', '.html').replace('/fluidTranscripts/', '/fluidHTML/')
+      },
+      get ftHtmlDate () {
+        return gitFileDate(this.ftHtmlPath)
+      },
+      source: sourceFile,
+      get sourceDate () {
+        return gitFileDate(path.join(inputDir, this.source))
+      }
     }
-    return undefined
+  }
+  return undefined
 }
 
-export async function fetchData (triple, verbose=false) {
-    const prefix =  './' //'/usr/src/app/'
-    const sourcePath = prefix + triple.source
-    const dtPath = prefix + triple.dt
-    const atPath = prefix + triple.at
+export async function fetchData (triple, verbose = false, inputDir = './') {
+  const sourcePath = path.join(inputDir, triple.source)
+  const dtPath = path.join(inputDir, triple.dt)
+  const atPath = path.join(inputDir, triple.at)
 
-    const parser = new DOMParser()
+  const parser = new DOMParser()
 
-    if (verbose) {
-        console.log('sourcePath: ' + sourcePath)
+  if (verbose) {
+    console.log('sourcePath: ' + sourcePath)
+  }
+
+  try {
+    const responses = await Promise.all([
+      readFile(sourcePath, { encoding: 'utf8' }),
+      readFile(dtPath, { encoding: 'utf8' }),
+      readFile(atPath, { encoding: 'utf8' })
+    ])
+    const source = responses[0]
+    const dt = responses[1]
+    const at = responses[2]
+
+    return {
+      sourceDom: parser.parseFromString(source, 'text/xml'),
+      dtDom: parser.parseFromString(dt, 'text/xml'),
+      atDom: parser.parseFromString(at, 'text/xml')
     }
-
-    try {
-      const responses = await Promise.all([
-          readFile(sourcePath, { encoding: 'utf8' }),
-          readFile(dtPath, { encoding: 'utf8' }),
-          readFile(atPath, { encoding: 'utf8' })
-      ])
-      const source = responses[0]
-      const dt = responses[1]
-      const at = responses[2]
-      
-      return { 
-        sourceDom: parser.parseFromString(source, 'text/xml'), 
-        dtDom: parser.parseFromString(dt, 'text/xml'), 
-        atDom: parser.parseFromString(at, 'text/xml') }
-    } catch (err) {
-      console.warn('Error in fetchData: ' + err, err)
-    }
+  } catch (err) {
+    console.warn('Error in fetchData: ' + err, err)
+  }
 }
 
 export async function writeData (content, filePath) {
-    fs.promises.mkdir(path.dirname(filePath), {recursive: true})
-        .then(x => fs.promises.writeFile(filePath, content))
+  fs.promises.mkdir(path.dirname(filePath), { recursive: true })
+    .then(x => fs.promises.writeFile(filePath, content))
 }
 
 export function generateHtmlWrapper (svg, meiSourceDom, meiDtDom, meiAtDom, path) {
-    const dom = new JSDOM(`
+  const dom = new JSDOM(`
 <!DOCTYPE html>
 <html>
 <head>
@@ -300,48 +309,59 @@ export function generateHtmlWrapper (svg, meiSourceDom, meiDtDom, meiAtDom, path
 </body>
 </html>
 `)
-    const file = dom.window.document
-    // svg.querySelector('foreignObject').remove()
-    file.querySelector('#transcription').append(svg.querySelector('svg'))
-    const label =  path.replace('_ft.html' , '').split('_').join(' ').replace(/ p(\d+)/g, ', page $1').replace(/ wz(\d+)/g, ', writing zone $1')
-    file.querySelector('title').textContent = 'Liquified Transcription: ' + label
-    file.querySelector('.label').textContent = label
-    
-    const surfaceId = meiDtDom.querySelector('pb').getAttribute('target').split('#')[1]
-    const surface = meiSourceDom.querySelector('surface[xml\\:id="' + surfaceId + '"')
-    const graphic = surface.querySelector('graphic[type="facsimile"]')
-    const basePath = graphic.getAttribute('target').split('#')[0]
-    const params = graphic.getAttribute('target').split('#xywh=')[1]
-    const xywh = params.split('&rotate=')[0]
-    const pageRotation = params.split('&rotate=')[1] ? params.split('&rotate=')[1] : 0
-    const imgPath = basePath + '/' + xywh + '/full/0/default.jpg'
-    
-    file.querySelector('img').remove()
-    /*
-    file.querySelector('img').setAttribute('src', imgPath)
-    const foliumLike = [...meiSourceDom.querySelectorAll('foliaDesc > *')].find(f => {
-        const ref = '#' + surfaceId
-        return f.getAttribute('recto') === ref || f.getAttribute('verso') === ref || f.getAttribute('outer.recto') === ref || f.getAttribute('inner.verso') === ref || f.getAttribute('inner.recto') === ref || f.getAttribute('outer.verso') === ref
-    })
+  const file = dom.window.document
+  // svg.querySelector('foreignObject').remove()
+  file.querySelector('#transcription').append(svg.querySelector('svg'))
+  const label = path.replace('_ft.html', '').split('_').join(' ').replace(/ p(\d+)/g, ', page $1').replace(/ wz(\d+)/g, ', writing zone $1')
+  file.querySelector('title').textContent = 'Liquified Transcription: ' + label
+  file.querySelector('.label').textContent = label
 
-    const foliumWidth = parseFloat(foliumLike.getAttribute('width'))
-    const foliumHeight = parseFloat(foliumLike.getAttribute('height'))
+  const surfaceId = meiDtDom.querySelector('pb').getAttribute('target').split('#')[1]
+  const surface = meiSourceDom.querySelector('surface[xml\\:id="' + surfaceId + '"')
+  const graphic = surface.querySelector('graphic[type="facsimile"]')
+  const basePath = graphic.getAttribute('target').split('#')[0]
+  const params = graphic.getAttribute('target').split('#xywh=')[1]
+  const xywh = params.split('&rotate=')[0]
+  const pageRotation = params.split('&rotate=')[1] ? params.split('&rotate=')[1] : 0
+  const imgPath = basePath + '/' + xywh + '/full/0/default.jpg'
 
-    const mediaFragMM = getOuterBoundingRect(0, 0, foliumWidth, foliumHeight, pageRotation)
-    const scaleFactor = parseFloat(xywh.split(',')[2]) / mediaFragMM.w
-    
-    const imageX = parseFloat(xywh.split(',')[0]) / scaleFactor * verovioPixelDensity * 10
+  // file.querySelector('img').remove()
 
-    console.log('left coordinate of image should be ' + imageX)
-
-    const renderedStaffLines = [...file.querySelector('svg g.staff:not(.bounding-box)').childNodes].filter(node => node.nodeName === 'path')
-    const renderedStaffLineHeight = parseFloat(renderedStaffLines[0].getAttribute('d').split(' ')[1]) - parseFloat(renderedStaffLines[4].getAttribute('d').split(' ')[1])
-
-    const layout = meiSourceDom.querySelector('layout[xml\\:id="' + surface.getAttribute('decls').substr(1) + '"]')
+  /*
+        Algorithm for getting the x coordinates:
+        * one vu is verovioPixelDensity pixels high
+        * a staff is 8 vu high
+        * take the mm height of the staff, divide it by (8 * verovioPixelDensity) to get the pixel height
+        * calculate the y coordinate of the first staff
     */
-    // 524 system height
 
-    /*
+  file.querySelector('img').setAttribute('src', imgPath)
+  const foliumLike = [...meiSourceDom.querySelectorAll('foliaDesc > *')].find(f => {
+    const ref = '#' + surfaceId
+    return f.getAttribute('recto') === ref || f.getAttribute('verso') === ref || f.getAttribute('outer.recto') === ref || f.getAttribute('inner.verso') === ref || f.getAttribute('inner.recto') === ref || f.getAttribute('outer.verso') === ref
+  })
+
+  const foliumWidth = parseFloat(foliumLike.getAttribute('width'))
+  const foliumHeight = parseFloat(foliumLike.getAttribute('height'))
+
+  const mediaFragMM = getOuterBoundingRect(0, 0, foliumWidth, foliumHeight, pageRotation)
+  const scaleFactor = parseFloat(xywh.split(',')[2]) / mediaFragMM.w
+
+  const imageX = parseFloat(xywh.split(',')[0]) / scaleFactor * verovioPixelDensity * 10
+
+  console.log('left coordinate of image should be ' + imageX)
+
+  const renderedStaffLines = [...file.querySelector('svg g.staff:not(.bounding-box)').childNodes].filter(node => node.nodeName === 'path')
+  const renderedStaffLineHeight = parseFloat(renderedStaffLines[0].getAttribute('d').split(' ')[1]) - parseFloat(renderedStaffLines[4].getAttribute('d').split(' ')[1])
+
+  console.log('imgPath: ' + imgPath)
+  console.log('renderedStaffLineHeight: ' + renderedStaffLineHeight)
+
+  // const layout = meiSourceDom.querySelector('layout[xml\\:id="' + surface.getAttribute('decls').substr(1) + '"]')
+
+  // 524 system height
+
+  /*
     const firstNote = meiDtDom.querySelector('note')
     if (firstNote) {
         try {
@@ -361,7 +381,7 @@ export function generateHtmlWrapper (svg, meiSourceDom, meiDtDom, meiAtDom, path
                 })
             }
             // console.log('firstNoteDtAnimation: ', firstNoteDtAnimation)
-            
+
             const xOff = parseFloat(firstNoteDtAnimation.getAttribute('values').split(';')[0].split(' ')[0])
             const fullRenderedX = renderedX + xOff
             // console.log('firstNote X: ', firstNoteX, ' fullX: ', fullRenderedX)
@@ -382,7 +402,6 @@ export function generateHtmlWrapper (svg, meiSourceDom, meiDtDom, meiAtDom, path
         console.warn('Unable to find a note in transcription, removing facsimile')
     }
     */
-    
-    
-    return file
+
+  return file
 }

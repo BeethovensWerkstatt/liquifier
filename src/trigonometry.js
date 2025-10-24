@@ -20,12 +20,12 @@ export function getRectFromFragment (fragment) {
 
   // the outer rectangle
   const outer = {
-    ul: { x: x, y: y },
-    ur: { x: x + w, y: y },
+    ul: { x, y },
+    ur: { x: x + w, y },
     lr: { x: x + w, y: y + h },
-    ll: { x: x, y: y + h },
-    w: w,
-    h: h
+    ll: { x, y: y + h },
+    w,
+    h
   }
 
   const center = {

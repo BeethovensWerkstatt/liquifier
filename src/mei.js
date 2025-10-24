@@ -1,6 +1,9 @@
 import { boundingboxDefaultControlpoints } from './index.js'
 import { uuid } from './uuid.js'
 import { getOsdRects } from './facsimileHelpers.js'
+import { JSDOM } from 'jsdom'
+
+const { DOMParser, Node } = (new JSDOM()).window
 // import store from '@/store'
 const parser = new DOMParser()
 
@@ -268,6 +271,8 @@ function getDiplomaticRest (annotElem, rest) {
  * @param {*} beam the diplomatic beam to be translated
  */
 function getDiplomaticBeam (annotElem, beam) {
+  // This function requires store which is not available in standalone mode
+  /*
   const dtdoc = store.getters.diplomaticTranscriptForCurrentWz
   const targets = []
   annotElem.querySelectorAll('[corresp]').forEach(elem => {
@@ -291,6 +296,7 @@ function getDiplomaticBeam (annotElem, beam) {
   beam.setAttribute('endid', targets.splice(-1)[0])
   beam.setAttribute('staff', annotElem.closest('staff').getAttribute('n'))
   console.log(718, '\n', beam, '\n', annotElem, '\n', targets)
+  */
 }
 
 /**

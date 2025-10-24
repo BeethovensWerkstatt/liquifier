@@ -332,7 +332,8 @@ export const improveAtSvg = (svgDom, atDom, dtDom) => {
   // because the corresp attribute in the staff element doesn't contain the type, but only the ID of the corresponding elements
   const staffCorresp = svgDom.querySelectorAll('g.staff:not(.bounding-box)[data-corresp]')
   // const dtPath = store.getters.currentWzDtPath
-  // const dtDom = dtPath ? store.getters.documentByPath(dtPath) : null
+  // dtDom would be: store.getters.documentByPath(dtPath)
+  const dtPath = null
   console.log(279, 'improveAtSvg', 'staffCorresp', staffCorresp, dtPath, dtDom)
   staffCorresp.forEach((staff) => {
     const corresps = staff.getAttribute('data-corresp').split(' ')

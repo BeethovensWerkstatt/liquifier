@@ -22,7 +22,7 @@ To run and test the liquifier locally, follow these steps:
      *(This might be* `cd ../data` *if the `liquifier` repo is cloned next to `data`.)*
   4. Run the docker image:  
      ```bash
-     docker run --rm -ti -v $(pwd)/data:/usr/src/app/data -v $(pwd)/cache:/usr/src/app/cache -v $(pwd)/.git:/usr/src/app/.git:ro -w /usr/src/app liquifier node index.js
+     docker run --rm -ti -v $(pwd)/data:/usr/src/app/data -v $(pwd)/cache:/usr/src/app/cache -v $(pwd)/.git:/usr/src/app/.git:ro -w /usr/src/app liquifier node index.js --input-dir=/usr/src/app/data/sources --output-dir=/usr/src/app/cache
      ```
 
 The `-v` flags mount the `data` and `cache` directories from the host machine into the
@@ -94,7 +94,7 @@ The liquifier node application will not make any commits itself!
 ## Command line arguments
 
 ```bash
-node index.js [-q] [--recreate] [fileNames*]
+node index.js [-q] [--recreate] [--input-dir <path>] [--output-dir <path>] [fileNames*]
 ```
 
 The liquifier script can be run with the following command line arguments:
@@ -106,7 +106,28 @@ The liquifier script can be run with the following command line arguments:
 - `--full`: generates full fluid transcriptions instead of only the changes (supersedes `--hours` and `--since`)
 - `--types`: comma separated list of transcription types (`at`,`dt`,`ft`  | *default all*)
 - `--media`: comma separated list of files to create (`svg`,`midi`,`html` | *default all*)
+- `--input-dir` (or `-i`): specifies the base directory for input files (default `./`)
+- `--output-dir` (or `-o`): specifies the base directory for output files (default `./cache`)
 - `fileNames`: any number of file names to process, separated by spaces. If not provided, the files are selected by the most recently modified ones *(work in progress)*.
+
+### Directory Configuration
+
+The `--input-dir` and `--output-dir` parameters allow you to configure where the liquifier reads input files from and writes output files to. This is particularly useful for different deployment scenarios:
+
+**Local development example:**
+```bash
+# Read from data repository, write to data repository's cache
+node index.js --input-dir=../data/data/sources --output-dir=../data/cache diplomaticTranscripts/filename.xml
+```
+
+**Docker container example:**
+```bash
+# When running in Docker with mounted volumes
+docker run --rm -v $(pwd)/data:/usr/src/app/data -v $(pwd)/cache:/usr/src/app/cache liquifier \
+  node index.js --input-dir=/usr/src/app/data/sources --output-dir=/usr/src/app/cache
+```
+
+When using these parameters, file paths in the `fileNames` argument should be relative to the `--input-dir`. Output files will maintain the same directory structure within the `--output-dir`.
 
 Any filter options are ignored, when a list of files is given.
 
