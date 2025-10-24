@@ -8,21 +8,38 @@ import { JSDOM } from 'jsdom'
 
 /**
  * Render a diplomatic transcript using Thulemeier
- * @param {Document} meiDoc - The MEI document to render
+ * This function renders a single draft (writing zone) from a prepared MEI document
+ * that has been merged with source information using prepareDtForRendering.
+ *
+ * @param {Document} meiDoc - The prepared MEI document to render (output of prepareDtForRendering)
  * @param {Object} options - Rendering options
+ * @param {string} options.draftId - Optional draft ID to render (if not provided, will use first draft found)
  * @returns {Promise<string>} The rendered SVG as a string
  */
 export async function renderDiplomaticTranscript (meiDoc, options = {}) {
   try {
-    // Default options for diplomatic transcript rendering
-    const defaultOptions = {
-      mode: 'full-page',
-      baseScaling: 90,
+    // Find the draft ID if not provided
+    let draftId = options.draftId
+    if (!draftId) {
+      const draft = meiDoc.querySelector('draft')
+      if (!draft) {
+        throw new Error('No draft element found in MEI document')
+      }
+      draftId = draft.getAttribute('xml:id')
+      if (!draftId) {
+        throw new Error('Draft element has no xml:id attribute')
+      }
+    }
+
+    // Use 'singleDraft' mode as in Facsimile Explorer
+    const renderOptions = {
+      mode: 'singleDraft',
+      id: draftId,
       ...options
     }
 
     // Use Thulemeier to render the MEI document
-    const svg = await render(meiDoc, defaultOptions)
+    const svg = await render(meiDoc, renderOptions)
 
     // Convert to string if needed
     if (typeof svg === 'string') {

@@ -81,7 +81,7 @@ async function processData ({ data, triple, config, verovio, logger }) {
     // Diplomatic Transcript rendering
     if (config.types.indexOf('dt') >= 0) {
       if (config.media.indexOf('svg') >= 0) {
-        renderDiplomaticTranscriptSvg(renderParams)
+        await renderDiplomaticTranscriptSvg(renderParams)
       }
     }
 

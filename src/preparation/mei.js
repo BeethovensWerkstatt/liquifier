@@ -1157,773 +1157,16 @@ export function sortRastrumsByVerticalPosition (rastrumDesc) {
   reordered.forEach(rastrum => rastrumDesc.append(rastrum))
 }
 
-/**
- * Translates draft elements to regular score elements.
- * Generates an array of MEI DOMs, each starting with <music>
- * @param  {[type]} meiDom               [description]
- * @return {[type]}        [description]
- */
-export function draft2score (meiDom) {
-  const arr = []
-  meiDom.querySelectorAll('draft').forEach(draft => {
-    console.warn('draft:', draft)
-    const music = document.createElementNS('http://www.music-encoding.org/ns/mei', 'music')
-    music.setAttribute('meiversion', MEIversion)
-    const body = document.createElementNS('http://www.music-encoding.org/ns/mei', 'body')
-    const mdiv = document.createElementNS('http://www.music-encoding.org/ns/mei', 'mdiv')
-    const score = document.createElementNS('http://www.music-encoding.org/ns/mei', 'score')
-
-    music.append(body)
-    body.append(mdiv)
-    mdiv.append(score)
-
-    const childArr = [...draft.children]
-    childArr.forEach(child => {
-      score.append(child)
-    })
-    arr.push(music)
-  })
-  // console.log(arr)
-  if (arr.length === 0) {
-    console.warn('draft2score: try to add score elements ...')
-    meiDom.querySelectorAll('score').forEach(score => {
-      const music = document.createElementNS('http://www.music-encoding.org/ns/mei', 'music')
-      music.setAttribute('meiversion', MEIversion)
-      const body = document.createElementNS('http://www.music-encoding.org/ns/mei', 'body')
-      const mdiv = document.createElementNS('http://www.music-encoding.org/ns/mei', 'mdiv')
-
-      music.append(body)
-      body.append(mdiv)
-      mdiv.append(score.cloneNode(true))
-
-      arr.push(music)
-    })
-  }
-  if (arr.length === 0) {
-    console.error('draft2score: no scores!')
-  }
-  return arr
-}
-
-/**
- * Translates diplomatic transcripts (draft elements) to page-based MEI.
- * @param {[type]} meiDom the MEI DOM of a diplomatic transcript to be converted to page-based MEI
- */
-export function draft2page (meiDom) {
-  return meiDom
-}
-
-/**
- * ATTENTION: This is superseded by prepareDtForRendering, as taken from Liquifier
- * @param {*} param0
- * @param {*} emptyPage
- * @param {*} osdRects
- * @param {*} currentPageInfo
- * @returns
- */
-export async function getRenderableDiplomaticTranscript ({ wzDetails, dtDoc }, emptyPage, osdRects, currentPageInfo) {
-  const requiredStaves = []
-
-  if (!dtDoc) {
-    console.log('no dtDoc')
-    return null
-  }
-
-  /* console.warn('\n\n\n515----HELLO POLLY----')
-  console.log(515, wzDetails)
-  console.log(515, dtDoc)
-  console.log(515, emptyPage)
-  console.log(515, osdRects)
-  console.log(515, currentPageInfo)
-  console.warn('515-----done-----') */
-
-  dtDoc.querySelectorAll('staffDef').forEach(staffDef => {
-    requiredStaves.push(staffDef.getAttribute('label'))
-  })
-
-  const clonedPage = emptyPage.cloneNode(true)
-  clonedPage.querySelectorAll('section > *').forEach(node => node.remove())
-  clonedPage.querySelectorAll('surface > *').forEach(node => node.remove())
-  // const clonedDt = dtDoc.cloneNode(true)
-
-  const bbox = {}
-  bbox.x = parseFloat(wzDetails.xywh.split(',')[0])
-  bbox.y = parseFloat(wzDetails.xywh.split(',')[1])
-  bbox.w = parseFloat(wzDetails.xywh.split(',')[2])
-  bbox.h = parseFloat(wzDetails.xywh.split(',')[3])
-
-  // const pagePixWidth = parseInt(currentPageInfo.width)
-  // const pagePixHeight = parseInt(currentPageInfo.height)
-  // const pageHeight = parseFloat(currentPageInfo.mmHeight)
-
-  const margin = 10
-  const pixMargin = osdRects.ratio * margin // 10mm margin
-
-  const pixBox = {}
-  pixBox.x = bbox.x - pixMargin
-  pixBox.y = bbox.y - pixMargin
-  pixBox.w = bbox.w + pixMargin * 3
-  pixBox.h = bbox.h + pixMargin * 3
-
-  const mmBox = {}
-  mmBox.x = parseFloat((pixBox.x / osdRects.ratio + osdRects.image.x).toFixed(8))
-  mmBox.y = parseFloat((pixBox.y / osdRects.ratio + osdRects.image.y).toFixed(8))
-  mmBox.w = parseFloat((pixBox.w / osdRects.ratio + osdRects.image.x).toFixed(8))
-  mmBox.h = parseFloat((pixBox.h / osdRects.ratio + osdRects.image.y).toFixed(8))
-
-  // const factor = 9
-
-  // const pageElem = clonedPage.querySelector('page')
-  // pageElem.setAttribute('viewBox', pos1 + ' ' + pos2 + ' ' + pos3 + ' ' + pos4)
-
-  const outSurface = clonedPage.querySelector('surface')
-  const outStaffGrp = clonedPage.querySelector('staffGrp')
-  const outSection = clonedPage.querySelector('section')
-
-  // const defaultRastrumHeight = factor * 8 // 8vu = 72px
-
-  // console.log('appendNewElement: ' + typeof appendNewElement)
-  dtDoc.querySelectorAll('scoreDef staffDef').forEach(dtStaffDef => {
-    /* const staffDef = */ outStaffGrp.appendChild(dtStaffDef.cloneNode(true))
-
-    // TODO: add scaling
-    /* const rastrumIDs = staffDef.getAttribute('decls').split(' ').map(ref => ref.split('#')[1])
-    const rastrums = [...layout.querySelectorAll('rastrum')].filter(r => {
-      return rastrumIDs.indexOf(r.getAttribute('xml:id')) !== -1
-    })
-    staffDef.setAttribute('scale', (100 / defaultRastrumHeight * parseFloat(rastrums[0].getAttribute('system.height')) * factor).toFixed(1) + '%')
-    */
-  })
-
-  dtDoc.querySelectorAll('section > *').forEach(dtNode => {
-    const node = outSection.appendChild(dtNode.cloneNode(true))
-    const name = node.localName
-
-    if (name === 'pb') {
-      /* const pageZone = appendNewElement(outSurface, 'zone')
-      pageZone.setAttribute('type', 'pb')
-      pageZone.setAttribute('lrx', pos3)
-      pageZone.setAttribute('lry', pos4)
-      pageZone.setAttribute('ulx', 0)
-      pageZone.setAttribute('uly', 0)
-      node.setAttribute('facs', '#' + pageZone.getAttribute('xml:id')) */
-      console.log('there should already be a pb in here: ', outSurface)
-    } else if (name === 'sb') {
-      // console.log('812', dtNode)
-      /* const systemZone = appendNewElement(outSurface, 'zone')
-      const rastrumIDs = node.getAttribute('corresp').split(' ').map(ref => ref.split('#')[1])
-      const rastrums = [...layout.querySelectorAll('rastrum')].filter(r => {
-        return rastrumIDs.indexOf(r.getAttribute('xml:id')) !== -1
-      })
-      let x = mmBox.w
-      let y = mmBox.h
-      let x2 = 0
-      rastrums.forEach(rastrum => {
-        const rx = parseFloat(rastrum.getAttribute('system.leftmar'))
-        const ry = parseFloat(rastrum.getAttribute('system.topmar'))
-        const rw = parseFloat(rastrum.getAttribute('width')) + rx
-        x = Math.min(rx, x)
-        y = Math.min(ry, y)
-        x2 = Math.max(rw, x2)
-      })
-
-      systemZone.setAttribute('type', 'sb')
-      systemZone.setAttribute('ulx', (x * factor).toFixed(1))
-      systemZone.setAttribute('bw.lrx', (x2 * factor).toFixed(1))
-      systemZone.setAttribute('bw.rastrumIDs', rastrumIDs.join(' '))
-      systemZone.setAttribute('uly', (y * factor).toFixed(1)) // todo: how to determine sb/@uly properly? This is not the same as staff/@uly!!!!
-      node.setAttribute('facs', '#' + systemZone.getAttribute('xml:id')) */
-    } else if (name === 'measure') {
-      /* const measureZone = appendNewElement(outSurface, 'zone')
-      measureZone.setAttribute('type', 'measure')
-
-      let measureX = mmBox.w * factor
-      let measureX2 = 0
-      node.querySelectorAll('*').forEach(child => {
-        if (child.hasAttribute('x')) {
-          const x = parseFloat(child.getAttribute('x')) * factor
-          measureX = Math.min(measureX, x)
-          measureX2 = Math.max(measureX2, x)
-        }
-        if (child.hasAttribute('x2')) {
-          const x = parseFloat(child.getAttribute('x2')) * factor
-          measureX2 = Math.max(measureX2, x)
-        }
-
-        const childName = child.localName
-        const supportedElements = ['note', 'staff', 'accid']
-        const ignoreElements = ['layer']
-
-        if (supportedElements.indexOf(childName) !== -1) {
-          const childZone = appendNewElement(outSurface, 'zone')
-          childZone.setAttribute('type', childName)
-
-          if (childName === 'note' || childName === 'accid') {
-            childZone.setAttribute('ulx', (parseFloat(child.getAttribute('x')) * factor).toFixed(1))
-          } else if (childName === 'staff') {
-            const staffN = parseInt(child.getAttribute('n'))
-            const getSbZone = (node) => {
-              let sibling = node
-              while (sibling) {
-                if (sibling.hasAttribute('type') && sibling.getAttribute('type') === 'sb') { //sibling.matches('[type="sb"]')) {
-                  return sibling // Found the matching sibling
-                }
-                sibling = sibling.previousElementSibling // Move to the next preceding sibling
-              }
-              return null
-            }
-            /* const getSbZone = (node) => {
-                      console.log('examining sibling: ', node)
-                      // Base case: if the node is null, return null
-                      if (!node) {
-                          console.warn('no more preceding siblings')
-                          return null
-                      }
-                      const serializer = new dom.window.XMLSerializer()
-                      const serializedString = serializer.serializeToString(node)
-                      console.log(serializedString.substring(0, 130))
-                      // Check if the current node matches the condition
-                      try {
-                          if (node.hasAttribute('type') && node.getAttribute('type') === 'sb') {
-                              console.warn('found sb')
-                              return node // Found the matching sibling
-                          } else {
-                              console.warn('no sb')
-                          }
-                      } catch(err) {
-                          console.trace('error in getSbZone: ', err)
-                          return false
-                      }
-
-                      // Recursive step: move to the previous sibling
-                      return getSbZone(node.previousElementSibling)
-                  } * /
-            const sbZone = getSbZone(childZone)
-            const rastrumID = sbZone.getAttribute('bw.rastrumIDs').split(' ')[staffN - 1]
-            const rastrum = layout.querySelector('rastrum[xml\\:id="' + rastrumID + '"]')
-            const staffY = parseFloat(rastrum.getAttribute('system.topmar')) * factor
-            childZone.setAttribute('uly', staffY.toFixed(1))
-            * /
-          }
-
-          child.setAttribute('facs', '#' + childZone.getAttribute('xml:id'))
-        } else if (ignoreElements.indexOf(childName) === -1) {
-          console.warn('Unsupported element in diplomatic transcription: ' + childName)
-          // todo: autogenerate an issue for unsupported elements?! If so, leave a stack trace of the file in which they occur?
-        }
-      })
-
-      /* TODO: make this work again
-      const sbZone = measureZone.previousElementSibling
-      const sbX = parseFloat(sbZone.getAttribute('ulx'))
-      const sbX2 = parseFloat(sbZone.getAttribute('bw.lrx'))
-
-      measureX = Math.max(measureX - 10 * factor, sbX) // give 1cm margin, if possible
-      measureX2 = Math.min(measureX2 + 10 * factor, sbX2) // give 1cm margin, if possible
-
-      measureZone.setAttribute('ulx', measureX.toFixed(1))
-      measureZone.setAttribute('lrx', measureX2.toFixed(1))
-      * /
-      node.setAttribute('facs', '#' + measureZone.getAttribute('xml:id')) */
-    }
-    // outDom.querySelector('section').appendChild(node)
-  })
-
-  // console.log('846: diplomatic transcript for fragment', clonedPage)
-
-  // temporaryVerovio3to4(clonedPage)
-
-  return clonedPage
-}
-
 export const appendNewElement = (parent, name, ns = 'http://www.music-encoding.org/ns/mei') => {
-  const elem = parent.appendChild(document.createElementNS(ns, name))
+  // Get the document from the parent element's ownerDocument
+  const doc = parent.ownerDocument || parent
+  const elem = parent.appendChild(doc.createElementNS(ns, name))
   if (ns === 'http://www.w3.org/2000/svg') {
     elem.setAttribute('id', 's' + uuid())
   } else {
     elem.setAttribute('xml:id', 'x' + uuid())
   }
   return elem
-}
-
-/* function temporaryVerovio3to4 (dom) {
-  const appendNewElement = (parent, name, ns = 'http://www.music-encoding.org/ns/mei') => {
-    const elem = parent.appendChild(document.createElementNS(ns, name))
-    if (ns === 'http://www.w3.org/2000/svg') {
-      elem.setAttribute('id', 's' + uuid())
-    } else {
-      elem.setAttribute('xml:id', 'x' + uuid())
-    }
-    return elem
-  }
-
-  const factor = 9
-  const pageWidth = parseFloat(dom.querySelector('page').getAttribute('page.width'))
-  const pageHeight = parseFloat(dom.querySelector('page').getAttribute('page.height'))
-
-  const music = dom.querySelector('music')
-  const facsimile = appendNewElement(music, 'facsimile')
-  facsimile.setAttribute('type', 'transcription')
-  music.prepend(facsimile)
-  const surface = appendNewElement(facsimile, 'surface')
-  surface.setAttribute('lrx', pageWidth * factor)
-  surface.setAttribute('lry', pageHeight * factor)
-
-  music.querySelectorAll('section > *').forEach(node => {
-    const name = node.localName
-
-    if (name === 'pb') {
-      const pageZone = appendNewElement(outSurface, 'zone')
-      pageZone.setAttribute('type', 'pb')
-      pageZone.setAttribute('lrx', (pageMM.w * factor).toFixed(1))
-      pageZone.setAttribute('lry', (pageMM.h * factor).toFixed(1))
-      pageZone.setAttribute('ulx', 0)
-      pageZone.setAttribute('uly', 0)
-      node.setAttribute('facs', '#' + pageZone.getAttribute('xml:id'))
-    } else if (name === 'sb') {
-      const systemZone = appendNewElement(outSurface, 'zone')
-      const rastrumIDs = node.getAttribute('corresp').split(' ').map(ref => ref.split('#')[1])
-      const rastrums = [...layout.querySelectorAll('rastrum')].filter(r => {
-        return rastrumIDs.indexOf(r.getAttribute('xml:id')) !== -1
-      })
-      let x = pageMM.w
-      let y = pageMM.h
-      let x2 = 0
-      rastrums.forEach(rastrum => {
-        const rx = parseFloat(rastrum.getAttribute('system.leftmar'))
-        const ry = parseFloat(rastrum.getAttribute('system.topmar'))
-        const rw = parseFloat(rastrum.getAttribute('width')) + rx
-        x = Math.min(rx, x)
-        y = Math.min(ry, y)
-        x2 = Math.max(rw, x2)
-      })
-
-      systemZone.setAttribute('type', 'sb')
-      systemZone.setAttribute('ulx', (x * factor).toFixed(1))
-      systemZone.setAttribute('bw.lrx', (x2 * factor).toFixed(1))
-      systemZone.setAttribute('bw.rastrumIDs', rastrumIDs.join(' '))
-      systemZone.setAttribute('uly', (y * factor).toFixed(1)) // todo: how to determine sb/@uly properly? This is not the same as staff/@uly!!!!
-      node.setAttribute('facs', '#' + systemZone.getAttribute('xml:id'))
-    } else if (name === 'measure') {
-      const measureZone = appendNewElement(outSurface, 'zone')
-      measureZone.setAttribute('type', 'measure')
-
-      let measureX = pageMM.w * factor
-      let measureX2 = 0
-      const content = node.querySelectorAll('*').forEach(child => {
-        if (child.hasAttribute('x')) {
-          const x = parseFloat(child.getAttribute('x')) * factor
-          measureX = Math.min(measureX, x)
-          measureX2 = Math.max(measureX2, x)
-        }
-        if (child.hasAttribute('x2')) {
-          const x = parseFloat(child.getAttribute('x2')) * factor
-          measureX2 = Math.max(measureX2, x)
-        }
-
-        const childName = child.localName
-        const supportedElements = ['note', 'staff', 'accid']
-        const ignoreElements = ['layer']
-
-        if (supportedElements.indexOf(childName) !== -1) {
-          const childZone = appendNewElement(outSurface, 'zone')
-          childZone.setAttribute('type', childName)
-
-          if (childName === 'note' || childName === 'accid') {
-            childZone.setAttribute('ulx', (parseFloat(child.getAttribute('x')) * factor).toFixed(1))
-          } else if (childName === 'staff') {
-            const staffN = parseInt(child.getAttribute('n'))
-            const getSbZone = (node) => {
-              let sibling = node
-              while (sibling) {
-                if (sibling.hasAttribute('type') && sibling.getAttribute('type') === 'sb') { //sibling.matches('[type="sb"]')) {
-                  return sibling // Found the matching sibling
-                }
-                sibling = sibling.previousElementSibling // Move to the next preceding sibling
-              }
-              return null
-            }
-            / * const getSbZone = (node) => {
-                      console.log('examining sibling: ', node)
-                      // Base case: if the node is null, return null
-                      if (!node) {
-                          console.warn('no more preceding siblings')
-                          return null
-                      }
-                      const serializer = new dom.window.XMLSerializer()
-                      const serializedString = serializer.serializeToString(node)
-                      console.log(serializedString.substring(0, 130))
-                      // Check if the current node matches the condition
-                      try {
-                          if (node.hasAttribute('type') && node.getAttribute('type') === 'sb') {
-                              console.warn('found sb')
-                              return node // Found the matching sibling
-                          } else {
-                              console.warn('no sb')
-                          }
-                      } catch(err) {
-                          console.trace('error in getSbZone: ', err)
-                          return false
-                      }
-
-                      // Recursive step: move to the previous sibling
-                      return getSbZone(node.previousElementSibling)
-                  } * /
-            const sbZone = getSbZone(childZone)
-            const rastrumID = sbZone.getAttribute('bw.rastrumIDs').split(' ')[staffN - 1]
-            const rastrum = layout.querySelector('rastrum[xml\\:id="' + rastrumID + '"]')
-            const staffY = parseFloat(rastrum.getAttribute('system.topmar')) * factor
-            childZone.setAttribute('uly', staffY.toFixed(1))
-          }
-
-          child.setAttribute('facs', '#' + childZone.getAttribute('xml:id'))
-        } else if (ignoreElements.indexOf(childName) === -1) {
-          console.warn('Unsupported element in diplomatic transcription: ' + childName)
-          // todo: autogenerate an issue for unsupported elements?! If so, leave a stack trace of the file in which they occur?
-        }
-      })
-      node.setAttribute('facs', '#' + measureZone.getAttribute('xml:id'))
-    }
-  })
-} */
-
-/**
- * Converts a diplomatic transcription into a renderable MEI, using Verovio v4's facsimile-based approach
- * @param {*} node
- * @returns
- */
-export const prepareDtForRendering = ({ dtDom, sourceDom }) => {
-  if (!dtDom || !sourceDom) {
-    console.warn('714: prepareDtForRendering: missing input')
-    return null
-  }
-
-  // TODO: verify the inputs are proper XML documents
-  const outDom = new DOMParser().parseFromString('<music xmlns="http://www.music-encoding.org/ns/mei"><facsimile type="transcription"><surface/></facsimile><body><mdiv><score><scoreDef><staffGrp/></scoreDef><section></section></score></mdiv></body></music>', 'text/xml')
-
-  try {
-    const writingZoneGenDescId = dtDom.querySelector('source').getAttribute('target').split('#')[1]
-    const writingZoneGenDesc = sourceDom.querySelector('genDesc[*|id="' + writingZoneGenDescId + '"]')
-    const surfaceGenDesc = writingZoneGenDesc.parentNode
-    const surface = sourceDom.querySelector('surface[*|id="' + surfaceGenDesc.getAttribute('corresp').substring(1) + '"]')
-    // const writingZoneZone = surface.querySelectorAll('zone').values().find(z => writingZoneGenDesc.getAttribute('xml:id') === z.getAttribute('data').substring(1))
-
-    const layout = sourceDom.querySelector('layout[*|id="' + surface.getAttribute('decls').substring(1) + '"]')
-    const foliumLike = sourceDom.querySelectorAll('foliaDesc *').values().find(f => {
-      const ref = '#' + surface.getAttribute('xml:id')
-      return f.getAttribute('recto') === ref || f.getAttribute('verso') === ref || f.getAttribute('outer.recto') === ref || f.getAttribute('inner.verso') === ref || f.getAttribute('inner.recto') === ref || f.getAttribute('outer.verso') === ref
-    })
-    if (!foliumLike) {
-      console.error(`969: no folium found for surface ${surface.getAttribute('xml:id')}`)
-      return null
-    }
-
-    const pageMM = {
-      x: 0,
-      y: 0,
-      w: parseFloat(foliumLike.getAttribute('width')),
-      h: parseFloat(foliumLike.getAttribute('height'))
-    }
-
-    // Verovio uses a default of 9px per vu. This is used as factor for Verovio coordinate space
-    const factor = 9
-
-    const outSurface = outDom.querySelector('surface')
-    outSurface.setAttribute('lrx', pageMM.w * factor)
-    outSurface.setAttribute('lry', pageMM.h * factor)
-
-    const outStaffGrp = outDom.querySelector('staffGrp')
-    const outSection = outDom.querySelector('section')
-
-    const defaultRastrumHeight = factor * 8 // 8vu = 72px
-
-    dtDom.querySelectorAll('scoreDef staffDef').forEach((dtStaffDef, i) => {
-      const staffDef = outStaffGrp.appendChild(dtStaffDef.cloneNode(true))
-
-      const rastrumIDs = staffDef.getAttribute('decls').split(' ').map(ref => ref.split('#')[1])
-      const rastrums = [...layout.querySelectorAll('rastrum')].filter(r => {
-        return rastrumIDs.indexOf(r.getAttribute('xml:id')) !== -1
-      })
-      staffDef.setAttribute('scale', (100 / defaultRastrumHeight * parseFloat(rastrums[0].getAttribute('system.height')) * factor).toFixed(1) + '%')
-      const staff = dtDom.querySelectorAll('staff')[i]
-      staff.setAttribute('rotate', rastrums[0].getAttribute('rotate'))
-      staff.setAttribute('decls', staffDef.getAttribute('decls'))
-    })
-
-    dtDom.querySelectorAll('draft > *').forEach(dtNode => {
-      const node = dtNode.cloneNode(true)
-      const name = node.localName
-
-      if (name === 'pb') {
-        outSection.appendChild(node)
-        const pageZone = appendNewElement(outSurface, 'zone')
-        pageZone.setAttribute('type', 'pb')
-        pageZone.setAttribute('lrx', (pageMM.w * factor).toFixed(1))
-        pageZone.setAttribute('lry', (pageMM.h * factor).toFixed(1))
-        pageZone.setAttribute('ulx', 0)
-        pageZone.setAttribute('uly', 0)
-        node.setAttribute('facs', '#' + pageZone.getAttribute('xml:id'))
-      } else if (name === 'system') {
-        const sb = appendNewElement(outSection, 'sb')
-
-        const systemZone = appendNewElement(outSurface, 'zone')
-        const rastrumIDs = [...node.querySelectorAll('staffDef')].map(staffDef => staffDef.getAttribute('decls').split('#')[1])
-        // console.log(714, 'rastrumIDs:', rastrumIDs)
-        const rastrums = [...layout.querySelectorAll('rastrum')].filter(r => {
-          return rastrumIDs.indexOf(r.getAttribute('xml:id')) !== -1
-        })
-        // console.log(714, 'passed rastrums', rastrums)
-        let x1 = pageMM.w
-        let y = pageMM.h
-        let x2 = 0
-        rastrums.forEach(rastrum => {
-          const rx = parseFloat(rastrum.getAttribute('system.leftmar'))
-          const ry = parseFloat(rastrum.getAttribute('system.topmar'))
-          const rw = parseFloat(rastrum.getAttribute('width')) + rx
-          x1 = Math.min(rx, x1)
-          y = Math.min(ry, y)
-          x2 = Math.max(rw, x2)
-        })
-
-        systemZone.setAttribute('type', 'sb')
-        systemZone.setAttribute('ulx', (x1 * factor).toFixed(1))
-        systemZone.setAttribute('bw.lrx', (x2 * factor).toFixed(1))
-        systemZone.setAttribute('bw.rastrumIDs', rastrumIDs.join(' '))
-        systemZone.setAttribute('uly', (y * factor).toFixed(1)) // todo: how to determine sb/@uly properly? This is not the same as staff/@uly!!!!
-        sb.setAttribute('facs', '#' + systemZone.getAttribute('xml:id'))
-
-        const measure = appendNewElement(outSection, 'measure')
-
-        const measureZone = appendNewElement(outSurface, 'zone')
-        measureZone.setAttribute('type', 'measure')
-        measure.setAttribute('facs', '#' + measureZone.getAttribute('xml:id'))
-
-        let measureX = pageMM.w * factor
-        let measureX2 = 0
-        // console.log(714, 'getting in')
-        node.querySelectorAll('staff').forEach(staff => {
-          // console.log(714, 'staff:', staff)
-          const outStaff = measure.appendChild(staff.cloneNode(true))
-
-          const staffN = parseInt(staff.getAttribute('n'))
-          const scoreDef = staff.closest('system').querySelector('scoreDef')
-          // console.log(714, 'scoreDef:', scoreDef)
-          const rastrumID = scoreDef.querySelector('staffDef[n="' + staffN + '"]').getAttribute('decls').split('#')[1]
-          const rastrum = layout.querySelector('rastrum[*|id="' + rastrumID + '"]')
-          // TODO: if rastrum is null/undefined set to 0 ???
-          const staffY = rastrum ? parseFloat(rastrum.getAttribute('system.topmar')) * factor : 0
-
-          const staffZone = appendNewElement(outSurface, 'zone')
-          staffZone.setAttribute('type', 'staff')
-          staffZone.setAttribute('uly', staffY.toFixed(1))
-
-          outStaff.setAttribute('facs', '#' + staffZone.getAttribute('xml:id'))
-
-          // enter data that will allow rotation around the correct pivot in SVG
-          const pivot = (measureX - parseFloat(rastrum.getAttribute('system.leftmar'))) * factor * 10
-          staff.setAttribute('pivot', pivot)
-        })
-
-        // handle events
-        // TODO: fix multiple sections (=accolades)
-        measure.querySelectorAll('staff *').forEach(child => {
-          if (child.hasAttribute('x')) {
-            const testX = parseFloat(child.getAttribute('x')) * factor
-            measureX = Math.min(measureX, testX)
-            measureX2 = Math.max(measureX2, testX)
-          }
-          if (child.hasAttribute('x2')) {
-            const testX = parseFloat(child.getAttribute('x2')) * factor
-            measureX2 = Math.max(measureX2, testX)
-          }
-
-          const childName = child.localName
-          const supportedElements = ['note', 'staff', 'accid', 'barLine', 'chord', 'rest', 'dot', 'dynam']
-          const ignoreElements = ['layer']
-
-          if (supportedElements.indexOf(childName) !== -1) {
-            const childZone = appendNewElement(outSurface, 'zone')
-            childZone.setAttribute('type', childName)
-
-            const getSbZone = (node) => {
-              let sibling = node
-              while (sibling) {
-                if (sibling.hasAttribute('type') && sibling.getAttribute('type') === 'sb') {
-                  return sibling // Found the matching sibling
-                }
-                sibling = sibling.previousElementSibling // Move to the next preceding sibling
-              }
-              return null
-            }
-            const sbZone = getSbZone(childZone)
-
-            if (childName === 'note' || childName === 'accid' || childName === 'barLineX' || childName === 'chord' || childName === 'rest' || childName === 'dot') {
-              const ownX = child.hasAttribute('x') ? parseFloat(child.getAttribute('x')) * factor : parseFloat(child.parentNode.getAttribute('x')) * factor
-              const fixOwnX = childName === 'barLine' ? ownX * 2 : ownX
-              const systemX = parseFloat(sbZone.getAttribute('ulx'))
-              childZone.setAttribute('ulx', (fixOwnX + systemX).toFixed(1))
-
-              // TODO accids should use @loc
-              if (childName === 'accid') {
-                childZone.setAttribute('uly', 1415)
-              }
-            }
-
-            if (childName === 'rest') {
-              const glyphName = child.getAttribute('glyph.name')
-              let dur = null
-              if (glyphName === 'restWhole') {
-                dur = '1'
-              } else if (glyphName === 'restHalf') {
-                dur = '2'
-              } else if (glyphName === 'restQuarter') {
-                dur = '4'
-              } else if (glyphName === 'rest8th') {
-                dur = '8'
-              } else if (glyphName === 'rest16th') {
-                dur = '16'
-              } else if (glyphName === 'rest32nd') {
-                dur = '32'
-              } else if (glyphName === 'rest64th') {
-                dur = '64'
-              }
-              child.setAttribute('dur', dur)
-            }
-
-            if (childName === 'chord') {
-              if (!child.hasAttribute('dur')) {
-                // TODO takes first duration it finds!
-                const dur = child.querySelector('[dur]')?.getAttribute('dur')
-                if (dur) {
-                  child.setAttribute('dur', dur)
-                }
-              }
-            }
-
-            // console.log(714, ' setting facs of ' + childName + '#' + child.getAttribute('xml:id') + ' to #' + childZone.getAttribute('xml:id'))
-            child.setAttribute('facs', '#' + childZone.getAttribute('xml:id'))
-          } else if (ignoreElements.indexOf(childName) === -1) {
-            console.warn('Unsupported element in diplomatic transcription: ' + childName)
-            // todo: autogenerate an issue for unsupported elements?! If so, leave a stack trace of the file in which they occur?
-          }
-        })
-
-        // handle controlevents
-        const controlEvents = node.querySelectorAll('section > *:not(staff)')
-        controlEvents.forEach(controlEvent => {
-          const ctrlevt = controlEvent.cloneNode(true)
-          // console.log('Control Event', ctrlevt.localName)
-          if (ctrlevt.localName === 'beamSpan') {
-            const facs = ctrlevt.getAttribute('facs').split([' '])
-            let bbox = null
-            const setBBox = (_bbox) => {
-              if (bbox) {
-                bbox.x = Math.min(bbox.x, _bbox.x)
-                bbox.y = Math.min(bbox.y, _bbox.y)
-                bbox.width = Math.max(bbox.width, _bbox.width)
-                bbox.height = Math.max(bbox.height, _bbox.height)
-              } else {
-                bbox = _bbox
-              }
-            }
-            facs.forEach(f => {
-              const shapeid = f.split('#')[1]
-              // console.log(shapeid)
-              const shape = document.querySelector(`[*|id="${shapeid}"]`)
-              // console.log(shape)
-              if (shape) {
-                setBBox(shape.getBBox())
-              }
-            })
-            // console.log(bbox)
-            if (bbox) {
-              const ctrlZone = appendNewElement(outSurface, 'zone')
-              ctrlZone.setAttribute('type', 'beamSpan')
-              ctrlZone.setAttribute('ulx', (bbox.x / factor).toFixed(1))
-              ctrlZone.setAttribute('uly', (bbox.y / factor).toFixed(1))
-              ctrlZone.setAttribute('lrx', ((bbox.x + bbox.width) / factor).toFixed(1))
-              ctrlZone.setAttribute('lry', ((bbox.y + bbox.height) / factor).toFixed(1))
-              ctrlevt.setAttribute('facs', '#' + ctrlZone.getAttribute('xml:id'))
-            } else {
-              ctrlevt.removeAttribute('facs')
-              // console.warn('element has no bbox ...')
-            }
-            // console.log(ctrlevt)
-          }
-          if (ctrlevt.localName === 'curve') {
-            // console.log(668, 'curve control event', ctrlevt)
-            /* const facs = ctrlevt.getAttribute('facs').split([' '])
-            let bbox = null
-            const setBBox = (_bbox) => {
-              if (bbox) {
-                bbox.x = Math.min(bbox.x, _bbox.x)
-                bbox.y = Math.min(bbox.y, _bbox.y)
-                bbox.width = Math.max(bbox.width, _bbox.width)
-                bbox.height = Math.max(bbox.height, _bbox.height)
-              } else {
-                bbox = _bbox
-              }
-            }
-            facs.forEach(f => {
-              const shapeid = f.split('#')[1]
-              // console.log(shapeid)
-              const shape = document.querySelector(`[*|id="${shapeid}"]`)
-              // console.log(shape)
-              if (shape) {
-                setBBox(shape.getBBox())
-              }
-            })
-            // console.log(bbox)
-            if (bbox) {
-              const ctrlZone = appendNewElement(outSurface, 'zone')
-              ctrlZone.setAttribute('type', 'curve')
-              ctrlZone.setAttribute('ulx', (bbox.x / factor).toFixed(1))
-              ctrlZone.setAttribute('uly', (bbox.y / factor).toFixed(1))
-              ctrlZone.setAttribute('lrx', ((bbox.x + bbox.width) / factor).toFixed(1))
-              ctrlZone.setAttribute('lry', ((bbox.y + bbox.height) / factor).toFixed(1))
-              ctrlevt.setAttribute('facs', '#' + ctrlZone.getAttribute('xml:id'))
-            } else {
-              ctrlevt.removeAttribute('facs')
-              // console.warn('element has no bbox ...')
-            }
-            // console.log(ctrlevt)
-            */
-          }
-          measure.appendChild(ctrlevt)
-        })
-
-        // TODO: this is not correct, as it takes the leftmost rastrum, not the current one
-        let x = pageMM.w * factor
-        layout.querySelectorAll('rastrum').forEach(rastrum => {
-          const rx = parseFloat(rastrum.getAttribute('system.leftmar')) * factor
-          x = Math.min(rx, x)
-        })
-        const ulx = measureX + x
-        const lrx = measureX2 + x
-        measureZone.setAttribute('ulx', ulx.toFixed(1))
-        measureZone.setAttribute('lrx', lrx.toFixed(1))
-        /* TODO: make this work again
-        const sbZone = measureZone.previousElementSibling
-        const sbX = parseFloat(sbZone.getAttribute('ulx'))
-        const sbX2 = parseFloat(sbZone.getAttribute('bw.lrx'))
-
-        measureX = Math.max(measureX - 10 * factor, sbX) // give 1cm margin, if possible
-        measureX2 = Math.min(measureX2 + 10 * factor, sbX2) // give 1cm margin, if possible
-
-        */
-        node.setAttribute('facs', '#' + measureZone.getAttribute('xml:id'))
-      } else if (name === 'del') {
-        console.log(573, 'del node', node)
-        outSection.appendChild(node)
-      }
-
-      // outDom.querySelector('section').appendChild(node)
-    })
-  } catch (err) {
-    // console.error('714: Error in prepareDtForRendering: ' + err, err)
-  }
-  // console.log('714 outDom: ', outDom)
-  return outDom
 }
 
 /**
@@ -2004,3 +1247,116 @@ function getRenderableDiplomaticNote (note) {
   note.setAttribute('dur', dur)
 }
 */
+
+/**
+ * Converts a diplomatic transcription into a renderable MEI, tailored towards the Thulemeier library
+ * This function merges information from the source MEI file into the diplomatic transcript to create
+ * a complete document that includes facsimile data, physical description, and genetic order hierarchy.
+ *
+ * @param {Object} params - Parameters object
+ * @param {Document} params.dtDom - The diplomatic transcript MEI document
+ * @param {Document} params.sourceDom - The source MEI document (parent manuscript file)
+ * @returns {Document|null} The prepared MEI document ready for Thulemeier rendering, or null if inputs are missing
+ */
+export function prepareDtForThulemeier ({ dtDom, sourceDom }) {
+  if (!dtDom || !sourceDom) {
+    console.warn('prepareDtForThulemeier: missing input - dtDom or sourceDom is null')
+    return null
+  }
+
+  // Clone the diplomatic transcript to avoid modifying the original
+  const outDom = dtDom.cloneNode(true)
+
+  try {
+    // Extract the writing zone reference from the DT's source element
+    const sourceElem = dtDom.querySelector('source')
+    if (!sourceElem) {
+      console.error('prepareDtForThulemeier: No source element found in dtDom')
+      return null
+    }
+    const targetAttr = sourceElem.getAttribute('target')
+    if (!targetAttr) {
+      console.error('prepareDtForThulemeier: source element has no target attribute')
+      return null
+    }
+    const writingZoneGenDescId = targetAttr.split('#')[1]
+
+    // Use getElementByIdNS or querySelector with proper namespace handling
+    const writingZoneGenDesc = sourceDom.getElementById(writingZoneGenDescId) ||
+      sourceDom.querySelector(`genDesc[xml\\:id="${writingZoneGenDescId}"]`) ||
+      sourceDom.querySelector(`[*|id="${writingZoneGenDescId}"]`)
+
+    if (!writingZoneGenDesc) {
+      console.error(`prepareDtForThulemeier: No genDesc found with id="${writingZoneGenDescId}" in sourceDom`)
+      return null
+    }
+
+    const surfaceGenDesc = writingZoneGenDesc.parentNode
+    const surfaceId = surfaceGenDesc.getAttribute('corresp').substring(1)
+    const surface = sourceDom.getElementById(surfaceId) ||
+      sourceDom.querySelector(`surface[xml\\:id="${surfaceId}"]`) ||
+      sourceDom.querySelector(`[*|id="${surfaceId}"]`)
+
+    if (!surface) {
+      console.error(`prepareDtForThulemeier: No surface found with id="${surfaceId}"`)
+      return null
+    }
+
+    // Find the layout information for this surface
+    const layoutId = surface.getAttribute('decls').substring(1)
+    const layout = sourceDom.getElementById(layoutId) ||
+      sourceDom.querySelector(`layout[xml\\:id="${layoutId}"]`) ||
+      sourceDom.querySelector(`[*|id="${layoutId}"]`)
+
+    if (!layout) {
+      console.error(`prepareDtForThulemeier: No layout found with id="${layoutId}"`)
+      return null
+    }
+
+    // Find the folium (page) information that references this surface
+    const foliumLike = sourceDom.querySelectorAll('foliaDesc *').values().find(f => {
+      const ref = '#' + surface.getAttribute('xml:id')
+      return f.getAttribute('recto') === ref || f.getAttribute('verso') === ref || f.getAttribute('outer.recto') === ref || f.getAttribute('inner.verso') === ref || f.getAttribute('inner.recto') === ref || f.getAttribute('outer.verso') === ref
+    })
+    if (!foliumLike) {
+      console.error(`prepareDtForThulemeier: no folium found for surface ${surface.getAttribute('xml:id')}`)
+      return null
+    }
+
+    // Add facsimile element with surface data
+    const facsimile = appendNewElement(outDom.querySelector('music'), 'facsimile', 'http://www.music-encoding.org/ns/mei')
+    facsimile.appendChild(surface.cloneNode(true))
+
+    // Add manifestationList with physical description
+    const manifestationList = appendNewElement(outDom.querySelector('meiHead'), 'manifestationList', 'http://www.music-encoding.org/ns/mei')
+    const manifestation = appendNewElement(manifestationList, 'manifestation', 'http://www.music-encoding.org/ns/mei')
+    const physDesc = appendNewElement(manifestation, 'physDesc', 'http://www.music-encoding.org/ns/mei')
+    const foliaDesc = appendNewElement(physDesc, 'foliaDesc', 'http://www.music-encoding.org/ns/mei')
+    foliaDesc.appendChild(foliumLike.cloneNode(true))
+
+    const layoutDesc = appendNewElement(physDesc, 'layoutDesc', 'http://www.music-encoding.org/ns/mei')
+    layoutDesc.appendChild(layout.cloneNode(true))
+
+    // Reconstruct genetic order hierarchy
+    const docGenDesc = appendNewElement(outDom.querySelector('music'), 'genDesc', 'http://www.music-encoding.org/ns/mei')
+    docGenDesc.setAttribute('class', '#geneticOrder_documentLevel')
+    docGenDesc.setAttribute('ordered', 'false')
+
+    const emptySurfaceGenDesc = appendNewElement(docGenDesc, 'genDesc', 'http://www.music-encoding.org/ns/mei')
+    emptySurfaceGenDesc.setAttribute('class', '#geneticOrder_pageLevel')
+    emptySurfaceGenDesc.setAttribute('ordered', 'false')
+    emptySurfaceGenDesc.setAttribute('corresp', '#' + surface.getAttribute('xml:id'))
+    docGenDesc.appendChild(emptySurfaceGenDesc)
+    emptySurfaceGenDesc.appendChild(writingZoneGenDesc.cloneNode(true))
+
+    // Link the draft element to the source
+    const sourceId = outDom.querySelector('source').getAttribute('xml:id')
+    const draft = outDom.querySelector('draft')
+    draft.setAttribute('decls', '#' + sourceId)
+  } catch (err) {
+    console.error('Error in prepareDtForThulemeier:', err)
+    return null
+  }
+
+  return outDom
+}

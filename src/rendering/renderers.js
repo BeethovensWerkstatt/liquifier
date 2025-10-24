@@ -1,5 +1,7 @@
 import { prepareAtDomForRendering } from '../preparation/annotatedTranscripts.js'
+import { prepareDtForThulemeier } from '../preparation/mei.js'
 import { renderContinuousAt, renderMidi } from './verovioHandler.js'
+import { renderDiplomaticTranscript } from './thulemeierHandler.js'
 import { writeData } from '../filehandlers/filehandler.js'
 
 /**
@@ -62,24 +64,42 @@ export function renderAnnotatedTranscriptMidi ({ data, triple, verovio, pageDime
 
 /**
  * Render Diplomatic Transcript SVG
+ * Uses Thulemeier library to render diplomatic transcripts with merged source information
+ *
  * @param {Object} params - Rendering parameters
  * @param {Object} params.data - Source data (atDom, dtDom, sourceDom)
  * @param {Object} params.triple - File paths and dates
- * @param {Object} params.verovio - Verovio toolkit instance
+ * @param {Object} params.verovio - Verovio toolkit instance (not used for DT rendering)
  * @param {Object} params.pageDimensions - Page dimensions for rendering
  * @param {boolean} params.recreate - Force recreation flag
  * @param {Object} params.logger - Logger instance
  */
-export function renderDiplomaticTranscriptSvg ({ data, triple, verovio, pageDimensions, recreate, logger }) {
-  const { dtDate, dtSvgPath, dtSvgDate } = triple
+export async function renderDiplomaticTranscriptSvg ({ data, triple, verovio, pageDimensions, recreate, logger }) {
+  const { dtDate, dtSvgPath, dtSvgDate, sourceFullPath } = triple
 
   if (shouldRender(recreate, [dtDate], dtSvgDate)) {
     logger.info('Rendering Diplomatic Transcript for ' + dtSvgPath + ' ...')
-    logger.info('TODO create diplomatic SVG ' + dtSvgPath)
-    // TODO: Implement diplomatic rendering
-    // const dtOutDom = prepareDtForRendering(data, pageDimensions)
-    // const dtSvgString = renderData(dtOutDom, verovio, 'diplomatic', pageDimensions)
-    // writeData(dtSvgString, dtSvgPath)
+
+    try {
+      // Prepare the DT by merging with source information
+      const preparedDt = prepareDtForThulemeier({
+        dtDom: data.dtDom,
+        sourceDom: data.sourceDom
+      })
+
+      if (!preparedDt) {
+        logger.warn('Could not prepare diplomatic transcript - skipping ' + dtSvgPath)
+        return
+      }
+
+      // Render using Thulemeier
+      const dtSvgString = await renderDiplomaticTranscript(preparedDt)
+      writeData(dtSvgString, dtSvgPath)
+      logger.info('Successfully rendered ' + dtSvgPath)
+    } catch (error) {
+      logger.error('Error rendering diplomatic transcript: ' + error.message)
+      logger.debug('Source file: ' + sourceFullPath)
+    }
   } else {
     logger.info('Skipping Diplomatic Transcript for ' + dtSvgPath)
   }
