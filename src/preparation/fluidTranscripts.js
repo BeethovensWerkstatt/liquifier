@@ -1,457 +1,280 @@
-import { appendNewElement, getSystemCenter } from '../utils/utils.js'
-
-const duration = '10s'
-const repeatCount = 'indefinite'
-const reverseAnimations = true
-
-/*
-ANIMATION PHASES:
-0: start with diplomatic positions
-1: animated to normalized positions within measures
-2: showing supplied objects
-3: animated to continuous system
-*/
-
-export const generateFluidTranscription = ({ atSvgDom, dtSvgDom, atOutDom, dtOutDom, sourceDom }) => {
-  const supportedElements = ['note', 'accid', 'clef', 'keySig', 'meterSig', 'chord', 'barLine', 'beam', 'beamSpan']
-
-  const ftSvgDom = atSvgDom.cloneNode(true)
-
-  const dtSystemCenters = []
-  dtSvgDom.querySelectorAll('.system:not(.bounding-box)').forEach(system => {
-    const measures = system.querySelectorAll('.measure:not(.bounding-box)')
-    dtSystemCenters.push(getSystemCenter(measures))
-  })
-
-  const dtBBox = { x: 10000000, y: 10000000, width: 0, height: 0 }
-  dtSystemCenters.forEach(center => {
-    if (center.left < dtBBox.x) dtBBox.x = center.left
-    if (center.right > dtBBox.width) dtBBox.width = center.right
-    if (center.top < dtBBox.y) dtBBox.y = center.top
-    if (center.bottom > dtBBox.height) dtBBox.height = center.bottom
-  })
-  // console.log('\ndtBBox (' + dtSystemCenters.length + '): ', dtBBox)
-  // console.log('dtSvgDom w:' + dtSvgDom.querySelector('svg').getAttribute('width') + ' h:' + dtSvgDom.querySelector('svg').getAttribute('height'))
-  // console.log('dtSvgDom viewBox: ' + dtSvgDom.querySelector('svg svg').getAttribute('viewBox') + '\n\n')
-
-  const atSystemCenters = []
-  atSvgDom.querySelectorAll('.system:not(.bounding-box) > .sb').forEach((elem, i) => {
-    const measures = []
-    const ids = []
-    let sibling = elem.nextElementSibling
-    while (sibling && sibling.getAttribute('class') === 'measure') {
-      measures.push(sibling)
-      ids.push(sibling.getAttribute('data-id'))
-      sibling = sibling.nextElementSibling
+/**
+ * Calculate the center point of a system based on its bounding box
+ * @param {Object} svg - SVG DOM of the system
+ * @returns {Object} {x, y} coordinates of the center
+ */
+const calculateSystemCenter = (svg) => {
+  const viewBox = svg.getAttribute('viewBox')
+  if (viewBox) {
+    // Use viewBox if available (DT systems)
+    const [x, y, width, height] = viewBox.split(' ').map(parseFloat)
+    return {
+      x: x + (width / 2),
+      y: y + (height / 2)
     }
-    const atCenter = getSystemCenter(measures)
-    atSystemCenters.push({ atCenter, dtCenter: dtSystemCenters[i], measures: ids })
-  })
-  const atBBox = { x: 10000000, y: 10000000, width: 0, height: 0 }
-  atSystemCenters.forEach(center => {
-    if (center.atCenter.left < atBBox.x) atBBox.x = center.atCenter.left
-    if (center.atCenter.right > atBBox.width) atBBox.width = center.atCenter.right
-    if (center.atCenter.top < atBBox.y) atBBox.y = center.atCenter.top
-    if (center.atCenter.bottom > atBBox.height) atBBox.height = center.atCenter.bottom
-  })
-  // console.log('\natBBox (' + atSystemCenters.length + '): ', atBBox)
-  // console.log('atSvgDom w:' + atSvgDom.querySelector('svg').getAttribute('width') + ' h:' + atSvgDom.querySelector('svg').getAttribute('height'))
-  // console.log('atSvgDom viewBox: ' + atSvgDom.querySelector('svg svg').getAttribute('viewBox') + '\n\n')
-
-  ftSvgDom.querySelector('svg').setAttribute('width', dtSvgDom.querySelector('svg').getAttribute('width'))
-  const dtViewBox = dtSvgDom.querySelector('svg svg').getAttribute('viewBox').split(' ')
-  const atViewBox = atSvgDom.querySelector('svg svg').getAttribute('viewBox').split(' ')
-  ftSvgDom.querySelector('svg svg').setAttribute('viewBox', atViewBox[0] + ' ' + atViewBox[1] + ' ' + dtViewBox[2] + ' ' + atViewBox[3])
-
-  const dtVerticalCenter = atSystemCenters.reduce((sum, system) => sum + system.dtCenter.y, 0) / atSystemCenters.length
-  atSystemCenters.forEach(system => {
-    system.offset = { x: system.dtCenter.x - system.atCenter.x, y: dtVerticalCenter - system.dtCenter.y }
-  })
-
-  // console.log('atSystemCenters: ', atSystemCenters)
-
-  atSystemCenters.forEach((center, i) => {
-    center.measures.forEach((id, n) => {
-      const measure = ftSvgDom.querySelector('.measure[data-id="' + id + '"]')
-      const diploPos = (center.offset.x) + ' ' + (center.offset.y * -1)
-      const annotPos = '0 0'
-      const positions = [diploPos, diploPos, diploPos, annotPos]
-      addTransformTranslate(measure, positions)
-
-      // adjust staff lines from first measure and generate animation on them
-      if (n === 0) {
-        const staffLines = measure.querySelectorAll('.staff > path')
-        const lastMeasure = ftSvgDom.querySelector('.measure[data-id="' + center.measures[center.measures.length - 1] + '"]')
-        const lastStaffLines = lastMeasure.querySelectorAll('.staff > path')
-        const dtStaffLines = dtSvgDom.querySelectorAll('.system:not(.bounding-box)')[i].querySelectorAll('.staff > path')
-
-        staffLines.forEach((line, k) => {
-          const atStart = line.getAttribute('d').split('L')[0]
-          const atEnd = lastStaffLines[k].getAttribute('d').split('L')[1]
-          const atD = atStart + 'L' + atEnd
-
-          const atWidth = parseFloat(atEnd.split(' ')[0]) - parseFloat(atStart.split(' ')[0].replace('M', ''))
-
-          const dtLine = dtStaffLines[k]
-          const dtStart = dtLine.getAttribute('d').split('L')[0]
-          const dtEnd = dtLine.getAttribute('d').split('L')[1]
-
-          const dtWidth = parseFloat(dtEnd.split(' ')[0]) - parseFloat(dtStart.split(' ')[0].replace('M', ''))
-          const diff = atWidth - dtWidth
-
-          // console.log('diff: ', diff)
-
-          const dtX1 = parseFloat(atStart.split(' ')[0].replace('M', '')) + diff
-          const atY = parseFloat(atStart.split(' ')[1])
-          const dtX2 = parseFloat(atEnd.split(' ')[0]) - diff
-
-          // const dtNewStart = 'M' + parseFloat(atStart.split(' ')[0].replace('M', '')) + diff + ' ' + atStart.split(' ')[1]
-          // const dtNewEnd = parseFloat(atEnd.split(' ')[0]) - diff + ' ' + atEnd.split(' ')[1]
-          const dtD = 'M' + dtX1 + ' ' + atY + ' L' + dtX2 + ' ' + atY // dtNewStart + 'L' + dtNewEnd
-
-          // console.log('dtD: ', dtD, 'atD: ', atD)
-
-          addTransForm(line, 'd', [dtD, atD, atD, atD])
-          line.setAttribute('d', dtD)
-        })
-      } else { // suppress all other measures' staff lines
-        const staffLines = measure.querySelectorAll('.staff > path')
-        staffLines.forEach(line => line.remove())
-      }
-
-      const sb = dtSvgDom.querySelectorAll('.sb')[i]
-      const rotations = sb.getAttribute('data-rotate').split(' ')
-
-      const staves = measure.querySelectorAll('.staff:not(.bounding-box)')
-
-      // console.log('rotations: (' + rotations.length + ')', rotations, 'staves: ', staves.length)
-
-      rotations.forEach((rotate, l) => {
-        const staff = staves[l]
-
-        if (staff) {
-          // TODO: this doesn't resolve all cases, when there are multiple systems with just one staff vs. multiple staves in one system
-          // staff.style.transform = 'rotate(' + rotate + 'deg)'
-          // staff.style.transformOrigin = x + 'px ' + y + 'px'
-        }
-      })
-
-      supportedElements.forEach(name => {
-        const query = '.' + name + ':not(.bounding-box)'
-        const targets = measure.querySelectorAll(query)
-        // console.log('---targets: ', targets.length, new XMLSerializer().serializeToString(targets[0]))
-        targets.forEach(ftSvgNode => {
-          const atNode = atOutDom.querySelector(name + '[xml\\:id="' + ftSvgNode.getAttribute('data-id') + '"]')
-          /* if (name === 'chord') {
-                        console.log('---atNode: ', new XMLSerializer().serializeToString(atNode))
-                    } */
-          if (name === 'barLine') {
-            // barlines need different handling, as seen below
-          } else if (atNode && atNode.hasAttribute('corresp')) {
-            const correspID = atNode.getAttribute('corresp').split('#')[1]
-            const dtSvgNode = dtSvgDom.querySelector('*[data-id="' + correspID + '"]')
-            // const ftSvgNode = ftSvgDom.querySelector('*[data-id="' + atNode.getAttribute('xml:id') + '"]')
-            generateAnimation(name, ftSvgNode, dtSvgNode, center)
-          } else {
-            // const ftSvgNode = ftSvgDom.querySelector('*[data-id="' + atNode.getAttribute('xml:id') + '"]')
-            generateHideAnimation(ftSvgNode)
-          }
-        })
-      })
-
-      // handling of barLines
-      const atMeiMeasure = [...atOutDom.querySelectorAll('measure')].find(measure => measure.getAttribute('xml:id') === id)
-      const barLineIDs = atMeiMeasure.hasAttribute('corresp') ? atMeiMeasure.getAttribute('corresp').split(' ') : []
-
-      const atBarLine = ftSvgDom.querySelector('.measure:not(.bounding-box)[data-id="' + id + '"] .barLine:not(.bounding-box)')
-
-      const dtSvgBarLines = [...dtSvgDom.querySelectorAll('.barLine')].filter(barLine => barLineIDs.some(value => value.endsWith('#' + barLine.getAttribute('data-id'))))
-      dtSvgBarLines.forEach(dtBarLine => {
-        // console.log('found a transcribed barLine in measure ' + id, new XMLSerializer().serializeToString(dtBarLine))
-        generateAnimationBarLine(atBarLine, dtBarLine, center)
-      })
-      if (dtSvgBarLines.length === 0) {
-        generateHideAnimation(atBarLine)
-      }
-    })
-  })
-
-  /* const foreignObject = appendNewElement(ftSvgDom.querySelectorAll('svg')[1], 'foreignObject', 'http://www.w3.org/2000/svg')
-    foreignObject.setAttribute('x', '20%')
-    foreignObject.setAttribute('y', '80%')
-    foreignObject.setAttribute('width', '60%')
-    foreignObject.setAttribute('height', '15%')
-    foreignObject.innerHTML = `<div xmlns="http://www.w3.org/1999/xhtml" style="width: 12000px;padding: 100px;"><input type="range" min="0" max="9.99999" style="width: 15%; height: 100px; scale: 5; margin: 5%; padding: 100px; left: 5230px; position: relative;" step="any" oninput="document.querySelectorAll('svg').forEach(svg => svg.setCurrentTime(value))"/></div>`
-    const script = appendNewElement(ftSvgDom.querySelectorAll('svg')[1], 'script', 'http://www.w3.org/2000/svg')
-    script.setAttribute('type', 'text/ecmascript')
-    script.innerHTML = "const innerSvg = document.querySelectorAll('svg').forEach(svg => {svg.pauseAnimations(); svg.setCurrentTime(0);})" */
-
-  return ftSvgDom
-}
-
-const generateHideAnimation = (node) => {
-  const hideAnim = appendNewElement(node, 'animate', 'http://www.w3.org/2000/svg')
-  hideAnim.setAttribute('attributeName', 'opacity')
-
-  const values = reverseAnimations ? '0;0;1;1;1;0;0' : '0;0;1;1'
-
-  hideAnim.setAttribute('values', values)
-  hideAnim.setAttribute('dur', duration)
-  hideAnim.setAttribute('repeatCount', repeatCount)
-
-  node.setAttribute('fill', '#009900')
-  node.setAttribute('stroke', '#009900')
-  // node.setAttribute.add('data-supplied',1)
-  const existingClasses = node.getAttribute('class') || ''
-  node.setAttribute('class', `${existingClasses} supplied`.trim())
-}
-
-const generateAnimation = (name, ftSvgNode, dtSvgNode, positions) => {
-  // console.log('----positions: ', positions)
-  if (name === 'note' && ftSvgNode.parentNode.matches('.chord')) {
-    // chords are animated separately below, so notes inside chords must not get double animation
-    // console.log('skipping to animate notes in chords')
-  } else if (name === 'note') {
-    generateAnimationNote(ftSvgNode, dtSvgNode, positions)
-  } else if (name === 'chord') {
-    // chords actually can use the same animation as notes
-    generateAnimationNote(ftSvgNode, dtSvgNode, positions)
-  } else if (name === 'beamSpan' || name === 'beam') {
-    // chords actually can use the same animation as notes
-    generateAnimationBeam(ftSvgNode, dtSvgNode, positions)
-  } else if (name === 'accid') {
-    // chords actually can use the same animation as notes
-    generateAnimationAccid(ftSvgNode, dtSvgNode, positions)
-  } else {
-    console.warn('Unable to animate element ' + name)
   }
+
+  // For AT systems without viewBox, calculate bounding box from content
+  const width = parseFloat(svg.getAttribute('width'))
+  const height = parseFloat(svg.getAttribute('height'))
+  
+  if (width && height) {
+    // Use full width/height with center at (width/2, height/2)
+    return {
+      x: width / 2,
+      y: height / 2
+    }
+  }
+
+  throw new Error('SVG must have either a viewBox attribute or width/height attributes')
 }
 
-const generateAnimationNote = (atSvgNode, dtSvgNode, positions) => {
-  try {
-    const noteId = atSvgNode.getAttribute('data-id')
+/**
+ * Calculate scale factor between DT and AT system pairs based on staff height
+ * @param {Object} dtSystemSvg - DT system SVG DOM
+ * @param {Object} atSystemSvg - AT system SVG DOM
+ * @returns {number} Scale factor to apply to DT to match AT
+ */
+export const calculateScaleFactor = (dtSystemSvg, atSystemSvg) => {
+  // Get the first staff's lines from both systems
+  const dtStaffLines = getStaffLines(dtSystemSvg)
+  const atStaffLines = getStaffLines(atSystemSvg)
 
-    // notehead animation
-    const atHead = atSvgNode.querySelector('.notehead use')
-    const atHeadX = parseFloat(atHead.getAttribute('x'))
-    const atHeadY = parseFloat(atHead.getAttribute('y'))
-    const dtHead = dtSvgNode.querySelector('.notehead use')
-    const dtHeadX = parseFloat(dtHead.getAttribute('x'))
-    const dtHeadY = parseFloat(dtHead.getAttribute('y'))
+  if (!dtStaffLines || !atStaffLines) {
+    throw new Error('Could not find staff lines in DT or AT system')
+  }
 
-    const atHeadOffX = positions.atCenter.x - atHeadX
-    const atHeadOffY = positions.atCenter.y - atHeadY
-    const dtHeadOffX = positions.dtCenter.x - dtHeadX
-    const dtHeadOffY = positions.dtCenter.y - dtHeadY
+  // Calculate staff height (distance from first to fifth line)
+  const dtHeight = calculateStaffHeight(dtStaffLines)
+  const atHeight = calculateStaffHeight(atStaffLines)
 
-    const diffX = atHeadOffX - dtHeadOffX
-    const diffY = atHeadOffY - dtHeadOffY
+  // Scale factor to transform DT to match AT
+  return atHeight / dtHeight
+}
 
-    const dtPos = diffX + ' ' + diffY
-    const atPos = '0 0'
+/**
+ * Get position of a symbol (note, chord, clef, etc.) in the SVG
+ * @param {Element} symbolElement - The SVG element
+ * @returns {Object|null} {x, y} coordinates or null if not found
+ */
+const getSymbolPosition = (symbolElement) => {
+  // Try to find a positioned child element (use, path, etc.)
+  const use = symbolElement.querySelector('use')
+  if (use && use.hasAttribute('x') && use.hasAttribute('y')) {
+    return {
+      x: parseFloat(use.getAttribute('x')),
+      y: parseFloat(use.getAttribute('y'))
+    }
+  }
 
-    addTransformTranslate(atSvgNode, [dtPos, atPos, atPos, atPos])
-
-    const ledgers = atSvgNode.closest('.measure:not(.bounding-box)').querySelectorAll('.ledgerLines .lineDash[data-related~="#' + noteId + '"]')
-    ledgers.forEach(ledger => {
-      addTransformTranslate(ledger.querySelector('path'), [dtPos, atPos, atPos, atPos])
-    })
-
-    // const dtPosX = atHeadX + diffX
-
-    // const ftHeadXValues = [dtPosX, atHeadX, atHeadX, atHeadX]
-    // addTransForm(atHead, 'x', ftHeadXValues)
-
-    /*
-        const anim = appendNewElement(atSvgNode, 'animateTransform', 'http://www.w3.org/2000/svg')
-        anim.setAttribute('attributeName', 'transform')
-        anim.setAttribute('attributeType', 'XML')
-        anim.setAttribute('type', 'translate')
-        const newPos = (center.offset.x) + ' ' + (center.offset.y * -1)
-        anim.setAttribute('values', '0 0;0 0;' + newPos + ';0 0;0 0')
-        anim.setAttribute('repeatCount', repeatCount)
-        anim.setAttribute('dur', duration)
-
-        const headAnim = appendNewElement(atHead, 'animate', 'http://www.w3.org/2000/svg')
-        headAnim.setAttribute('attributeName', 'x')
-        headAnim.setAttribute('values', dtHeadX + ';' + atHeadX + ';' + atHeadX + ';' + atHeadX + ';' + dtHeadX)
-        headAnim.setAttribute('dur', duration)
-        headAnim.setAttribute('repeatCount', repeatCount)
-        */
-    // TODO: animate y as well, based on offsets…
-
-    // stem animation
-    const atStemNode = atSvgNode.querySelector('.stem path')
-    if (atStemNode) {
-      const atStem = atSvgNode.querySelector('.stem path')?.getAttribute('d')
-      const dtStem = dtSvgNode.querySelector('.stem path')?.getAttribute('d')
-      const atStemX = atStem.split(' ')[0]
-      const atStemY = atStem.split(' ')[1]
-      // const atStemL = parseFloat(atStem.split(' ')[1]) - parseFloat(atStem.split(' ')[3])
-      const dtStemX = dtStem.split(' ')[0]
-      const dtStemL = parseFloat(dtStem.split(' ')[1]) - parseFloat(dtStem.split(' ')[3])
-
-      const dtStemNew = atStemX + ' ' + atStemY + ' ' + atStem.split(' ')[2] + ' ' + (parseFloat(atStemY) - dtStemL)
-
-      addTransForm(atStemNode, 'd', [dtStemNew, atStem, atStem, atStem])
-      /*
-            const stemAnim = appendNewElement(atStemNode, 'animate', 'http://www.w3.org/2000/svg')
-            stemAnim.setAttribute('attributeName', 'd')
-            stemAnim.setAttribute('attributeType', 'XML')
-            stemAnim.setAttribute('values', dtStemNew + '; ' + atStem + '; ' + atStem + '; ' + atStem + '; ' + dtStemNew)
-            stemAnim.setAttribute('dur', duration)
-            stemAnim.setAttribute('repeatCount', repeatCount) */
-
-      const atFlagNode = atSvgNode.querySelector('.flag use')
-      if (atFlagNode) {
-        // const dtFlagNode = dtSvgNode.querySelector('.flag use')
-        // const atX = atFlagNode.getAttribute('x')
-        // const atY = atFlagNode.getAttribute('y')
-        console.log('dtStemX: ', parseInt(dtStemX), parseInt(dtStemX) - 7)
-        // const dtX = parseFloat(dtStemX.substring(1)) - 7
-        // const dtY = parseFloat(atStemY) - dtStemL
-
-        /* const flagAnimX = appendNewElement(atFlagNode, 'animate', 'http://www.w3.org/2000/svg')
-                flagAnimX.setAttribute('attributeName', 'x')
-                flagAnimX.setAttribute('values', dtX + ';' + atX + ';' + atX + ';' + atX + ';' + dtX)
-                flagAnimX.setAttribute('dur', duration)
-                flagAnimX.setAttribute('repeatCount', repeatCount)
-
-                const flagAnimY = appendNewElement(atFlagNode, 'animate', 'http://www.w3.org/2000/svg')
-                flagAnimY.setAttribute('attributeName', 'y')
-                flagAnimY.setAttribute('values', dtY + ';' + atY + ';' + atY + ';' + atY + ';' + dtY)
-                flagAnimY.setAttribute('dur', duration)
-                flagAnimY.setAttribute('repeatCount', repeatCount) */
-        // const dtY =
+  const path = symbolElement.querySelector('path')
+  if (path && path.hasAttribute('d')) {
+    const d = path.getAttribute('d')
+    // Extract first coordinate from path (M x y ...)
+    const match = d.match(/M\s*([\d.-]+)\s+([\d.-]+)/)
+    if (match) {
+      return {
+        x: parseFloat(match[1]),
+        y: parseFloat(match[2])
       }
     }
-
-    // flag animation
-    /*
-            x="3382"
-            y="1440" => equals atStem.split(' ')[3]
-        */
-
-    /*
-        <animate
-            attributeName="rx"
-            values="0;5;0"
-            dur="10s"
-            repeatCount="indefinite" />
-        */
-  } catch (err) {
-    console.warn('Error in generateAnimationNote: ' + err, err)
   }
+
+  // For chords, get the first note's position
+  const noteUse = symbolElement.querySelector('.note .notehead use')
+  if (noteUse && noteUse.hasAttribute('x') && noteUse.hasAttribute('y')) {
+    return {
+      x: parseFloat(noteUse.getAttribute('x')),
+      y: parseFloat(noteUse.getAttribute('y'))
+    }
+  }
+
+  return null
 }
 
-const generateAnimationBarLine = (atSvgNode, dtSvgNode, positions) => {
-  try {
-    const atX = atSvgNode.querySelector('path').getAttribute('d').split(' ')[0].substring(1)
-    const dtX = dtSvgNode.querySelector('path').getAttribute('d').split(' ')[0].substring(1)
-
-    const atOffX = positions.atCenter.x - atX
-    const dtOffX = positions.dtCenter.x - dtX
-
-    const diffX = atOffX - dtOffX
-
-    const dtPos = diffX + ' 0'
-    const atPos = '0 0'
-    addTransformTranslate(atSvgNode, [dtPos, atPos, atPos, atPos])
-  } catch (err) {
-    console.warn('Error in generateAnimationBarLine: ' + err, err)
-  }
-}
-
-const generateAnimationBeam = (atSvgNode, dtSvgNode, positions) => {
-  const atPolygons = atSvgNode.querySelectorAll('polygon')
-  const dtPolygons = dtSvgNode.querySelectorAll('polygon')
-
-  atPolygons.forEach((atPolygon, i) => {
-    const dtPolygon = dtPolygons[i]
-    if (dtPolygon) {
-      const atPoints = atPolygon.getAttribute('points').split(' ')
-      const dtPoints = dtPolygon.getAttribute('points').split(' ')
-
-      const ftPoints = []
-      atPoints.forEach((point, j) => {
-        const atX = parseFloat(point.split(',')[0])
-        const atY = parseFloat(point.split(',')[1])
-        const dtX = parseFloat(dtPoints[j].split(',')[0])
-        const dtY = parseFloat(dtPoints[j].split(',')[1])
-
-        const atOffX = positions.atCenter.x - atX
-        const atOffY = positions.atCenter.y - atY
-        const dtOffX = positions.dtCenter.x - dtX
-        const dtOffY = positions.dtCenter.y - dtY
-
-        const diffX = atOffX - dtOffX
-        const diffY = atOffY - dtOffY
-
-        const dtPos = (atX + diffX) + ',' + (atY + diffY)
-        ftPoints.push(dtPos)
-      })
-      const ftPointsValues = ftPoints.join(' ')
-      addTransForm(atPolygon, 'points', [ftPointsValues, atPoints, atPoints, atPoints])
-    } else {
-      generateHideAnimation(atPolygon)
+/**
+ * Extract corresp mappings from AT MEI document
+ * @param {Document} atMeiDom - AT MEI DOM
+ * @returns {Map} Map of atElementId -> dtElementId
+ */
+const extractCorrespMappings = (atMeiDom) => {
+  const mappings = new Map()
+  
+  // Find all elements with @corresp attribute
+  const correspElements = atMeiDom.querySelectorAll('[corresp]')
+  
+  correspElements.forEach(element => {
+    const atId = element.getAttribute('xml:id')
+    const corresp = element.getAttribute('corresp')
+    
+    // Extract DT ID after the # (format: ../path/file.xml#dtId)
+    if (atId && corresp && corresp.includes('#')) {
+      const dtId = corresp.split('#')[1]
+      mappings.set(atId, dtId)
     }
   })
+  
+  return mappings
 }
 
-const generateAnimationAccid = (atSvgNode, dtSvgNode, positions) => {
-  try {
-    const atUse = atSvgNode.querySelector('use')
-    const atX = parseFloat(atUse.getAttribute('x'))
-    const atY = parseFloat(atUse.getAttribute('y'))
-    const dtUse = dtSvgNode.querySelector('use')
-    const dtX = parseFloat(dtUse.getAttribute('x'))
-    const dtY = parseFloat(dtUse.getAttribute('y'))
-
-    const atOffX = positions.atCenter.x - atX
-    const atOffY = positions.atCenter.y - atY
-    const dtOffX = positions.dtCenter.x - dtX
-    const dtOffY = positions.dtCenter.y - dtY
-
-    const diffX = atOffX - dtOffX
-    const diffY = atOffY - dtOffY
-
-    const dtPos = diffX + ' ' + diffY
-    const atPos = '0 0'
-
-    addTransformTranslate(atSvgNode, [dtPos, atPos, atPos, atPos])
-  } catch (err) {
-    console.warn('Error in generateAnimationAccid: ' + err, err)
+/**
+ * Extract staff line coordinates from an SVG
+ * @param {Object} svg - SVG DOM
+ * @returns {Array<number>} Y-coordinates of the 5 staff lines
+ */
+const getStaffLines = (svg) => {
+  // For DT: look for rastrum paths (horizontal lines)
+  const rastrumPaths = svg.querySelectorAll('g.rastrum path[d*="L"]')
+  if (rastrumPaths.length >= 5) {
+    const yCoords = []
+    for (let i = 0; i < 5; i++) {
+      const d = rastrumPaths[i].getAttribute('d')
+      // Extract y coordinate from "M x y L x2 y" format
+      const y = parseFloat(d.split(' ')[1])
+      yCoords.push(y)
+    }
+    return yCoords
   }
+
+  // For AT: look for Verovio staff paths
+  const staffPaths = svg.querySelectorAll('.staff > path')
+  if (staffPaths.length >= 5) {
+    const yCoords = []
+    for (let i = 0; i < 5; i++) {
+      const d = staffPaths[i].getAttribute('d')
+      // Extract y coordinate
+      const y = parseFloat(d.split(' ')[1])
+      yCoords.push(y)
+    }
+    return yCoords
+  }
+
+  return null
 }
 
-const addTransformTranslate = (node, values = []) => {
-  const anim = appendNewElement(node, 'animateTransform', 'http://www.w3.org/2000/svg')
+/**
+ * Calculate staff height from staff line y-coordinates
+ * @param {Array<number>} staffLines - Y-coordinates of 5 staff lines
+ * @returns {number} Height from first to fifth line
+ */
+const calculateStaffHeight = (staffLines) => {
+  if (staffLines.length < 5) {
+    throw new Error('Need at least 5 staff lines to calculate height')
+  }
+  // Staff height is the distance from the first line to the fifth line
+  return Math.abs(staffLines[4] - staffLines[0])
+}
+
+/**
+ * Generate fluid transcription by pairing DT and AT system SVGs
+ * @param {Object} dtSystemSvg - DT system SVG DOM (document or svg element)
+ * @param {Object} atSystemSvg - AT system SVG DOM (document or svg element)
+ * @param {Document} atMeiDom - AT MEI DOM (for corresp mappings)
+ * @returns {Object} Fluid transcription SVG DOM
+ */
+export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom) => {
+  // Handle both document and element inputs
+  const dtSvgElement = dtSystemSvg.documentElement || dtSystemSvg
+  const atSvgElement = atSystemSvg.documentElement || atSystemSvg
+  
+  // Calculate scale factor
+  const scaleFactor = calculateScaleFactor(dtSvgElement, atSvgElement)
+  
+  // Calculate system centers
+  const dtCenter = calculateSystemCenter(dtSvgElement)
+  const atCenter = calculateSystemCenter(atSvgElement)
+  
+  // Extract corresp mappings from AT MEI
+  const correspMappings = extractCorrespMappings(atMeiDom)
+  
+  // Clone AT SVG as the base for fluid transcription
+  const ftSvg = atSvgElement.cloneNode(true)
+  
+  // Process each corresp pair
+  correspMappings.forEach((dtId, atId) => {
+    try {
+      // Find elements in SVGs by data-id
+      const atElement = ftSvg.querySelector(`[data-id="${atId}"]`)
+      const dtElement = dtSvgElement.querySelector(`[data-id="${dtId}"]`)
+      
+      if (!atElement || !dtElement) {
+        // One or both elements not found in SVG - skip
+        return
+      }
+      
+      // Get positions
+      const atPos = getSymbolPosition(atElement)
+      const dtPos = getSymbolPosition(dtElement)
+      
+      if (!atPos || !dtPos) {
+        // Could not determine position - skip
+        return
+      }
+      
+      // Calculate relative positions to centers
+      const atRelative = {
+        x: atPos.x - atCenter.x,
+        y: atPos.y - atCenter.y
+      }
+      
+      const dtRelative = {
+        x: dtPos.x - dtCenter.x,
+        y: dtPos.y - dtCenter.y
+      }
+      
+      // Apply scale factor to DT position
+      const dtScaled = {
+        x: dtRelative.x * scaleFactor,
+        y: dtRelative.y * scaleFactor
+      }
+      
+      // Calculate offset needed to move AT symbol to scaled DT position
+      const offset = {
+        x: dtScaled.x - atRelative.x,
+        y: dtScaled.y - atRelative.y
+      }
+      
+      // Add animation to AT element
+      addPositionAnimation(atElement, offset)
+      
+    } catch (err) {
+      console.warn(`Error processing corresp pair ${atId} -> ${dtId}:`, err)
+    }
+  })
+  
+  return ftSvg
+}
+
+/**
+ * Add SVG animation to move element by offset
+ * @param {Element} element - SVG element to animate
+ * @param {Object} offset - {x, y} offset to animate
+ */
+const addPositionAnimation = (element, offset) => {
+  // Create animateTransform element
+  const anim = element.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'animateTransform')
+  
   anim.setAttribute('attributeName', 'transform')
   anim.setAttribute('attributeType', 'XML')
   anim.setAttribute('type', 'translate')
-
-  const reverse = reverseAnimations ? values.slice(0, -1).reverse() : []
-  anim.setAttribute('values', values.concat(reverse).join(';'))
-  anim.setAttribute('repeatCount', repeatCount)
-  anim.setAttribute('dur', duration)
-  // anim.setAttribute('calcMode', 'spline')
+  
+  // Animation values: start at DT position (offset), end at AT position (0,0)
+  // Format: "x1 y1; x2 y2; ..."
+  const dtPosition = `${offset.x} ${offset.y}`
+  const atPosition = '0 0'
+  
+  // Simple 2-phase animation: DT -> AT
+  anim.setAttribute('values', `${dtPosition};${atPosition}`)
+  anim.setAttribute('dur', '2s')
+  anim.setAttribute('fill', 'freeze')
+  anim.setAttribute('repeatCount', 'indefinite')
+  
+  element.appendChild(anim)
 }
 
-const addTransForm = (node, attribute, values = []) => {
-  const anim = appendNewElement(node, 'animate', 'http://www.w3.org/2000/svg')
-  anim.setAttribute('attributeName', attribute)
-
-  const reverse = reverseAnimations ? values.slice(0, -1).reverse() : []
-  anim.setAttribute('values', values.concat(reverse).join(';'))
-  anim.setAttribute('repeatCount', repeatCount)
-  anim.setAttribute('dur', duration)
-  // anim.setAttribute('calcMode', 'spline')
+// Legacy function - kept for compatibility but not used in new system-based approach
+export const generateFluidTranscriptionLegacy = ({ atSvgDom, dtSvgDom, atOutDom, dtOutDom, sourceDom }) => {
+  // TODO: Remove this legacy function once new system-based approach is fully integrated
+  return null
 }
 
-// const generateAnimationSystem = (atSvgNode, dtSvgNode, offset) => {
-//   /* const systemAnim = appendNewElement(atHead, 'animate', 'http://www.w3.org/2000/svg')
-//     systemAnim.setAttribute('attributeName', 'x')
-//     systemAnim.setAttribute('values', dtHeadX + ';' + atHeadX + ';' + dtHeadX)
-//     systemAnim.setAttribute('dur', '3s')
-//     systemAnim.setAttribute('repeatCount', 'indefinite') */
-// }
