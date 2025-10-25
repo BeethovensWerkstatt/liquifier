@@ -1,32 +1,41 @@
 /**
- * Calculate the center point of a system based on its bounding box
+ * Calculate the center point of a system based on staff lines
+ * Horizontal: center of viewBox/width
+ * Vertical: middle between topmost and bottommost staff lines
  * @param {Object} svg - SVG DOM of the system
  * @returns {Object} {x, y} coordinates of the center
  */
 const calculateSystemCenter = (svg) => {
+  // Get horizontal center from viewBox or width
+  let xCenter
   const viewBox = svg.getAttribute('viewBox')
   if (viewBox) {
-    // Use viewBox if available (DT systems)
     const [x, y, width, height] = viewBox.split(' ').map(parseFloat)
-    return {
-      x: x + (width / 2),
-      y: y + (height / 2)
+    xCenter = x + (width / 2)
+  } else {
+    const width = parseFloat(svg.getAttribute('width'))
+    if (width) {
+      xCenter = width / 2
+    } else {
+      throw new Error('SVG must have either a viewBox attribute or width attribute')
     }
   }
 
-  // For AT systems without viewBox, calculate bounding box from content
-  const width = parseFloat(svg.getAttribute('width'))
-  const height = parseFloat(svg.getAttribute('height'))
-  
-  if (width && height) {
-    // Use full width/height with center at (width/2, height/2)
-    return {
-      x: width / 2,
-      y: height / 2
-    }
+  // Get vertical center from staff lines
+  const staffLines = getStaffLines(svg)
+  if (staffLines.length < 5) {
+    throw new Error('Could not find staff lines to calculate vertical center')
   }
 
-  throw new Error('SVG must have either a viewBox attribute or width/height attributes')
+  // Find topmost and bottommost staff lines across all staves
+  const topmost = Math.min(...staffLines)
+  const bottommost = Math.max(...staffLines)
+  const yCenter = topmost + ((bottommost - topmost) / 2)
+
+  return {
+    x: xCenter,
+    y: yCenter
+  }
 }
 
 /**
@@ -120,32 +129,34 @@ const extractCorrespMappings = (atMeiDom) => {
 /**
  * Extract staff line coordinates from an SVG
  * @param {Object} svg - SVG DOM
- * @returns {Array<number>} Y-coordinates of the 5 staff lines
+ * @returns {Array<number>} Y-coordinates of all staff lines (5 per staff)
  */
 const getStaffLines = (svg) => {
+  const yCoords = []
+  
   // For DT: look for rastrum paths (horizontal lines)
   const rastrumPaths = svg.querySelectorAll('g.rastrum path[d*="L"]')
   if (rastrumPaths.length >= 5) {
-    const yCoords = []
-    for (let i = 0; i < 5; i++) {
-      const d = rastrumPaths[i].getAttribute('d')
+    // Collect all rastrum lines (usually 5 per staff)
+    rastrumPaths.forEach(path => {
+      const d = path.getAttribute('d')
       // Extract y coordinate from "M x y L x2 y" format
       const y = parseFloat(d.split(' ')[1])
       yCoords.push(y)
-    }
+    })
     return yCoords
   }
 
   // For AT: look for Verovio staff paths
   const staffPaths = svg.querySelectorAll('.staff > path')
   if (staffPaths.length >= 5) {
-    const yCoords = []
-    for (let i = 0; i < 5; i++) {
-      const d = staffPaths[i].getAttribute('d')
+    // Collect all staff line paths (usually 5 per staff)
+    staffPaths.forEach(path => {
+      const d = path.getAttribute('d')
       // Extract y coordinate
       const y = parseFloat(d.split(' ')[1])
       yCoords.push(y)
-    }
+    })
     return yCoords
   }
 
