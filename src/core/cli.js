@@ -14,7 +14,10 @@ import minimist from 'minimist'
  * @property {string[]} fileNames - List of files to process
  */
 export function parseCliArguments (argv) {
-  const args = minimist(argv)
+  const args = minimist(argv, {
+    boolean: ['q', 'v', 'recreate'],
+    string: ['types', 'media', 'input-dir', 'i', 'output-dir', 'o']
+  })
 
   // Extract flags
   const quiet = args.q || false
