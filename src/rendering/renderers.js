@@ -261,7 +261,7 @@ export function renderFluidTranscriptSvg ({ data, triple, verovio, pageDimension
           const dtSystemSvg = parser.parseFromString(dtSystemSvgString, 'image/svg+xml')
           
           // Generate fluid transcription
-          const ftSvg = generateFluidTranscription(dtSystemSvg, atSystemSvg, data.atDom)
+          const ftSvg = generateFluidTranscription(dtSystemSvg, atSystemSvg, data.atDom) //data.dtDom?
           
           // Serialize and save
           const ftSvgString = serializer.serializeToString(ftSvg)

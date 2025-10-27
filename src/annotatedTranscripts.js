@@ -31,8 +31,6 @@ export function resolveSbIndicators (svgDom, atDom, getters) {
     let next = wzb.nextElementSibling
     while (next && !next.classList.contains('annot')) {
       if (next.classList.contains('sb')) {
-        // console.log(912, 'found sb', next)
-
         const sysBox = document.createElementNS('http://www.w3.org/2000/svg', 'g')
         sysBox.setAttribute('class', 'systemBegin')
         sysBox.setAttribute('data-class', 'systemBegin')
@@ -299,6 +297,7 @@ export function prepareAtDomForRendering (atDom, dtDom, pageDimensions) {
  * @param {*} atDom
  */
 export function improveAtSvg (svgDom, atDom, dtDom) {
+  console.log(279, 'improveAtSvg', svgDom, atDom)
   const dotBearers = svgDom.querySelectorAll('*[data-dot-corresp]')
   dotBearers.forEach((dotBearer) => {
     const corresp = dotBearer.getAttribute('data-dot-corresp')
@@ -316,6 +315,7 @@ export function improveAtSvg (svgDom, atDom, dtDom) {
     const corresps = measure.getAttribute('data-corresp').split(' ')
     for (const corresp of corresps) {
       const shapeId = corresp.split('#')[1]
+      console.log(845, 'improveAtSvg', shapeId, 'measure corresp', measure)
     }
   })
 
@@ -325,16 +325,19 @@ export function improveAtSvg (svgDom, atDom, dtDom) {
   // const dtPath = store.getters.currentWzDtPath
   // dtDom would be: store.getters.documentByPath(dtPath)
   const dtPath = null
+  console.log(279, 'improveAtSvg', 'staffCorresp', staffCorresp, dtPath, dtDom)
   staffCorresp.forEach((staff) => {
     const corresps = staff.getAttribute('data-corresp').split(' ')
     for (const corresp of corresps) {
       const dtElementId = corresp.split('#')[1]
       const dtElement = dtDom.querySelector('*[*|id="' + dtElementId + '"]')
+      console.log(279, 'improveAtSvg', dtElementId, 'staff corresp', dtElement)
       const dtName = (dtElement?.localName || '').replace('accid', 'keyAccid') // keyAccid is a special case, as it is rendered as keyAccid in the SVG, but the DT uses accid
       if (dtName) {
         const elements = staff.querySelectorAll(`*[data-class="${dtName}"]`)
         for (const element of elements) {
           element.setAttribute('data-corresp', corresp)
+          console.log(279, 'improveAtSvg', dtElementId, 'staff corresp', staff, dtName)
         }
       } else {
         console.warn(279, 'improveAtSvg', dtElementId, 'staff corresp', staff, dtName)
