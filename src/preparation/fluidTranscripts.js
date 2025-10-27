@@ -412,6 +412,18 @@ const animateNotes = (ftSvg, dtSvg, atMeiDom, scaleFactor, getNewPos, correspMap
         }
         
         addTransform(atStem, 'd', [atD, newD])
+
+        // Animate the flag if present
+        const flag = note.querySelector('.flag')
+        if (flag) {
+          // Calculate the difference in stem end Y position
+          const originalStemEndY = stemDir === 'up' ? Math.min(atY1, atY2) : Math.max(atY1, atY2)
+          const diff = newStemEndY - originalStemEndY
+          
+          // Add translate animation: from "0 0" to "0 diff"
+          const values = [`0 0`, `0 ${diff}`]
+          addTransformTranslate(flag, values)
+        }
       }
     })
   })
