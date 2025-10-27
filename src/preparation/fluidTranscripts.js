@@ -343,8 +343,10 @@ const animateNotes = (ftSvg, dtSvg, atMeiDom, scaleFactor, getNewPos, correspMap
 
     dtIds.forEach(dtId => {
       const dtNote = dtSvg.querySelector(`g.note[data-id="${dtId}"]`)
-      if (!dtNote) return
-
+      if (!dtNote) {
+        generateHideAnimation(note)
+        return
+      }
       const dtHead = { x: parseFloat(dtNote.querySelector('.notehead > use')?.getAttribute('x')),
           y: parseFloat(dtNote.querySelector('.notehead > use')?.getAttribute('y')) }
 
@@ -451,4 +453,21 @@ const addTransform = (node, attribute, values = []) => {
   anim.setAttribute('repeatCount', repeatCount)
   anim.setAttribute('dur', duration)
   // anim.setAttribute('calcMode', 'spline')
+}
+
+const generateHideAnimation = (node) => {
+    const hideAnim = appendNewElement(node, 'animate')
+    hideAnim.setAttribute('attributeName', 'opacity')
+
+    const values = reverseAnimations ? '1;0;1' : '1;0'
+
+    hideAnim.setAttribute('values', values)
+    hideAnim.setAttribute('dur', duration)
+    hideAnim.setAttribute('repeatCount', repeatCount)
+
+    node.setAttribute('fill', '#009900')
+    node.setAttribute('stroke', '#009900')
+    //node.setAttribute.add('data-supplied',1)
+    const existingClasses = node.getAttribute('class') || ''
+    node.setAttribute('class', `${existingClasses} supplied`.trim())
 }
