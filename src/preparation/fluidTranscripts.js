@@ -279,6 +279,20 @@ const adjustDtStaffLines = (svg) => {
   })
 }
 
+/**
+ * Animate staff lines between AT and DT transcriptions
+ * 
+ * Pairs each staff line from the fluid transcription with its corresponding DT staff line
+ * and creates animations for the `d` attribute (path data) to morph between the two positions.
+ * 
+ * The animation calculates new positions for both endpoints of each staff line using the
+ * provided `getNewPos` function, which takes into account the coordinate system differences
+ * and scale factors between AT and DT.
+ * 
+ * @param {SVGElement} ftSvg - Fluid transcription SVG (cloned from AT)
+ * @param {SVGElement} dtSvg - Diplomatic transcript SVG
+ * @param {Function} getNewPos - Function to calculate new position: (atPos, dtPos) => {x, y}
+ */
 const animateStaffLines = (ftSvg, dtSvg, getNewPos) => {
   const ftStaffLines = ftSvg.querySelectorAll('path.rastrum')
   const dtStaffLines = dtSvg.querySelectorAll('.rastrum:not(.bounding-box) > path')
@@ -316,6 +330,18 @@ const animateStaffLines = (ftSvg, dtSvg, getNewPos) => {
   })
 }
 
+/**
+ * Orchestrate animation of all musical events (notes, rests, chords, etc.) between AT and DT transcriptions
+ * 
+ * This function serves as the main coordinator for animating all types of musical notation elements.
+ * 
+ * @param {SVGElement} ftSvg - Fluid transcription SVG (cloned from AT)
+ * @param {SVGElement} dtSvg - Diplomatic transcript SVG
+ * @param {Document} atMeiDom - AT MEI DOM for accessing element metadata
+ * @param {number} scaleFactor - Scale factor between DT and AT staff heights
+ * @param {Function} getNewPos - Function to calculate new position: (atPos, dtPos) => {x, y}
+ * @param {Map<string, string[]>} correspMappings - Map of AT element IDs to DT element IDs
+ */
 const liquifyEvents = (ftSvg, dtSvg, atMeiDom, scaleFactor, getNewPos, correspMappings) => {
   liquifyNotes(ftSvg, dtSvg, atMeiDom, scaleFactor, getNewPos, correspMappings, addTransform, addTransformTranslate, generateHideAnimation)
   /* animateRests(ftSvg, dtSvg, atMeiDom, getNewPos, correspMappings)
@@ -328,6 +354,17 @@ const liquifyEvents = (ftSvg, dtSvg, atMeiDom, scaleFactor, getNewPos, correspMa
   animateTupletNums(ftSvg, dtSvg, atMeiDom, getNewPos, correspMappings) */
 }
 
+/**
+ * Add an SVG animateTransform element for translate animations
+ * 
+ * Creates an `<animateTransform>` element with type="translate" to animate the position
+ * of an SVG element. The animation transitions between the provided values using the
+ * global duration and repeat settings.
+ * 
+ * @param {SVGElement} node - The SVG element to add the animation to
+ * @param {string[]} values - Array of translate values (e.g., ["0 0", "100 50"]) representing
+ *                            the start and end positions as "x y" strings
+ */
 const addTransformTranslate = (node, values = []) => {
   const anim = appendNewElement(node, 'animateTransform', 'http://www.w3.org/2000/svg')
   anim.setAttribute('attributeName', 'transform')
@@ -341,6 +378,16 @@ const addTransformTranslate = (node, values = []) => {
   // anim.setAttribute('calcMode', 'spline')
 }
 
+/**
+ * Add an SVG animate element for animating any attribute
+ * 
+ * Creates an `<animate>` element to animate any SVG attribute (e.g., `d`, `opacity`, `fill`).
+ * The animation transitions between the provided values using the global duration and repeat settings.
+ * 
+ * @param {SVGElement} node - The SVG element to add the animation to
+ * @param {string} attribute - The name of the attribute to animate (e.g., "d", "opacity", "fill")
+ * @param {string[]} values - Array of attribute values representing the animation states
+ */
 const addTransform = (node, attribute, values = []) => {
   const anim = appendNewElement(node, 'animate', 'http://www.w3.org/2000/svg')
   anim.setAttribute('attributeName', attribute)
@@ -352,6 +399,18 @@ const addTransform = (node, attribute, values = []) => {
   // anim.setAttribute('calcMode', 'spline')
 }
 
+/**
+ * Generate a fade-out animation for elements without DT correspondence
+ * 
+ * Creates an opacity animation that fades the element out, indicating it's a supplied/editorial
+ * element that doesn't exist in the diplomatic transcript. Also applies visual styling (green color)
+ * and adds a "supplied" class to mark the element.
+ * 
+ * This is used for AT elements that have no matching corresp in the DT, signaling to users
+ * that these are editorial additions or interpretations.
+ * 
+ * @param {SVGElement} node - The SVG element to animate and mark as supplied
+ */
 const generateHideAnimation = (node) => {
     const hideAnim = appendNewElement(node, 'animate')
     hideAnim.setAttribute('attributeName', 'opacity')
