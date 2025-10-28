@@ -357,6 +357,13 @@ const animateNotes = (ftSvg, dtSvg, atMeiDom, scaleFactor, getNewPos, correspMap
 
       addTransformTranslate(note, [atVal, dtVal])
 
+      // identify relevant ledger lines
+      note.closest('.measure').querySelectorAll('.ledgerLines .lineDash').forEach(ledgerLine => {
+        if (ledgerLine.hasAttribute('data-related') && ledgerLine.getAttribute('data-related') === '#' + atId) {
+          addTransformTranslate(ledgerLine, [atVal, dtVal])
+        }
+      }) 
+
       // Animate the stem
       const atStem = note.querySelector('.stem > path')
       if (atStem) {
