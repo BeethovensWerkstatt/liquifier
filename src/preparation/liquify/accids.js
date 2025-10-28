@@ -1,0 +1,109 @@
+/**
+ * Animate accidentals between AT and DT transcriptions
+ * 
+ * For each accidental in the AT (fluid transcription):
+ * - Animates the accidental position based on corresponding DT accidental position
+ * - Handles accidentals without DT correspondence by fading them out
+ * 
+ * @param {SVGElement} ftSvg - Fluid transcription SVG (cloned from AT)
+ * @param {SVGElement} dtSvg - Diplomatic transcript SVG
+ * @param {Document} atMeiDom - AT MEI DOM for accessing element metadata
+ * @param {Object} tools - Tools object containing helper functions and data
+ */
+export const liquifyAccids = (ftSvg, dtSvg, atMeiDom, tools) => {
+  const { scaleFactor, getNewPos, convertD, correspMappings, addTransform, addTransformTranslate, generateHideAnimation } = tools
+  
+  // TODO: Implement keyAccids!
+
+  const accidentals = ftSvg.querySelectorAll('.accid:not(.bounding-box)')
+  accidentals.forEach(accid => {
+    const atId = accid.getAttribute('data-id')
+    const dtIds = correspMappings.get(atId)
+    if (!dtIds || dtIds.length === 0) {
+      generateHideAnimation(accid)
+      return
+    }
+
+    // Find the parent note's animation values (if accid is inside a note)
+    // We need to account for the note's movement when calculating accid animation
+    const parentNote = accid.closest('g.note:not(.bounding-box)')
+    let noteAnimationDiff = { x: 0, y: 0 }
+    
+    if (parentNote) {
+      // Extract the note's animation values from its animateTransform
+      const noteAnimation = parentNote.querySelector(':scope > animateTransform[type="translate"]')
+      if (noteAnimation) {
+        const noteValues = noteAnimation.getAttribute('values')
+        const noteMatch = noteValues?.match(/0 0;\s*([-\d.]+)\s+([-\d.]+)/)
+        if (noteMatch) {
+          noteAnimationDiff = { x: parseFloat(noteMatch[1]), y: parseFloat(noteMatch[2]) }
+          console.log(`[Accid] Parent note animation diff: (${noteAnimationDiff.x}, ${noteAnimationDiff.y})`)
+        }
+      }
+    }
+
+    // Create array to hold the original and cloned accidentals
+    const accidElements = [accid]
+    
+    // If multiple dtIds, create clones for each additional one
+    if (dtIds.length > 1) {
+      const parent = accid.parentNode
+      for (let i = 1; i < dtIds.length; i++) {
+        const clone = accid.cloneNode(true)
+        // Insert clone after the previous element
+        parent.insertBefore(clone, accidElements[i - 1].nextSibling)
+        accidElements.push(clone)
+      }
+    }
+
+    // Now iterate dtIds with corresponding accid elements
+    dtIds.forEach((dtId, index) => {
+      const currentAccid = accidElements[index]
+      const dtAccid = dtSvg.querySelector(`.accid[data-id="${dtId}"]`)
+      if (!dtAccid) {
+        generateHideAnimation(currentAccid)
+        return
+      }
+      
+      const atUse = currentAccid.querySelector('use')
+      const dtUse = dtAccid.querySelector('use')
+      if (atUse && dtUse) {
+        // AT accidentals use transform="translate(x, y) scale(...)" on the use element
+        const atTransform = atUse.getAttribute('transform')?.match(/translate\(\s*([\d.-]+)\s*,\s*([\d.-]+)\s*\)/)
+        if (!atTransform) return
+        
+        const atX = parseFloat(atTransform[1])
+        const atY = parseFloat(atTransform[2])
+        
+        // DT accidentals use x and y attributes on the use element
+        const dtX = parseFloat(dtUse.getAttribute('x') || 0)
+        const dtY = parseFloat(dtUse.getAttribute('y') || 0)
+        
+        // Transform DT position to AT coordinate system
+        const newPos = getNewPos({ x: atX, y: atY }, { x: dtX, y: dtY })
+        
+        // Calculate the accidental's absolute movement
+        const absDiffX = newPos.x - atX
+        const absDiffY = newPos.y - atY
+        
+        // Subtract the parent note's movement to get relative accid movement
+        const diffX = absDiffX - noteAnimationDiff.x
+        const diffY = absDiffY - noteAnimationDiff.y
+        
+        console.log(`[Accid Animation ${index}]`)
+        console.log(`  AT pos: (${atX}, ${atY})`)
+        console.log(`  DT pos: (${dtX}, ${dtY})`)
+        console.log(`  newPos: (${newPos.x}, ${newPos.y})`)
+        console.log(`  abs diff:  (${absDiffX}, ${absDiffY})`)
+        console.log(`  note diff: (${noteAnimationDiff.x}, ${noteAnimationDiff.y})`)
+        console.log(`  rel diff:  (${diffX}, ${diffY})`)
+        console.log(`  AT ID: ${atId}, DT ID: ${dtId}`)
+        
+        // Apply relative animation to the parent accid group
+        const atVal = '0 0'
+        const dtVal = `${diffX} ${diffY}`
+        addTransformTranslate(currentAccid, [atVal, dtVal])
+      }
+    })
+  })
+}

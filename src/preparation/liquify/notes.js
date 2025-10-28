@@ -18,14 +18,11 @@ import { appendNewElement } from '../../utils/dom.js'
  * @param {SVGElement} ftSvg - Fluid transcription SVG (cloned from AT)
  * @param {SVGElement} dtSvg - Diplomatic transcript SVG
  * @param {Document} atMeiDom - AT MEI DOM for accessing note metadata (stem.dir, etc.)
- * @param {number} scaleFactor - Scale factor between DT and AT staff heights
- * @param {Function} getNewPos - Function to calculate new position: (atPos, dtPos) => {x, y}
- * @param {Map<string, string[]>} correspMappings - Map of AT element IDs to DT element IDs
- * @param {Function} addTransform - Function to add animate element for attribute animation
- * @param {Function} addTransformTranslate - Function to add animateTransform element for translate animation
- * @param {Function} generateHideAnimation - Function to generate fade-out animation for unsupported elements
+ * @param {Object} tools - Tools object containing helper functions and data
  */
-export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, scaleFactor, getNewPos, correspMappings, addTransform, addTransformTranslate, generateHideAnimation) => {
+export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
+  const { scaleFactor, getNewPos, correspMappings, addTransform, addTransformTranslate, generateHideAnimation } = tools
+  
   const notes = ftSvg.querySelectorAll('g.note:not(.bounding-box)')
   notes.forEach(note => {
     const atId = note.getAttribute('data-id')

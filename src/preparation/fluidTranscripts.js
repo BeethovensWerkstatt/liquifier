@@ -1,5 +1,9 @@
 import { appendNewElement } from '../utils/dom.js'
-import { liquifyNotes } from './liquify/liquifyNotes.js'
+import { liquifyNotes } from './liquify/notes.js'
+import { liquifyBarlines } from './liquify/barlines.js'
+import { liquifyCurves } from './liquify/curves.js'
+import { liquifyAccids } from './liquify/accids.js'
+import { liquifyRests } from './liquify/rests.js'
 
 const duration = '3s'
 const repeatCount = 'indefinite'
@@ -192,6 +196,7 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom) =
   const ftSvg = atSvgElement.cloneNode(true)
 
   adjustAtStaffLines(ftSvg)
+  adjustAtBarLines(ftSvg)
   adjustDtStaffLines(dtSvgElement)
 
   // helper function that will get the translation between two points
@@ -208,9 +213,59 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom) =
     return newPos
   }
 
-  animateStaffLines(ftSvg, dtSvgElement, getNewPos)
+  /**
+   * Convert all coordinates in a path's d attribute using getNewPos transformation
+   * 
+   * Parses the path d attribute, extracts all coordinate pairs, transforms them using
+   * getNewPos (which applies scale factor and coordinate system transformations), and
+   * reconstructs the path string with the new coordinates.
+   * 
+   * Supports path commands: M (moveto), L (lineto), H (horizontal), V (vertical), 
+   * C (cubic bezier), S (smooth cubic), Q (quadratic), T (smooth quadratic), A (arc)
+   * 
+   * @param {string} atD - The AT path's d attribute
+   * @param {string} dtD - The DT path's d attribute (same shape, different coordinates)
+   * @returns {string} New d attribute with transformed coordinates
+   */
+  const convertD = (atD, dtD) => {
+    // Parse coordinates from both paths
+    const atCoords = []
+    const dtCoords = []
+    
+    // Regex to match coordinate pairs (handles both space and comma separated)
+    const coordRegex = /([-\d.]+)[,\s]+([-\d.]+)/g
+    
+    let match
+    while ((match = coordRegex.exec(atD)) !== null) {
+      atCoords.push({ x: parseFloat(match[1]), y: parseFloat(match[2]) })
+    }
+    
+    coordRegex.lastIndex = 0
+    while ((match = coordRegex.exec(dtD)) !== null) {
+      dtCoords.push({ x: parseFloat(match[1]), y: parseFloat(match[2]) })
+    }
+    
+    // Transform all coordinates
+    const newCoords = atCoords.map((atPos, i) => {
+      const dtPos = dtCoords[i] || atPos // fallback if coords don't match
+      return getNewPos(atPos, dtPos)
+    })
+    
+    // Reconstruct the path by replacing coordinates in the original AT path
+    let coordIndex = 0
+    const newD = atD.replace(coordRegex, () => {
+      const coord = newCoords[coordIndex++]
+      return `${coord.x} ${coord.y}`
+    })
+    
+    return newD
+  }
 
-  liquifyEvents(ftSvg, dtSvgElement, atMeiDom, scaleFactor, getNewPos, correspMappings)
+  animateStaffLines(ftSvg, dtSvgElement, convertD, addTransform)
+
+  const tools = { getNewPos, convertD, scaleFactor, correspMappings, addTransformTranslate, addTransform, generateHideAnimation }
+
+  liquifyMusic(ftSvg, dtSvgElement, atMeiDom, tools)
 
   return ftSvg
 }
@@ -259,6 +314,65 @@ const adjustAtStaffLines = (svg) => {
 }
 
 /**
+ * Merge AT barLine paths sharing the same x position into single continuous lines
+ * 
+ * For each barLine group in the AT, identifies all vertical path segments and groups them
+ * by their x coordinate. Paths with the same x position (representing the same vertical
+ * line across multiple staves) are merged into a single continuous path stretching from
+ * the topmost to the lowest y coordinate. This consolidates multi-staff barlines that
+ * are rendered as separate segments per staff into unified lines.
+ * 
+ * @param {SVGElement} svg - AT SVG DOM containing barLine elements
+ */
+const adjustAtBarLines = (svg) => {
+  const barLines = svg.querySelectorAll('g.measure:not(.bounding-box) .barLine:not(.bounding-box)')
+  
+  barLines.forEach(barLineG => {
+    const paths = barLineG.querySelectorAll('path')
+    if (paths.length === 0) return
+    
+    // Group paths by their x position
+    const linesByX = new Map()
+    
+    paths.forEach(path => {
+      const d = path.getAttribute('d')
+      const match = d.match(/M\s*([\d.-]+)\s+([\d.-]+)\s+L\s*([\d.-]+)\s+([\d.-]+)/)
+      if (!match) return
+      
+      const x1 = parseFloat(match[1])
+      const y1 = parseFloat(match[2])
+      const x2 = parseFloat(match[3])
+      const y2 = parseFloat(match[4])
+      const strokeWidth = path.getAttribute('stroke-width')
+      
+      // Check if this is a vertical line (x1 === x2)
+      if (x1 === x2) {
+        const x = x1
+        if (!linesByX.has(x)) {
+          linesByX.set(x, { yCoords: [], strokeWidth })
+        }
+        linesByX.get(x).yCoords.push(y1, y2)
+      }
+    })
+    
+    // Remove all existing paths
+    paths.forEach(path => path.remove())
+    
+    // Create merged paths
+    linesByX.forEach(({ yCoords, strokeWidth }, x) => {
+      const minY = Math.min(...yCoords)
+      const maxY = Math.max(...yCoords)
+      
+      const doc = barLineG.ownerDocument || barLineG
+      const newPath = doc.createElementNS('http://www.w3.org/2000/svg', 'path')
+      newPath.setAttribute('d', `M${x} ${minY} L${x} ${maxY}`)
+      newPath.setAttribute('stroke-width', strokeWidth)
+      barLineG.appendChild(newPath)
+    })
+  })
+}
+
+/**
  * Cut DT staff lines to fit within the viewBox
  * @param {*} svg 
  */
@@ -285,48 +399,30 @@ const adjustDtStaffLines = (svg) => {
  * Pairs each staff line from the fluid transcription with its corresponding DT staff line
  * and creates animations for the `d` attribute (path data) to morph between the two positions.
  * 
- * The animation calculates new positions for both endpoints of each staff line using the
- * provided `getNewPos` function, which takes into account the coordinate system differences
- * and scale factors between AT and DT.
+ * Uses the `convertD` function to transform all coordinates in the path, which applies
+ * scale factor and coordinate system transformations.
  * 
  * @param {SVGElement} ftSvg - Fluid transcription SVG (cloned from AT)
  * @param {SVGElement} dtSvg - Diplomatic transcript SVG
- * @param {Function} getNewPos - Function to calculate new position: (atPos, dtPos) => {x, y}
+ * @param {Function} convertD - Function to convert path d attribute: (atD, dtD) => newD
+ * @param {Function} addTransform - Function to add animate element for attribute animation
  */
-const animateStaffLines = (ftSvg, dtSvg, getNewPos) => {
+const animateStaffLines = (ftSvg, dtSvg, convertD, addTransform) => {
   const ftStaffLines = ftSvg.querySelectorAll('path.rastrum')
   const dtStaffLines = dtSvg.querySelectorAll('.rastrum:not(.bounding-box) > path')
 
   ftStaffLines.forEach((ftLine, i) => {
     const dtLine = dtStaffLines[i]
     
-    const ftD = ftLine.getAttribute('d')
+    const atD = ftLine.getAttribute('d')
     const dtD = dtLine.getAttribute('d')
     
-    const ftMatch = ftD.match(/M\s*([\d.-]+)\s+([\d.-]+)\s+L\s*([\d.-]+)\s+([\d.-]+)/)
-    const dtMatch = dtD.match(/M\s*([\d.-]+)\s+([\d.-]+)\s+L\s*([\d.-]+)\s+([\d.-]+)/)
-    
-    if (ftMatch && dtMatch) {
-      // Extract AT (ftLine) coordinates
-      const atX1 = parseFloat(ftMatch[1])
-      const atY = parseFloat(ftMatch[2])
-      const atX2 = parseFloat(ftMatch[3])
-      
-      // Extract DT coordinates
-      const dtX1 = parseFloat(dtMatch[1])
-      const dtY = parseFloat(dtMatch[2])
-      const dtX2 = parseFloat(dtMatch[3])
-      
-      const p1 = getNewPos({ x: atX1, y: atY }, { x: dtX1,  y: dtY })
-      const p2 = getNewPos({ x: atX2, y: atY }, { x: dtX2,  y: dtY })
+    // Use convertD to transform all coordinates
+    const newD = convertD(atD, dtD)
 
-      const atVal = ftD
-      const dtVal = 'M' + p1.x + ' ' + p1.y + ' L' + p2.x + ' ' + p2.y 
+    console.log(`[Animating Staff Line ${i}] AT D: ${atD}, DT D: ${newD}`)
 
-      console.log(`[Animating Staff Line ${i}] AT D: ${atVal}, DT D: ${dtVal}`)
-
-      addTransform(ftLine, 'd', [atVal, dtVal])
-    }
+    addTransform(ftLine, 'd', [atD, newD])
   })
 }
 
@@ -338,20 +434,44 @@ const animateStaffLines = (ftSvg, dtSvg, getNewPos) => {
  * @param {SVGElement} ftSvg - Fluid transcription SVG (cloned from AT)
  * @param {SVGElement} dtSvg - Diplomatic transcript SVG
  * @param {Document} atMeiDom - AT MEI DOM for accessing element metadata
- * @param {number} scaleFactor - Scale factor between DT and AT staff heights
- * @param {Function} getNewPos - Function to calculate new position: (atPos, dtPos) => {x, y}
- * @param {Map<string, string[]>} correspMappings - Map of AT element IDs to DT element IDs
+ * @param {Object} tools - Tools object containing helper functions and data:
+ *   - getNewPos: Function to calculate new position
+ *   - convertD: Function to convert path d attribute
+ *   - scaleFactor: Scale factor between DT and AT
+ *   - correspMappings: Map of AT to DT element IDs
+ *   - addTransform: Function to add animate element
+ *   - addTransformTranslate: Function to add animateTransform element
+ *   - generateHideAnimation: Function to generate fade-out animation
  */
-const liquifyEvents = (ftSvg, dtSvg, atMeiDom, scaleFactor, getNewPos, correspMappings) => {
-  liquifyNotes(ftSvg, dtSvg, atMeiDom, scaleFactor, getNewPos, correspMappings, addTransform, addTransformTranslate, generateHideAnimation)
-  /* animateRests(ftSvg, dtSvg, atMeiDom, getNewPos, correspMappings)
-  animateChords(ftSvg, dtSvg, atMeiDom, getNewPos, correspMappings)
-  animateAccids(ftSvg, dtSvg, atMeiDom, getNewPos, correspMappings)
-  animateClefs(ftSvg, dtSvg, atMeiDom, getNewPos, correspMappings)
-  animateDots(ftSvg, dtSvg, atMeiDom, getNewPos, correspMappings)
-  animateMeterSigs(ftSvg, dtSvg, atMeiDom, getNewPos, correspMappings)
-  animateArtics(ftSvg, dtSvg, atMeiDom, getNewPos, correspMappings)
-  animateTupletNums(ftSvg, dtSvg, atMeiDom, getNewPos, correspMappings) */
+const liquifyMusic = (ftSvg, dtSvg, atMeiDom, tools) => {
+  // events
+  liquifyNotes(ftSvg, dtSvg, atMeiDom, tools)
+  liquifyBarlines(ftSvg, dtSvg, atMeiDom, tools)
+  liquifyRests(ftSvg, dtSvg, atMeiDom, tools)
+  // liquifyChords(ftSvg, dtSvg, atMeiDom, tools)
+  liquifyAccids(ftSvg, dtSvg, atMeiDom, tools)
+  // liquifyClefs(ftSvg, dtSvg, atMeiDom, tools)
+  // liquifyDots(ftSvg, dtSvg, atMeiDom, tools)
+  // liquifyMeterSigs(ftSvg, dtSvg, atMeiDom, tools)
+  // liquifyArtics(ftSvg, dtSvg, atMeiDom, tools)
+  // liquifyTupletNums(ftSvg, dtSvg, atMeiDom, tools)
+
+  // controlevents
+  // liquifyBeams(ftSvg, dtSvg, atMeiDom, tools)
+  // liquifyRepeats(ftSvg, dtSvg, atMeiDom, tools)
+  // liquifyDirs(ftSvg, dtSvg, atMeiDom, tools)
+  // liquifyTempos(ftSvg, dtSvg, atMeiDom, tools)
+  // liquifyDynams(ftSvg, dtSvg, atMeiDom, tools)
+  liquifyCurves(ftSvg, dtSvg, atMeiDom, tools)
+  // liquifyHairpins(ftSvg, dtSvg, atMeiDom, tools)
+  // liquifyTrills(ftSvg, dtSvg, atMeiDom, tools)
+  // liquifyOctaves(ftSvg, dtSvg, atMeiDom, tools)
+  // liquifyFermatas(ftSvg, dtSvg, atMeiDom, tools)
+  // liquifyPedals(ftSvg, dtSvg, atMeiDom, tools)
+  // liquifyWords(ftSvg, dtSvg, atMeiDom, tools)
+  // liquifyFings(ftSvg, dtSvg, atMeiDom, tools)
+  // liquifyFs(ftSvg, dtSvg, atMeiDom, tools)
+  // liquifyMetamarks(ftSvg, dtSvg, atMeiDom, tools)
 }
 
 /**
@@ -415,7 +535,7 @@ const generateHideAnimation = (node) => {
     const hideAnim = appendNewElement(node, 'animate')
     hideAnim.setAttribute('attributeName', 'opacity')
 
-    const values = reverseAnimations ? '1;0;1' : '1;0'
+    const values = reverseAnimations ? '1;0;0;0;0;0;1' : '1;0;0;0;' // '1;0;1' : '1;0'
 
     hideAnim.setAttribute('values', values)
     hideAnim.setAttribute('dur', duration)
