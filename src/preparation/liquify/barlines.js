@@ -1,9 +1,68 @@
 /**
+ * Merge AT barLine paths sharing the same x position into single continuous lines
+ * 
+ * For each barLine group in the AT, identifies all vertical path segments and groups them
+ * by their x coordinate. Paths with the same x position (representing the same vertical
+ * line across multiple staves) are merged into a single continuous path stretching from
+ * the topmost to the lowest y coordinate. This consolidates multi-staff barlines that
+ * are rendered as separate segments per staff into unified lines.
+ * 
+ * @param {SVGElement} svg - AT SVG DOM containing barLine elements
+ */
+const adjustAtBarLines = (svg) => {
+  const barLines = svg.querySelectorAll('g.measure:not(.bounding-box) .barLine:not(.bounding-box)')
+  
+  barLines.forEach(barLineG => {
+    const paths = barLineG.querySelectorAll('path')
+    if (paths.length === 0) return
+    
+    // Group paths by their x position
+    const linesByX = new Map()
+    
+    paths.forEach(path => {
+      const d = path.getAttribute('d')
+      const match = d.match(/M\s*([\d.-]+)\s+([\d.-]+)\s+L\s*([\d.-]+)\s+([\d.-]+)/)
+      if (!match) return
+      
+      const x1 = parseFloat(match[1])
+      const y1 = parseFloat(match[2])
+      const x2 = parseFloat(match[3])
+      const y2 = parseFloat(match[4])
+      const strokeWidth = path.getAttribute('stroke-width')
+      
+      // Check if this is a vertical line (x1 === x2)
+      if (x1 === x2) {
+        const x = x1
+        if (!linesByX.has(x)) {
+          linesByX.set(x, { yCoords: [], strokeWidth })
+        }
+        linesByX.get(x).yCoords.push(y1, y2)
+      }
+    })
+    
+    // Remove all existing paths
+    paths.forEach(path => path.remove())
+    
+    // Create merged paths
+    linesByX.forEach(({ yCoords, strokeWidth }, x) => {
+      const minY = Math.min(...yCoords)
+      const maxY = Math.max(...yCoords)
+      
+      const doc = barLineG.ownerDocument || barLineG
+      const newPath = doc.createElementNS('http://www.w3.org/2000/svg', 'path')
+      newPath.setAttribute('d', `M${x} ${minY} L${x} ${maxY}`)
+      newPath.setAttribute('stroke-width', strokeWidth)
+      barLineG.appendChild(newPath)
+    })
+  })
+}
+
+/**
  * Animate barlines between AT and DT transcriptions
  * 
- * For each measure in the AT (fluid transcription):
- * - Animates the barline path based on corresponding DT barline position
- * - Handles measures without DT correspondence by fading them out
+ * First merges multi-staff barlines in the AT into single continuous lines,
+ * then animates each barline path based on corresponding DT barline position.
+ * Handles measures without DT correspondence by fading them out.
  * 
  * @param {SVGElement} ftSvg - Fluid transcription SVG (cloned from AT)
  * @param {SVGElement} dtSvg - Diplomatic transcript SVG
@@ -12,6 +71,9 @@
  */
 export const liquifyBarlines = (ftSvg, dtSvg, atMeiDom, tools) => {
   const { scaleFactor, getNewPos, convertD, correspMappings, addTransform, addTransformTranslate, generateHideAnimation } = tools
+  
+  // First, merge multi-staff barlines into single continuous lines
+  adjustAtBarLines(ftSvg)
   
   const measures = ftSvg.querySelectorAll('.measure:not(.bounding-box)')
   measures.forEach(measure => {
