@@ -10,8 +10,9 @@
  * attach to each other are combined.
  * 
  * @param {SVGElement} svg - AT SVG DOM containing beam elements
+ * @param {Object} logger - Logger instance
  */
-const adjustAtBeams = (svg) => {
+const adjustAtBeams = (svg, logger) => {
   const beams = svg.querySelectorAll('g.beam:not(.bounding-box)')
   
   beams.forEach(beamG => {
@@ -23,10 +24,13 @@ const adjustAtBeams = (svg) => {
         const [x, y] = point.split(',').map(Number)
         return { x, y }
       })
-      const newPoints = normalizeBeamPolygonToDtOrder(points)
-      const newPointsStr = newPoints.map(p => `${p.x},${p.y}`).join(' ')
-
-      polygons[0].setAttribute('points', newPointsStr)
+      
+      if (points.length === 4) {
+        // Reorder from Verovio format to Thulemeier format: [3, 2, 1, 0]
+        const reordered = [points[3], points[2], points[1], points[0]]
+        const newPointsStr = reordered.map(p => `${p.x},${p.y}`).join(' ')
+        polygons[0].setAttribute('points', newPointsStr)
+      }
       return
     }
     
@@ -121,7 +125,7 @@ const adjustAtBeams = (svg) => {
       // Remove original segment polygons
       group.forEach(poly => poly.element.remove())
       
-      console.log(`[Adjust AT Beams] Merged ${group.length} segments into one polygon`)
+      logger.debug(`[Adjust AT Beams] Merged ${group.length} segments into one polygon`)
     })
     
     // After merging, reorder all remaining polygons from AT (Verovio) format to DT (Thulemeier) format
@@ -136,7 +140,7 @@ const adjustAtBeams = (svg) => {
       })
       
       if (points.length !== 4) {
-        console.warn(`[Adjust AT Beams] Expected 4 points, got ${points.length}`)
+        logger.warn(`[Adjust AT Beams] Expected 4 points, got ${points.length}`)
         return
       }
       
@@ -148,79 +152,6 @@ const adjustAtBeams = (svg) => {
       polygon.setAttribute('points', newPointsStr)
     })
   })
-}
-
-/**
- * Normalize a beam polygon to DT's winding order
- * 
- * DT (Thulemeier) always uses: [upper left, upper right, lower right, lower left]
- * 
- * For beam trapezoids, the left and right edges are vertical, so points
- * on each side share the same X coordinate. We group by X, then order by Y.
- * 
- * @param {Array} points - Array of {x, y} coordinates
- * @returns {Array} Reordered coordinates in DT format
- */
-const normalizeBeamPolygonToDtOrder = (points, debug = false) => {
-  if (points.length !== 4) return points
-  
-  if (debug) {
-    console.log(`[Normalize] Input points: ${points.map(p => `[${p.x.toFixed(1)},${p.y.toFixed(1)}]`).join(' ')}`)
-  }
-  
-  // Group points by X coordinate (with small tolerance for floating point)
-  const tolerance = 0.5
-  const groups = []
-  
-  points.forEach(point => {
-    let foundGroup = false
-    for (const group of groups) {
-      if (Math.abs(group[0].x - point.x) < tolerance) {
-        group.push(point)
-        foundGroup = true
-        break
-      }
-    }
-    if (!foundGroup) {
-      groups.push([point])
-    }
-  })
-  
-  // Should have 2 groups (left edge and right edge)
-  if (groups.length !== 2) {
-    console.warn(`[Adjust AT Beams] Expected 2 X groups for polygon, got ${groups.length}`)
-    return points
-  }
-  
-  // Sort groups by X (left edge first, right edge second)
-  groups.sort((a, b) => a[0].x - b[0].x)
-  
-  if (debug) {
-    console.log(`[Normalize] Left edge X: ${groups[0][0].x.toFixed(1)}, Right edge X: ${groups[1][0].x.toFixed(1)}`)
-  }
-  
-  // Within each group, sort by Y (top first, bottom second)
-  const leftEdge = groups[0].sort((a, b) => a.y - b.y)
-  const rightEdge = groups[1].sort((a, b) => a.y - b.y)
-  
-  if (debug) {
-    console.log(`[Normalize] Left edge: top Y=${leftEdge[0].y.toFixed(1)}, bottom Y=${leftEdge[1].y.toFixed(1)}`)
-    console.log(`[Normalize] Right edge: top Y=${rightEdge[0].y.toFixed(1)}, bottom Y=${rightEdge[1].y.toFixed(1)}`)
-  }
-  
-  // Return in DT order: [upper left, upper right, lower right, lower left]
-  const result = [
-    leftEdge[0],   // upper left
-    rightEdge[0],  // upper right
-    rightEdge[1],  // lower right
-    leftEdge[1]    // lower left
-  ]
-  
-  if (debug) {
-    console.log(`[Normalize] Output points: ${result.map(p => `[${p.x.toFixed(1)},${p.y.toFixed(1)}]`).join(' ')}`)
-  }
-  
-  return result
 }
 
 /**
@@ -302,10 +233,10 @@ const removeDuplicatePoints = (points) => {
  *   - generateHideAnimation: Function to generate fade-out animation
  */
 export const liquifyBeams = (ftSvg, dtSvg, atMeiDom, tools) => {
-  const { scaleFactor, getNewPos, convertD, correspMappings, addTransform, addTransformTranslate, generateHideAnimation } = tools
+  const { scaleFactor, getNewPos, convertD, correspMappings, addTransform, addTransformTranslate, generateHideAnimation, logger } = tools
   
   // First, prepare/adjust beam paths in the AT
-  adjustAtBeams(ftSvg)
+  adjustAtBeams(ftSvg, logger)
   
   const beams = ftSvg.querySelectorAll('g.beam:not(.bounding-box)')
   beams.forEach(beam => {
@@ -359,7 +290,7 @@ export const liquifyBeams = (ftSvg, dtSvg, atMeiDom, tools) => {
     const minCount = Math.min(atSorted.length, dtSorted.length)
     
     if (atSorted.length !== dtSorted.length) {
-      console.warn(`[Beam Animation] Mismatched polygon counts - AT: ${atSorted.length}, DT: ${dtSorted.length} (from ${dtIds.length} DT beams)`)
+      logger.warn(`[Beam Animation] Mismatched polygon counts - AT: ${atSorted.length}, DT: ${dtSorted.length} (from ${dtIds.length} DT beams)`)
     }
 
     // Animate each matched pair
@@ -373,7 +304,7 @@ export const liquifyBeams = (ftSvg, dtSvg, atMeiDom, tools) => {
       // Convert polygon points using getNewPos for each coordinate pair
       const newPoints = convertPolygonPoints(atPoints, dtPoints, getNewPos)
       
-      console.log(`[Beam Animation] AT ID: ${atId}, DT ID: ${dtSorted[i].dtId}, line ${i} (AT y~${Math.round(atSorted[i].avgY)}, DT y~${Math.round(dtSorted[i].avgY)})`)
+      logger.debug(`[Beam Animation] AT ID: ${atId}, DT ID: ${dtSorted[i].dtId}, line ${i} (AT y~${Math.round(atSorted[i].avgY)}, DT y~${Math.round(dtSorted[i].avgY)})`)
       
       addTransform(atPolygon, 'points', [atPoints, newPoints])
     }
@@ -436,7 +367,7 @@ const convertPolygonPoints = (atPoints, dtPoints, getNewPos) => {
   
   // Ensure both polygons are 4-point trapezoids
   if (atCoords.length !== 4 || dtCoords.length !== 4) {
-    console.warn(`[Beam Animation] Expected 4 points, got AT: ${atCoords.length}, DT: ${dtCoords.length}`)
+    logger.warn(`[Beam Animation] Expected 4 points, got AT: ${atCoords.length}, DT: ${dtCoords.length}`)
   }
   
   // Transform each coordinate pair (both now have same winding order from prep phase)

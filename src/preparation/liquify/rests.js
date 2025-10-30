@@ -29,7 +29,7 @@ import { appendNewElement } from '../../utils/dom.js'
  * // </g>
  */
 export function liquifyRests (ftSvg, dtSvg, atMeiDom, tools) {
-  const { scaleFactor, getNewPos, correspMappings, addTransformTranslate, generateHideAnimation } = tools
+  const { scaleFactor, getNewPos, correspMappings, addTransformTranslate, generateHideAnimation, logger } = tools
   
   const rests = ftSvg.querySelectorAll('g.rest:not(.bounding-box)')
   rests.forEach(rest => {
@@ -73,7 +73,7 @@ export function liquifyRests (ftSvg, dtSvg, atMeiDom, tools) {
       const diffX = newPos.x - atX
       const diffY = newPos.y - atY
 
-      console.log(`[Rest Animation] AT: (${atX}, ${atY}), DT: (${dtX}, ${dtY}), newPos: (${newPos.x}, ${newPos.y}), diff: (${diffX}, ${diffY})`)
+      logger.debug(`[Rest Animation] AT: (${atX}, ${atY}), DT: (${dtX}, ${dtY}), newPos: (${newPos.x}, ${newPos.y}), diff: (${diffX}, ${diffY})`)
 
       // Apply animation to the rest group
       const atVal = '0 0'

@@ -11,7 +11,7 @@
  * @param {Object} tools - Tools object containing helper functions and data
  */
 export const liquifyAccids = (ftSvg, dtSvg, atMeiDom, tools) => {
-  const { scaleFactor, getNewPos, convertD, correspMappings, addTransform, addTransformTranslate, generateHideAnimation } = tools
+  const { scaleFactor, getNewPos, convertD, correspMappings, addTransform, addTransformTranslate, generateHideAnimation, logger } = tools
   
   // TODO: Implement keyAccids!
 
@@ -37,7 +37,7 @@ export const liquifyAccids = (ftSvg, dtSvg, atMeiDom, tools) => {
         const noteMatch = noteValues?.match(/0 0;\s*([-\d.]+)\s+([-\d.]+)/)
         if (noteMatch) {
           noteAnimationDiff = { x: parseFloat(noteMatch[1]), y: parseFloat(noteMatch[2]) }
-          console.log(`[Accid] Parent note animation diff: (${noteAnimationDiff.x}, ${noteAnimationDiff.y})`)
+          logger.debug(`[Accid] Parent note animation diff: (${noteAnimationDiff.x}, ${noteAnimationDiff.y})`)
         }
       }
     }
@@ -90,14 +90,14 @@ export const liquifyAccids = (ftSvg, dtSvg, atMeiDom, tools) => {
         const diffX = absDiffX - noteAnimationDiff.x
         const diffY = absDiffY - noteAnimationDiff.y
         
-        console.log(`[Accid Animation ${index}]`)
-        console.log(`  AT pos: (${atX}, ${atY})`)
-        console.log(`  DT pos: (${dtX}, ${dtY})`)
-        console.log(`  newPos: (${newPos.x}, ${newPos.y})`)
-        console.log(`  abs diff:  (${absDiffX}, ${absDiffY})`)
-        console.log(`  note diff: (${noteAnimationDiff.x}, ${noteAnimationDiff.y})`)
-        console.log(`  rel diff:  (${diffX}, ${diffY})`)
-        console.log(`  AT ID: ${atId}, DT ID: ${dtId}`)
+        logger.debug(`[Accid Animation ${index}]`)
+        logger.debug(`  AT pos: (${atX}, ${atY})`)
+        logger.debug(`  DT pos: (${dtX}, ${dtY})`)
+        logger.debug(`  newPos: (${newPos.x}, ${newPos.y})`)
+        logger.debug(`  abs diff:  (${absDiffX}, ${absDiffY})`)
+        logger.debug(`  note diff: (${noteAnimationDiff.x}, ${noteAnimationDiff.y})`)
+        logger.debug(`  rel diff:  (${diffX}, ${diffY})`)
+        logger.debug(`  AT ID: ${atId}, DT ID: ${dtId}`)
         
         // Apply relative animation to the parent accid group
         const atVal = '0 0'

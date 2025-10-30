@@ -177,9 +177,10 @@ const extractCorrespMappings = (atMeiDom) => {
  * @param {Object} dtSystemSvg - DT system SVG DOM (document or svg element)
  * @param {Object} atSystemSvg - AT system SVG DOM (document or svg element)
  * @param {Document} atMeiDom - AT MEI DOM (for corresp mappings)
+ * @param {Object} logger - Logger instance for info/debug/warn/error messages
  * @returns {Object} Fluid transcription SVG DOM
  */
-export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom) => {
+export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, logger) => {
   // Handle both document and element inputs
   const dtSvgElement = dtSystemSvg.documentElement || dtSystemSvg
   const atSvgElement = atSystemSvg.documentElement || atSystemSvg
@@ -209,7 +210,7 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom) =
     const diffX =  atOffX - dtOffX * scaleFactor // ((dtOffX * scaleFactor) - atOffX) * -1
     const diffY =  atOffY - dtOffY * scaleFactor // ((dtOffY * scaleFactor) - atOffY) * 1
     const newPos = { x: Math.round(at.x + diffX), y: Math.round(at.y + diffY) }
-    console.log(`[Position Diff] AT: (${at.x}, ${at.y}), DT: (${dt.x}, ${dt.y}) => newPos: (${newPos.x}, ${newPos.y})`)
+    logger.debug(`[Position Diff] AT: (${at.x}, ${at.y}), DT: (${dt.x}, ${dt.y}) => newPos: (${newPos.x}, ${newPos.y})`)
     return newPos
   }
 
@@ -261,9 +262,9 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom) =
     return newD
   }
 
-  animateStaffLines(ftSvg, dtSvgElement, convertD, addTransform)
+  animateStaffLines(ftSvg, dtSvgElement, convertD, addTransform, logger)
 
-  const tools = { getNewPos, convertD, scaleFactor, correspMappings, addTransformTranslate, addTransform, generateHideAnimation }
+  const tools = { getNewPos, convertD, scaleFactor, correspMappings, addTransformTranslate, addTransform, generateHideAnimation, logger }
 
   liquifyMusic(ftSvg, dtSvgElement, atMeiDom, tools)
 
@@ -347,8 +348,9 @@ const adjustDtStaffLines = (svg) => {
  * @param {SVGElement} dtSvg - Diplomatic transcript SVG
  * @param {Function} convertD - Function to convert path d attribute: (atD, dtD) => newD
  * @param {Function} addTransform - Function to add animate element for attribute animation
+ * @param {Object} logger - Logger instance
  */
-const animateStaffLines = (ftSvg, dtSvg, convertD, addTransform) => {
+const animateStaffLines = (ftSvg, dtSvg, convertD, addTransform, logger) => {
   const ftStaffLines = ftSvg.querySelectorAll('path.rastrum')
   const dtStaffLines = dtSvg.querySelectorAll('.rastrum:not(.bounding-box) > path')
 
@@ -361,7 +363,7 @@ const animateStaffLines = (ftSvg, dtSvg, convertD, addTransform) => {
     // Use convertD to transform all coordinates
     const newD = convertD(atD, dtD)
 
-    console.log(`[Animating Staff Line ${i}] AT D: ${atD}, DT D: ${newD}`)
+    logger.debug(`[Animating Staff Line ${i}] AT D: ${atD}, DT D: ${newD}`)
 
     addTransform(ftLine, 'd', [atD, newD])
   })
