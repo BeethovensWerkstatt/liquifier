@@ -299,7 +299,7 @@ export function prepareAtDomForRendering (atDom, dtDom, pageDimensions) {
  * @param {*} atDom
  */
 export function improveAtSvg (svgDom, atDom, dtDom) {
-  const dotBearers = svgDom.querySelectorAll('*[data-dot-corresp]')
+  /* const dotBearers = svgDom.querySelectorAll('*[data-dot-corresp]')
   dotBearers.forEach((dotBearer) => {
     const corresp = dotBearer.getAttribute('data-dot-corresp')
     const dotRefs = corresp.split(' ')
@@ -309,38 +309,67 @@ export function improveAtSvg (svgDom, atDom, dtDom) {
         dot.setAttribute('data-corresp', dotRefs[i])
       }
     })
-  })
+  }) */
 
-  const measureCorresp = svgDom.querySelectorAll('g.measure:not(.bounding-box)[data-corresp]')
-  measureCorresp.forEach((measure) => {
-    const corresps = measure.getAttribute('data-corresp').split(' ')
-    for (const corresp of corresps) {
-      const shapeId = corresp.split('#')[1]
-    }
-  })
-
-  // we need the current WZ DT Dom to resolve the type of the corresponding element
-  // because the corresp attribute in the staff element doesn't contain the type, but only the ID of the corresponding elements
-  const staffCorresp = svgDom.querySelectorAll('g.staff:not(.bounding-box)[data-corresp]')
-  // const dtPath = store.getters.currentWzDtPath
-  // dtDom would be: store.getters.documentByPath(dtPath)
-  const dtPath = null
-  staffCorresp.forEach((staff) => {
-    const corresps = staff.getAttribute('data-corresp').split(' ')
-    for (const corresp of corresps) {
-      const dtElementId = corresp.split('#')[1]
-      const dtElement = dtDom.querySelector('*[*|id="' + dtElementId + '"]')
-      const dtName = (dtElement?.localName || '').replace('accid', 'keyAccid') // keyAccid is a special case, as it is rendered as keyAccid in the SVG, but the DT uses accid
-      if (dtName) {
-        const elements = staff.querySelectorAll(`*[data-class="${dtName}"]`)
-        for (const element of elements) {
-          element.setAttribute('data-corresp', corresp)
-        }
-      } else {
-        console.warn(279, 'improveAtSvg', dtElementId, 'staff corresp', staff, dtName)
-      }
-    }
-  })
+  fixScoreDefChildIds(svgDom, atDom)
 
   return svgDom
+}
+
+export const fixScoreDefChildIds = (svgDom, meiDom) => {
+  const firstScoreDef = meiDom.querySelector('scoreDef')
+
+  const firstMeasureStavesSvg = svgDom.querySelector('g.measure:not(.bounding-box)').querySelectorAll('g.staff:not(.bounding-box)')
+
+  firstMeasureStavesSvg.forEach((staffSvg, index) => {
+    const n = index + 1
+    const staffDef = firstScoreDef.querySelector('staffDef[n="' + n + '"]')
+    const meterSigSvg = staffSvg.querySelector('g.meterSig:not(.bounding-box)')
+    const meterSigMei = staffDef.querySelector('meterSig')
+
+    if (meterSigSvg && meterSigMei) {
+      meterSigSvg.setAttribute('data-id', meterSigMei.getAttribute('xml:id'))
+      if (meterSigMei.hasAttribute('corresp')) {
+        meterSigSvg.setAttribute('data-corresp', meterSigMei.getAttribute('corresp'))
+      } else {
+        meterSigSvg.removeAttribute('data-corresp')
+      }
+    }
+
+    const clefSvg = staffSvg.querySelector('g.clef:not(.bounding-box)')
+    const clefMei = staffDef.querySelector('clef')
+    if (clefSvg && clefMei) {
+      clefSvg.setAttribute('data-id', clefMei.getAttribute('xml:id'))
+      if (clefMei.hasAttribute('corresp')) {
+        clefSvg.setAttribute('data-corresp', clefMei.getAttribute('corresp'))
+      } else {
+        clefSvg.removeAttribute('data-corresp')
+      }
+    }
+
+    const keySigSvg = staffSvg.querySelector('g.keySig:not(.bounding-box)')
+    const keySigMei = staffDef.querySelector('keySig')
+    if (keySigSvg && keySigMei) {
+      keySigSvg.setAttribute('data-id', keySigMei.getAttribute('xml:id'))
+      if (keySigMei.hasAttribute('corresp')) {
+        keySigSvg.setAttribute('data-corresp', keySigMei.getAttribute('corresp'))
+      } else {
+        keySigSvg.removeAttribute('data-corresp')
+      }
+
+      const keyAccidsSvg = keySigSvg.querySelectorAll('g.keyAccid:not(.bounding-box)')
+      const keyAccidsMei = keySigMei.querySelectorAll('keyAccid')
+      keyAccidsSvg.forEach((keyAccidSvg, ki) => {
+        const keyAccidMei = keyAccidsMei[ki]
+        if (keyAccidMei) {
+          keyAccidSvg.setAttribute('data-id', keyAccidMei.getAttribute('xml:id'))
+          if (keyAccidMei.hasAttribute('corresp')) {
+            keyAccidSvg.setAttribute('data-corresp', keyAccidMei.getAttribute('corresp'))
+          } else {
+            keyAccidSvg.removeAttribute('data-corresp')
+          }
+        }
+      })
+    }
+  })
 }
