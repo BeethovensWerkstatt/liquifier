@@ -1,5 +1,6 @@
-import { XMLSerializer } from 'xmldom-qsa'
+import { DOMParser, XMLSerializer } from 'xmldom-qsa'
 import { verovioPixelDensity } from '../config.mjs'
+import { fixScoreDefChildIds } from '../preparation/annotatedTranscripts.js'
 
 const verovioOptions = {
   scale: 30,
@@ -30,7 +31,12 @@ export const renderContinuousAt = (dom, verovio, target, pageDimensions) => {
   verovio.setOptions(verovioOptions)
 
   const svgString = verovio.renderData(domString, {})
-  return svgString
+
+  const svgDom = new DOMParser().parseFromString(svgString, 'image/svg+xml')
+  fixScoreDefChildIds(svgDom, dom)
+  const fixedSvgString = new XMLSerializer().serializeToString(svgDom)
+  
+  return fixedSvgString
 }
 
 export const renderSystemBasedAt = (dom, verovio, pageDimensions) => {
@@ -90,9 +96,13 @@ export const renderSystemBasedAt = (dom, verovio, pageDimensions) => {
     const svgString = verovio.renderToSVG(pageNo)
     const systemId = systemIds[pageNo - 1] // pageNo is 1-indexed
 
+      const svgDom = new DOMParser().parseFromString(svgString, 'image/svg+xml')
+      fixScoreDefChildIds(svgDom, dom)
+      const fixedSvgString = new XMLSerializer().serializeToString(svgDom)
+
     systemSvgs.push({
       systemId,
-      svg: svgString
+      svg: fixedSvgString
     })
   }
 
