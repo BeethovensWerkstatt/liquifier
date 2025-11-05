@@ -15,10 +15,11 @@ export const liquifyAccids = (ftSvg, dtSvg, atMeiDom, tools) => {
   
   // TODO: Implement keyAccids!
 
-  const accidentals = ftSvg.querySelectorAll('.accid:not(.bounding-box)')
+  const accidentals = ftSvg.querySelectorAll('.accid:not(.bounding-box), .keyAccid:not(.bounding-box)')
   accidentals.forEach(accid => {
     const atId = accid.getAttribute('data-id')
     const dtIds = correspMappings.get(atId)
+
     if (!dtIds || dtIds.length === 0) {
       generateHideAnimation(accid)
       return
