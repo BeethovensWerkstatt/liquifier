@@ -5,6 +5,8 @@ import { liquifyCurves } from './liquify/curves.js'
 import { liquifyAccids } from './liquify/accids.js'
 import { liquifyRests } from './liquify/rests.js'
 import { liquifyBeams } from './liquify/beams.js'
+import { liquifyMeterSigs } from './liquify/meterSigs.js'
+import { liquifyClefs } from './liquify/clefs.js'
 
 const duration = '3s'
 const repeatCount = 'indefinite'
@@ -186,7 +188,7 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, l
   const atSvgElement = atSystemSvg.documentElement || atSystemSvg
 
   const correspMappings = extractCorrespMappings(atMeiDom)
-
+  
   // Calculate scale factor
   const scaleFactor = calculateScaleFactor(dtSvgElement, atSvgElement)
   
@@ -393,9 +395,9 @@ const liquifyMusic = (ftSvg, dtSvg, atMeiDom, tools) => {
   liquifyRests(ftSvg, dtSvg, atMeiDom, tools)
   // liquifyChords(ftSvg, dtSvg, atMeiDom, tools)
   liquifyAccids(ftSvg, dtSvg, atMeiDom, tools)
-  // liquifyClefs(ftSvg, dtSvg, atMeiDom, tools)
+  liquifyClefs(ftSvg, dtSvg, atMeiDom, tools)
   // liquifyDots(ftSvg, dtSvg, atMeiDom, tools)
-  // liquifyMeterSigs(ftSvg, dtSvg, atMeiDom, tools)
+  liquifyMeterSigs(ftSvg, dtSvg, atMeiDom, tools)
   // liquifyArtics(ftSvg, dtSvg, atMeiDom, tools)
   // liquifyTupletNums(ftSvg, dtSvg, atMeiDom, tools)
 
