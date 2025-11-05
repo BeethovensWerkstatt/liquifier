@@ -188,6 +188,15 @@ export function getFilesObject (file, inputDir = './', outputDir = './cache') {
   const sourceFileFull = dtFile.replace('/diplomaticTranscripts/', '/').replace(regex, '')
   const sourceFileExists = fs.existsSync(sourceFileFull)
 
+  // Debug: Log which files are missing
+  if (!dtFileExists || !atFileExists || !sourceFileExists) {
+    console.warn(`[getFilesObject] Missing files for: ${file}`)
+    if (!dtFileExists) console.warn(`  - DT file not found: ${dtFile}`)
+    if (!atFileExists) console.warn(`  - AT file not found: ${atFileFull}`)
+    if (!sourceFileExists) console.warn(`  - Source file not found: ${sourceFileFull}`)
+    return undefined
+  }
+
   if (dtFileExists && atFileExists && sourceFileExists) {
     // Store full paths for reading
     const dtFullPath = dtFile
