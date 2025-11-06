@@ -25,20 +25,24 @@ export const liquifyAccids = (ftSvg, dtSvg, atMeiDom, tools) => {
       return
     }
 
-    // Find the parent note's animation values (if accid is inside a note)
-    // We need to account for the note's movement when calculating accid animation
+    // Find the parent note's or chord's animation values (if accid is inside a note/chord)
+    // We need to account for the note/chord's movement when calculating accid animation
+    const parentChord = accid.closest('g.chord:not(.bounding-box)')
     const parentNote = accid.closest('g.note:not(.bounding-box)')
     let noteAnimationDiff = { x: 0, y: 0 }
     
-    if (parentNote) {
-      // Extract the note's animation values from its animateTransform
-      const noteAnimation = parentNote.querySelector(':scope > animateTransform[type="translate"]')
-      if (noteAnimation) {
-        const noteValues = noteAnimation.getAttribute('values')
-        const noteMatch = noteValues?.match(/0 0;\s*([-\d.]+)\s+([-\d.]+)/)
-        if (noteMatch) {
-          noteAnimationDiff = { x: parseFloat(noteMatch[1]), y: parseFloat(noteMatch[2]) }
-          logger.debug(`[Accid] Parent note animation diff: (${noteAnimationDiff.x}, ${noteAnimationDiff.y})`)
+    // Check chord first, as notes inside chords are children of the chord
+    const parentToCheck = parentChord || parentNote
+    
+    if (parentToCheck) {
+      // Extract the parent's animation values from its animateTransform
+      const parentAnimation = parentToCheck.querySelector(':scope > animateTransform[type="translate"]')
+      if (parentAnimation) {
+        const parentValues = parentAnimation.getAttribute('values')
+        const parentMatch = parentValues?.match(/0 0;\s*([-\d.]+)\s+([-\d.]+)/)
+        if (parentMatch) {
+          noteAnimationDiff = { x: parseFloat(parentMatch[1]), y: parseFloat(parentMatch[2]) }
+          logger.debug(`[Accid] Parent ${parentChord ? 'chord' : 'note'} animation diff: (${noteAnimationDiff.x}, ${noteAnimationDiff.y})`)
         }
       }
     }

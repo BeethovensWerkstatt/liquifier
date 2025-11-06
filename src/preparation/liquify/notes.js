@@ -25,6 +25,11 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
   
   const notes = ftSvg.querySelectorAll('g.note:not(.bounding-box)')
   notes.forEach(note => {
+    // Skip notes that are inside chords - they will be handled by liquifyChords
+    if (note.closest('g.chord:not(.bounding-box)')) {
+      return
+    }
+    
     const atId = note.getAttribute('data-id')
     const dtIds = correspMappings.get(atId)
     if (!dtIds || dtIds.length === 0) return

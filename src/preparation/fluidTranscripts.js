@@ -7,6 +7,7 @@ import { liquifyRests } from './liquify/rests.js'
 import { liquifyBeams } from './liquify/beams.js'
 import { liquifyMeterSigs } from './liquify/meterSigs.js'
 import { liquifyClefs } from './liquify/clefs.js'
+import { liquifyChords } from './liquify/chords.js'
 
 const duration = '3s'
 const repeatCount = 'indefinite'
@@ -393,7 +394,7 @@ const liquifyMusic = (ftSvg, dtSvg, atMeiDom, tools) => {
   liquifyNotes(ftSvg, dtSvg, atMeiDom, tools)
   liquifyBarlines(ftSvg, dtSvg, atMeiDom, tools)
   liquifyRests(ftSvg, dtSvg, atMeiDom, tools)
-  // liquifyChords(ftSvg, dtSvg, atMeiDom, tools)
+  liquifyChords(ftSvg, dtSvg, atMeiDom, tools)
   liquifyAccids(ftSvg, dtSvg, atMeiDom, tools)
   liquifyClefs(ftSvg, dtSvg, atMeiDom, tools)
   // liquifyDots(ftSvg, dtSvg, atMeiDom, tools)
