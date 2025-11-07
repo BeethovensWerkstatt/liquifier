@@ -189,10 +189,13 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
         const atY1 = parseFloat(atMatch[2])
         const atX2 = parseFloat(atMatch[3])
         const atY2 = parseFloat(atMatch[4])
+        const dtX1 = parseFloat(dtMatch[1])
         const dtY1 = parseFloat(dtMatch[2])
+        const dtX2 = parseFloat(dtMatch[3])
         const dtY2 = parseFloat(dtMatch[4])
         
         // Calculate stem lengths
+        const atLength = Math.abs(atY2 - atY1)
         const dtLength = Math.abs(dtY2 - dtY1)
         const newLength = dtLength * scaleFactor
         
@@ -200,14 +203,16 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
         const meiChord = atMeiDom.querySelector(`chord[xml\\:id="${atId}"]`)
         const stemDir = meiChord?.getAttribute('stem.dir') || 'up'
         
-        // Calculate new d attribute based on stem direction
-        let newD, newStemEndY, stemVals
+        // Calculate new d attribute based on stem direction for FINDINGS and DIPLOMATIC states
+        let findingsD, findingsStemEndY, diplomaticD, diplomaticStemEndY, stemVals
         if (stemDir === 'up') {
           // Stem goes up: keep bottom (higher y) fixed, extend upward (lower y)
           if (atY1 > atY2) {
             // M is bottom, L is top - keep M fixed
-            newStemEndY = atY1 - newLength
-            newD = `M${atX1} ${atY1} L${atX2} ${newStemEndY}`
+            findingsStemEndY = atY1 - newLength
+            findingsD = `M${atX1} ${atY1} L${atX2} ${findingsStemEndY}`
+            diplomaticStemEndY = atY1 - atLength
+            diplomaticD = `M${atX1} ${atY1} L${atX2} ${diplomaticStemEndY}`
             stemVals = [atNotesPositions[atNotesPositions.length - 1].atVal, atNotesPositions[atNotesPositions.length - 1].dtVal]
             setAnimation({
               element: atStem,
@@ -223,8 +228,10 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
             })
           } else {
             // M is top, L is bottom - keep L fixed
-            newStemEndY = atY2 - newLength
-            newD = `M${atX1} ${newStemEndY} L${atX2} ${atY2}`
+            findingsStemEndY = atY2 - newLength
+            findingsD = `M${atX1} ${findingsStemEndY} L${atX2} ${atY2}`
+            diplomaticStemEndY = atY2 - atLength
+            diplomaticD = `M${atX1} ${diplomaticStemEndY} L${atX2} ${atY2}`
             stemVals = [atNotesPositions[atNotesPositions.length - 1].atVal, atNotesPositions[atNotesPositions.length - 1].dtVal]
             setAnimation({
               element: atStem,
@@ -243,8 +250,10 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
           // Stem goes down: keep top (lower y) fixed, extend downward (higher y)
           if (atY1 < atY2) {
             // M is top, L is bottom - keep M fixed
-            newStemEndY = atY1 + newLength
-            newD = `M${atX1} ${atY1} L${atX2} ${newStemEndY}`
+            findingsStemEndY = atY1 + newLength
+            findingsD = `M${atX1} ${atY1} L${atX2} ${findingsStemEndY}`
+            diplomaticStemEndY = atY1 + atLength
+            diplomaticD = `M${atX1} ${atY1} L${atX2} ${diplomaticStemEndY}`
             stemVals = [atNotesPositions[0].atVal, atNotesPositions[0].dtVal]
             setAnimation({
               element: atStem,
@@ -260,8 +269,10 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
             })
           } else {
             // M is bottom, L is top - keep L fixed
-            newStemEndY = atY2 + newLength
-            newD = `M${atX1} ${newStemEndY} L${atX2} ${atY2}`
+            findingsStemEndY = atY2 + newLength
+            findingsD = `M${atX1} ${findingsStemEndY} L${atX2} ${atY2}`
+            diplomaticStemEndY = atY2 + atLength
+            diplomaticD = `M${atX1} ${diplomaticStemEndY} L${atX2} ${atY2}`
             stemVals = [atNotesPositions[0].atVal, atNotesPositions[0].dtVal]
             setAnimation({
               element: atStem,
@@ -283,8 +294,8 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
           id: `${atId}-stem-d`,
           localName: 'stem',
           states: {
-          findings: { type: 'd', val: newD },
-          diplomatic: { type: 'd', val: newD },
+          findings: { type: 'd', val: findingsD },
+          diplomatic: { type: 'd', val: diplomaticD },
           supplements: { type: 'd', val: atD },
           conjectures: { type: 'd', val: atD },
           annotated: { type: 'd', val: atD }
@@ -294,18 +305,23 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
         // Animate the flag if present
         const flag = chord.querySelector('.flag')
         if (flag) {
-          // Calculate the difference in stem end Y position
+          // Calculate the difference in stem end Y position for findings and diplomatic
           const originalStemEndY = stemDir === 'up' ? Math.min(atY1, atY2) : Math.max(atY1, atY2)
-          const diff = newStemEndY - originalStemEndY
-          stemVals[1] = stemVals[1].split(' ')[0] + ' ' + diff
-          // Add translate animation: from "0 0" to "0 diff"
+          const findingsDiff = findingsStemEndY - originalStemEndY
+          const diplomaticDiff = diplomaticStemEndY - originalStemEndY
+          
+          // Combine with the stem's base position
+          const findingsFlagVal = stemVals[1].split(' ')[0] + ' ' + findingsDiff
+          const diplomaticFlagVal = stemVals[1].split(' ')[0] + ' ' + diplomaticDiff
+          
+          // Add translate animation: flags follow the stem endpoint
           setAnimation({
             element: flag,
             id: `${atId}-flag`,
             localName: 'flag',
             states: {
-          findings: { type: 'translate', val: stemVals[1] },
-          diplomatic: { type: 'translate', val: stemVals[1] },
+          findings: { type: 'translate', val: findingsFlagVal },
+          diplomatic: { type: 'translate', val: diplomaticFlagVal },
           supplements: { type: 'translate', val: stemVals[0] },
           conjectures: { type: 'translate', val: stemVals[0] },
           annotated: { type: 'translate', val: stemVals[0] }

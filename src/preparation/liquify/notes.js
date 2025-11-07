@@ -131,10 +131,13 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
         const atY1 = parseFloat(atMatch[2])
         const atX2 = parseFloat(atMatch[3])
         const atY2 = parseFloat(atMatch[4])
+        const dtX1 = parseFloat(dtMatch[1])
         const dtY1 = parseFloat(dtMatch[2])
+        const dtX2 = parseFloat(dtMatch[3])
         const dtY2 = parseFloat(dtMatch[4])
         
         // Calculate stem lengths
+        const atLength = Math.abs(atY2 - atY1)
         const dtLength = Math.abs(dtY2 - dtY1)
         const newLength = dtLength * scaleFactor
         
@@ -142,29 +145,55 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
         const meiNote = atMeiDom.querySelector(`note[xml\\:id="${atId}"]`)
         const stemDir = meiNote?.getAttribute('stem.dir') || 'up'
         
-        // Calculate new d attribute based on stem direction
-        let newD, newStemEndY
+        // Calculate stem path for FINDINGS state: DT position, DT length (scaled)
+        let findingsD, findingsStemEndY
         if (stemDir === 'up') {
           // Stem goes up: keep bottom (higher y) fixed, extend upward (lower y)
           if (atY1 > atY2) {
             // M is bottom, L is top - keep M fixed
-            newStemEndY = atY1 - newLength
-            newD = `M${atX1} ${atY1} L${atX2} ${newStemEndY}`
+            findingsStemEndY = atY1 - newLength
+            findingsD = `M${atX1} ${atY1} L${atX2} ${findingsStemEndY}`
           } else {
             // M is top, L is bottom - keep L fixed
-            newStemEndY = atY2 - newLength
-            newD = `M${atX1} ${newStemEndY} L${atX2} ${atY2}`
+            findingsStemEndY = atY2 - newLength
+            findingsD = `M${atX1} ${findingsStemEndY} L${atX2} ${atY2}`
           }
         } else {
           // Stem goes down: keep top (lower y) fixed, extend downward (higher y)
           if (atY1 < atY2) {
             // M is top, L is bottom - keep M fixed
-            newStemEndY = atY1 + newLength
-            newD = `M${atX1} ${atY1} L${atX2} ${newStemEndY}`
+            findingsStemEndY = atY1 + newLength
+            findingsD = `M${atX1} ${atY1} L${atX2} ${findingsStemEndY}`
           } else {
             // M is bottom, L is top - keep L fixed
-            newStemEndY = atY2 + newLength
-            newD = `M${atX1} ${newStemEndY} L${atX2} ${atY2}`
+            findingsStemEndY = atY2 + newLength
+            findingsD = `M${atX1} ${findingsStemEndY} L${atX2} ${atY2}`
+          }
+        }
+        
+        // Calculate stem path for DIPLOMATIC state: DT position, AT length
+        let diplomaticD, diplomaticStemEndY
+        if (stemDir === 'up') {
+          // Stem goes up: keep bottom (higher y) fixed, use AT length
+          if (atY1 > atY2) {
+            // M is bottom, L is top - keep M fixed
+            diplomaticStemEndY = atY1 - atLength
+            diplomaticD = `M${atX1} ${atY1} L${atX2} ${diplomaticStemEndY}`
+          } else {
+            // M is top, L is bottom - keep L fixed
+            diplomaticStemEndY = atY2 - atLength
+            diplomaticD = `M${atX1} ${diplomaticStemEndY} L${atX2} ${atY2}`
+          }
+        } else {
+          // Stem goes down: keep top (lower y) fixed, use AT length
+          if (atY1 < atY2) {
+            // M is top, L is bottom - keep M fixed
+            diplomaticStemEndY = atY1 + atLength
+            diplomaticD = `M${atX1} ${atY1} L${atX2} ${diplomaticStemEndY}`
+          } else {
+            // M is bottom, L is top - keep L fixed
+            diplomaticStemEndY = atY2 + atLength
+            diplomaticD = `M${atX1} ${diplomaticStemEndY} L${atX2} ${atY2}`
           }
         }
         
@@ -173,8 +202,8 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
           id: `${atId}-stem`,
           localName: 'stem',
           states: {
-            findings: { type: 'd', val: newD },
-            diplomatic: { type: 'd', val: newD },
+            findings: { type: 'd', val: findingsD },
+            diplomatic: { type: 'd', val: diplomaticD },
             supplements: { type: 'd', val: atD },
             conjectures: { type: 'd', val: atD },
             annotated: { type: 'd', val: atD }
@@ -184,18 +213,19 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
         // Animate the flag if present
         const flag = note.querySelector('.flag')
         if (flag) {
-          // Calculate the difference in stem end Y position
+          // Calculate the difference in stem end Y position for each state
           const originalStemEndY = stemDir === 'up' ? Math.min(atY1, atY2) : Math.max(atY1, atY2)
-          const diff = newStemEndY - originalStemEndY
+          const findingsDiff = findingsStemEndY - originalStemEndY
+          const diplomaticDiff = diplomaticStemEndY - originalStemEndY
           
-          // Add translate animation: from "0 0" to "0 diff"
+          // Add translate animation: flags follow the stem endpoint
           setAnimation({
             element: flag,
             id: `${atId}-flag`,
             localName: 'flag',
             states: {
-              findings: { type: 'translate', val: `0 ${diff}` },
-              diplomatic: { type: 'translate', val: `0 ${diff}` },
+              findings: { type: 'translate', val: `0 ${findingsDiff}` },
+              diplomatic: { type: 'translate', val: `0 ${diplomaticDiff}` },
               supplements: { type: 'translate', val: '0 0' },
               conjectures: { type: 'translate', val: '0 0' },
               annotated: { type: 'translate', val: '0 0' }
