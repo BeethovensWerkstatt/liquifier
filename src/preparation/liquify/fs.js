@@ -1,7 +1,26 @@
 /**
  * Animate figured bass numbers (<f> elements) between AT and DT transcriptions
  * 
- * For each figured bass number in the AT (fluid transcription):
+ * For each fi      logger.debug(`[F ${atId}] AT: (${atPos.x}, ${atPos.y}), DT: (${dtPos.x}, ${dtPos.y}), newPos: (${newPos.x}, ${newPos.y}), diff: (${diffX}, ${diffY})`)
+
+      // Apply animation to the parent text element
+      const atVal = '0 0'
+      const dtVal = `${diffX} ${diffY}`
+      setAnimation({
+        element: atText,
+        id: `${atId}-text`,
+        localName: 'f-text',
+        states: {
+          findings: { type: 'translate', val: dtVal },
+          diplomatic: { type: 'translate', val: dtVal },
+          supplements: { type: 'translate', val: atVal },
+          conjectures: { type: 'translate', val: atVal },
+          annotated: { type: 'translate', val: atVal }
+        }
+      })
+    })
+  })
+}s number in the AT (fluid transcription):
  * - Animates the individual number position based on corresponding DT position
  * - Handles figured bass numbers without DT correspondence by fading them out
  * 
@@ -18,7 +37,7 @@
  * @param {Object} tools - Tools object containing helper functions and data
  */
 export const liquifyFs = (ftSvg, dtSvg, atMeiDom, tools) => {
-  const { scaleFactor, getNewPos, correspMappings, addTransformTranslate, generateHideAnimation, logger } = tools
+  const { scaleFactor, getNewPos, correspMappings, setAnimation, logger } = tools
   
   const fs = ftSvg.querySelectorAll('tspan.f:not(.bounding-box)')
   logger.debug(`[Fs] Found ${fs.length} figured bass numbers to animate`)
@@ -32,7 +51,18 @@ export const liquifyFs = (ftSvg, dtSvg, atMeiDom, tools) => {
       // Fade out the parent text element to hide the entire figured bass number
       const parentText = f.closest('text')
       if (parentText) {
-        generateHideAnimation(parentText)
+        setAnimation({
+          element: parentText,
+          id: `${atId}-text`,
+          localName: 'f-text',
+          states: {
+          findings: null,
+          diplomatic: null,
+          supplements: { type: 'translate', val: '0 0' },
+          conjectures: { type: 'translate', val: '0 0' },
+          annotated: { type: 'translate', val: '0 0' }
+        }
+        })
       }
       return
     }
@@ -44,7 +74,18 @@ export const liquifyFs = (ftSvg, dtSvg, atMeiDom, tools) => {
       if (!dtF) {
         const parentText = f.closest('text')
         if (parentText) {
-          generateHideAnimation(parentText)
+          setAnimation({
+            element: parentText,
+            id: `${atId}-text`,
+            localName: 'f-text',
+            states: {
+          findings: null,
+          diplomatic: null,
+          supplements: { type: 'translate', val: '0 0' },
+          conjectures: { type: 'translate', val: '0 0' },
+          annotated: { type: 'translate', val: '0 0' }
+        }
+          })
         }
         return
       }
@@ -89,7 +130,18 @@ export const liquifyFs = (ftSvg, dtSvg, atMeiDom, tools) => {
       // Apply animation to the parent text element (to move the entire figured bass number)
       const atVal = '0 0'
       const dtVal = `${diffX} ${diffY}`
-      addTransformTranslate(atText, [atVal, dtVal])
+      setAnimation({
+        element: atText,
+        id: `${atId}-text`,
+        localName: 'f-text',
+        states: {
+          findings: { type: 'translate', val: dtVal },
+          diplomatic: { type: 'translate', val: dtVal },
+          supplements: { type: 'translate', val: atVal },
+          conjectures: { type: 'translate', val: atVal },
+          annotated: { type: 'translate', val: atVal }
+        }
+      })
     })
   })
 }

@@ -70,7 +70,7 @@ const adjustAtBarLines = (svg) => {
  * @param {Object} tools - Tools object containing helper functions and data
  */
 export const liquifyBarlines = (ftSvg, dtSvg, atMeiDom, tools) => {
-  const { scaleFactor, getNewPos, convertD, correspMappings, addTransform, addTransformTranslate, generateHideAnimation } = tools
+  const { scaleFactor, getNewPos, convertD, correspMappings, setAnimation } = tools
   
   // First, merge multi-staff barlines into single continuous lines
   adjustAtBarLines(ftSvg)
@@ -86,7 +86,18 @@ export const liquifyBarlines = (ftSvg, dtSvg, atMeiDom, tools) => {
     const dtIds = correspMappings.get(atId)
     if (!dtIds || dtIds.length === 0) { 
       atBarline.forEach((barLine) =>
-        generateHideAnimation(barLine)
+        setAnimation({
+          element: barLine,
+          id: `${atId}-barline`,
+          localName: 'barline',
+          states: {
+          findings: null,
+          diplomatic: null,
+          supplements: { type: 'd', val: barLine.getAttribute('d') },
+          conjectures: { type: 'd', val: barLine.getAttribute('d') },
+          annotated: { type: 'd', val: barLine.getAttribute('d') }
+        }
+        })
       )
       return
     }
@@ -95,7 +106,18 @@ export const liquifyBarlines = (ftSvg, dtSvg, atMeiDom, tools) => {
       const dtBarline = dtSvg.querySelector('.barLine[data-id="' + dtId + '"] path')
       if (!dtBarline) {
         atBarline.forEach((barLine) =>
-          generateHideAnimation(barLine)
+          setAnimation({
+            element: barLine,
+            id: `${atId}-barline`,
+            localName: 'barline',
+            states: {
+          findings: null,
+          diplomatic: null,
+          supplements: { type: 'd', val: barLine.getAttribute('d') },
+          conjectures: { type: 'd', val: barLine.getAttribute('d') },
+          annotated: { type: 'd', val: barLine.getAttribute('d') }
+        }
+          })
         )
         return
       }
@@ -117,7 +139,18 @@ export const liquifyBarlines = (ftSvg, dtSvg, atMeiDom, tools) => {
       const atVal = atPath
       const dtVal = `M${newStartPos.x} ${newStartPos.y} L${newEndPos.x} ${newEndPos.y}`
 
-      addTransform(atBarline[0], 'd', [atVal, dtVal])
+      setAnimation({
+        element: atBarline[0],
+        id: `${atId}-barline`,
+        localName: 'barline',
+        states: {
+          findings: { type: 'd', val: dtVal },
+          diplomatic: { type: 'd', val: dtVal },
+          supplements: { type: 'd', val: atVal },
+          conjectures: { type: 'd', val: atVal },
+          annotated: { type: 'd', val: atVal }
+        }
+      })
     })
   })
 }

@@ -14,7 +14,7 @@
  * @param {Object} tools - Tools object containing helper functions and data
  */
 export const liquifyFings = (ftSvg, dtSvg, atMeiDom, tools) => {
-  const { scaleFactor, getNewPos, correspMappings, addTransformTranslate, generateHideAnimation, logger } = tools
+  const { scaleFactor, getNewPos, correspMappings, setAnimation, logger } = tools
   
   const fings = ftSvg.querySelectorAll('g.fing:not(.bounding-box)')
   logger.debug(`[Fings] Found ${fings.length} fingerings to animate`)
@@ -25,7 +25,18 @@ export const liquifyFings = (ftSvg, dtSvg, atMeiDom, tools) => {
     
     if (!dtIds || dtIds.length === 0) {
       logger.debug(`[Fings] No corresp for fingering ${atId}`)
-      generateHideAnimation(fing)
+      setAnimation({
+        element: fing,
+        id: atId,
+        localName: 'fing',
+        states: {
+          findings: null,
+          diplomatic: null,
+          supplements: { type: 'translate', val: '0 0' },
+          conjectures: { type: 'translate', val: '0 0' },
+          annotated: { type: 'translate', val: '0 0' }
+        }
+      })
       return
     }
     
@@ -34,7 +45,18 @@ export const liquifyFings = (ftSvg, dtSvg, atMeiDom, tools) => {
     dtIds.forEach(dtId => {
       const dtFing = dtSvg.querySelector(`g.fing[data-id="${dtId}"]`)
       if (!dtFing) {
-        generateHideAnimation(fing)
+        setAnimation({
+          element: fing,
+          id: atId,
+          localName: 'fing',
+          states: {
+          findings: null,
+          diplomatic: null,
+          supplements: { type: 'translate', val: '0 0' },
+          conjectures: { type: 'translate', val: '0 0' },
+          annotated: { type: 'translate', val: '0 0' }
+        }
+        })
         return
       }
 
@@ -78,7 +100,18 @@ export const liquifyFings = (ftSvg, dtSvg, atMeiDom, tools) => {
       // Apply animation to the fingering group
       const atVal = '0 0'
       const dtVal = `${diffX} ${diffY}`
-      addTransformTranslate(fing, [atVal, dtVal])
+      setAnimation({
+        element: fing,
+        id: atId,
+        localName: 'fing',
+        states: {
+          findings: { type: 'translate', val: dtVal },
+          diplomatic: { type: 'translate', val: dtVal },
+          supplements: { type: 'translate', val: atVal },
+          conjectures: { type: 'translate', val: atVal },
+          annotated: { type: 'translate', val: atVal }
+        }
+      })
     })
   })
 }

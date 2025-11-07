@@ -11,7 +11,7 @@
  * @param {Object} tools - Tools object containing helper functions and data
  */
 export const liquifyAccids = (ftSvg, dtSvg, atMeiDom, tools) => {
-  const { scaleFactor, getNewPos, convertD, correspMappings, addTransform, addTransformTranslate, generateHideAnimation, logger } = tools
+  const { scaleFactor, getNewPos, convertD, correspMappings, setAnimation, logger } = tools
   
   // TODO: Implement keyAccids!
 
@@ -21,7 +21,18 @@ export const liquifyAccids = (ftSvg, dtSvg, atMeiDom, tools) => {
     const dtIds = correspMappings.get(atId)
 
     if (!dtIds || dtIds.length === 0) {
-      generateHideAnimation(accid)
+      setAnimation({
+        element: accid,
+        id: atId,
+        localName: 'accid',
+        states: {
+          findings: null,
+          diplomatic: null,
+          supplements: { type: 'translate', val: '0 0' },
+          conjectures: { type: 'translate', val: '0 0' },
+          annotated: { type: 'translate', val: '0 0' }
+        }
+      })
       return
     }
 
@@ -66,7 +77,18 @@ export const liquifyAccids = (ftSvg, dtSvg, atMeiDom, tools) => {
       const currentAccid = accidElements[index]
       const dtAccid = dtSvg.querySelector(`.accid[data-id="${dtId}"]`)
       if (!dtAccid) {
-        generateHideAnimation(currentAccid)
+        setAnimation({
+          element: currentAccid,
+          id: `${atId}-${index}`,
+          localName: 'accid',
+          states: {
+          findings: null,
+          diplomatic: null,
+          supplements: { type: 'translate', val: '0 0' },
+          conjectures: { type: 'translate', val: '0 0' },
+          annotated: { type: 'translate', val: '0 0' }
+        }
+        })
         return
       }
       
@@ -107,7 +129,18 @@ export const liquifyAccids = (ftSvg, dtSvg, atMeiDom, tools) => {
         // Apply relative animation to the parent accid group
         const atVal = '0 0'
         const dtVal = `${diffX} ${diffY}`
-        addTransformTranslate(currentAccid, [atVal, dtVal])
+        setAnimation({
+          element: currentAccid,
+          id: `${atId}-${index}`,
+          localName: 'accid',
+          states: {
+          findings: { type: 'translate', val: dtVal },
+          diplomatic: { type: 'translate', val: dtVal },
+          supplements: { type: 'translate', val: atVal },
+          conjectures: { type: 'translate', val: atVal },
+          annotated: { type: 'translate', val: atVal }
+        }
+        })
       }
     })
   })

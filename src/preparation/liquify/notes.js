@@ -1,5 +1,3 @@
-import { appendNewElement } from '../../utils/dom.js'
-
 /**
  * Animate notes between AT and DT transcriptions, including noteheads, stems, ledger lines, and flags
  * 
@@ -21,7 +19,7 @@ import { appendNewElement } from '../../utils/dom.js'
  * @param {Object} tools - Tools object containing helper functions and data
  */
 export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
-  const { scaleFactor, getNewPos, correspMappings, addTransform, addTransformTranslate, generateHideAnimation } = tools
+  const { scaleFactor, getNewPos, correspMappings, setAnimation, logger } = tools
   
   const notes = ftSvg.querySelectorAll('g.note:not(.bounding-box)')
   notes.forEach(note => {
@@ -32,8 +30,7 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
     
     const atId = note.getAttribute('data-id')
     const dtIds = correspMappings.get(atId)
-    if (!dtIds || dtIds.length === 0) return
-
+    
     // Animate the notehead - extract x, y from transform translate()
     const atHeadUse = note.querySelector('.notehead > use')
     const atHeadTranslate = atHeadUse?.getAttribute('transform')?.match(/translate\(\s*([\d.-]+)\s*,\s*([\d.-]+)\s*\)/)
@@ -41,10 +38,38 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
 
     const atHead = { x: parseFloat(atHeadTranslate[1]), y: parseFloat(atHeadTranslate[2]) }
 
+    // If no DT correspondence, hide the note
+    if (!dtIds || dtIds.length === 0) {
+      setAnimation({
+        element: note,
+        id: atId,
+        localName: 'note',
+        states: {
+          findings: null,
+          diplomatic: null,
+          supplements: { type: 'translate', val: '0 0' },
+          conjectures: { type: 'translate', val: '0 0' },
+          annotated: { type: 'translate', val: '0 0' }
+        }
+      })
+      return
+    }
+
     dtIds.forEach(dtId => {
       const dtNote = dtSvg.querySelector(`g.note[data-id="${dtId}"]`)
       if (!dtNote) {
-        generateHideAnimation(note)
+        setAnimation({
+          element: note,
+          id: atId,
+          localName: 'note',
+          states: {
+            findings: null,
+            diplomatic: null,
+            supplements: { type: 'translate', val: '0 0' },
+            conjectures: { type: 'translate', val: '0 0' },
+            annotated: { type: 'translate', val: '0 0' }
+          }
+        })
         return
       }
       const dtHead = { x: parseFloat(dtNote.querySelector('.notehead > use')?.getAttribute('x')),
@@ -55,12 +80,35 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
       const atVal = '0 0'
       const dtVal = parseFloat(newHeadPos.x - atHead.x) + ' ' + parseFloat(newHeadPos.y - atHead.y)
 
-      addTransformTranslate(note, [atVal, dtVal])
+      setAnimation({
+        element: note,
+        id: atId,
+        localName: 'note',
+        states: {
+          findings: { type: 'translate', val: dtVal },
+          diplomatic: { type: 'translate', val: dtVal },
+          supplements: { type: 'translate', val: atVal },
+          conjectures: { type: 'translate', val: atVal },
+          annotated: { type: 'translate', val: atVal }
+        }
+      })
 
       // identify relevant ledger lines
       note.closest('.measure').querySelectorAll('.ledgerLines .lineDash').forEach(ledgerLine => {
         if (ledgerLine.hasAttribute('data-related') && ledgerLine.getAttribute('data-related') === '#' + atId) {
-          addTransformTranslate(ledgerLine, [atVal, dtVal])
+          const ledgerId = ledgerLine.getAttribute('data-id') || `ledger-${atId}`
+          setAnimation({
+            element: ledgerLine,
+            id: ledgerId,
+            localName: 'ledgerLine',
+            states: {
+              findings: { type: 'translate', val: dtVal },
+              diplomatic: { type: 'translate', val: dtVal },
+              supplements: { type: 'translate', val: atVal },
+              conjectures: { type: 'translate', val: atVal },
+              annotated: { type: 'translate', val: atVal }
+            }
+          })
         }
       }) 
 
@@ -120,7 +168,18 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
           }
         }
         
-        addTransform(atStem, 'd', [atD, newD])
+        setAnimation({
+          element: atStem,
+          id: `${atId}-stem`,
+          localName: 'stem',
+          states: {
+            findings: { type: 'd', val: newD },
+            diplomatic: { type: 'd', val: newD },
+            supplements: { type: 'd', val: atD },
+            conjectures: { type: 'd', val: atD },
+            annotated: { type: 'd', val: atD }
+          }
+        })
 
         // Animate the flag if present
         const flag = note.querySelector('.flag')
@@ -130,8 +189,18 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
           const diff = newStemEndY - originalStemEndY
           
           // Add translate animation: from "0 0" to "0 diff"
-          const values = [`0 0`, `0 ${diff}`]
-          addTransformTranslate(flag, values)
+          setAnimation({
+            element: flag,
+            id: `${atId}-flag`,
+            localName: 'flag',
+            states: {
+              findings: { type: 'translate', val: `0 ${diff}` },
+              diplomatic: { type: 'translate', val: `0 ${diff}` },
+              supplements: { type: 'translate', val: '0 0' },
+              conjectures: { type: 'translate', val: '0 0' },
+              annotated: { type: 'translate', val: '0 0' }
+            }
+          })
         }
       }
     })

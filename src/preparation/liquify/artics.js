@@ -15,7 +15,7 @@
  * @param {Object} tools - Tools object containing helper functions
  */
 export const liquifyArtics = (ftSvg, dtSvg, atMeiDom, tools) => {
-  const { getNewPos, correspMappings, addTransformTranslate, generateHideAnimation, logger } = tools
+  const { getNewPos, correspMappings, setAnimation, logger } = tools
 
   // Get all articulation groups from fluid transcription (excluding bounding boxes)
   const artics = ftSvg.querySelectorAll('g.artic:not(.bounding-box)')
@@ -36,7 +36,18 @@ export const liquifyArtics = (ftSvg, dtSvg, atMeiDom, tools) => {
     // If no DT correspondence, this is an editorial addition - fade it out
     if (!dtIds || dtIds.length === 0) {
       logger.debug(`[liquifyArtics] No DT correspondence for artic ${atId}, fading out (editorial)`)
-      generateHideAnimation(atArtic)
+      setAnimation({
+        element: atArtic,
+        id: atId,
+        localName: 'artic',
+        states: {
+          findings: null,
+          diplomatic: null,
+          supplements: { type: 'translate', val: '0 0' },
+          conjectures: { type: 'translate', val: '0 0' },
+          annotated: { type: 'translate', val: '0 0' }
+        }
+      })
       return
     }
 
@@ -71,7 +82,18 @@ export const liquifyArtics = (ftSvg, dtSvg, atMeiDom, tools) => {
 
     if (!dtArtic) {
       logger.debug(`[liquifyArtics] No matching DT element found for artic ${atId}, fading out`)
-      generateHideAnimation(atArtic)
+      setAnimation({
+        element: atArtic,
+        id: atId,
+        localName: 'artic',
+        states: {
+          findings: null,
+          diplomatic: null,
+          supplements: { type: 'translate', val: '0 0' },
+          conjectures: { type: 'translate', val: '0 0' },
+          annotated: { type: 'translate', val: '0 0' }
+        }
+      })
       return
     }
 
@@ -79,7 +101,18 @@ export const liquifyArtics = (ftSvg, dtSvg, atMeiDom, tools) => {
     const dtUse = dtArtic.querySelector('use')
     if (!dtUse) {
       logger.warn(`[liquifyArtics] No use element found in DT artic`)
-      generateHideAnimation(atArtic)
+      setAnimation({
+        element: atArtic,
+        id: atId,
+        localName: 'artic',
+        states: {
+          findings: null,
+          diplomatic: null,
+          supplements: { type: 'translate', val: '0 0' },
+          conjectures: { type: 'translate', val: '0 0' },
+          annotated: { type: 'translate', val: '0 0' }
+        }
+      })
       return
     }
 
@@ -89,7 +122,18 @@ export const liquifyArtics = (ftSvg, dtSvg, atMeiDom, tools) => {
 
     if (isNaN(dtX) || isNaN(dtY)) {
       logger.warn(`[liquifyArtics] Invalid DT position for artic ${atId}: x=${dtX}, y=${dtY}`)
-      generateHideAnimation(atArtic)
+      setAnimation({
+        element: atArtic,
+        id: atId,
+        localName: 'artic',
+        states: {
+          findings: null,
+          diplomatic: null,
+          supplements: { type: 'translate', val: '0 0' },
+          conjectures: { type: 'translate', val: '0 0' },
+          annotated: { type: 'translate', val: '0 0' }
+        }
+      })
       return
     }
 
@@ -103,7 +147,18 @@ export const liquifyArtics = (ftSvg, dtSvg, atMeiDom, tools) => {
     logger.debug(`[liquifyArtics] Animating artic ${atId}: AT(${atX}, ${atY}) -> DT(${dtX}, ${dtY}) -> newPos(${newPos.x}, ${newPos.y})`)
 
     // Add animation to the artic group
-    addTransformTranslate(atArtic, [`0 0`, `${translateX} ${translateY}`])
+    setAnimation({
+      element: atArtic,
+      id: atId,
+      localName: 'artic',
+      states: {
+        findings: { type: 'translate', val: `${translateX} ${translateY}` },
+        diplomatic: { type: 'translate', val: `${translateX} ${translateY}` },
+        supplements: { type: 'translate', val: '0 0' },
+        conjectures: { type: 'translate', val: '0 0' },
+        annotated: { type: 'translate', val: '0 0' }
+      }
+    })
   })
 
   logger.info('[liquifyArtics] Finished processing articulations')

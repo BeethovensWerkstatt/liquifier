@@ -11,7 +11,7 @@
  * @param {Object} tools - Tools object containing helper functions and data
  */
 export const liquifyTrills = (ftSvg, dtSvg, atMeiDom, tools) => {
-  const { scaleFactor, getNewPos, correspMappings, addTransformTranslate, generateHideAnimation, logger } = tools
+  const { scaleFactor, getNewPos, correspMappings, setAnimation, logger } = tools
   
   const trills = ftSvg.querySelectorAll('g.trill:not(.bounding-box)')
   logger.debug(`[Trills] Found ${trills.length} trills to animate`)
@@ -22,7 +22,18 @@ export const liquifyTrills = (ftSvg, dtSvg, atMeiDom, tools) => {
     
     if (!dtIds || dtIds.length === 0) {
       logger.debug(`[Trills] No corresp for trill ${atId}`)
-      generateHideAnimation(trill)
+      setAnimation({
+        element: trill,
+        id: atId,
+        localName: 'trill',
+        states: {
+          findings: null,
+          diplomatic: null,
+          supplements: { type: 'translate', val: '0 0' },
+          conjectures: { type: 'translate', val: '0 0' },
+          annotated: { type: 'translate', val: '0 0' }
+        }
+      })
       return
     }
     
@@ -31,7 +42,18 @@ export const liquifyTrills = (ftSvg, dtSvg, atMeiDom, tools) => {
     dtIds.forEach(dtId => {
       const dtTrill = dtSvg.querySelector(`g.trill[data-id="${dtId}"]`)
       if (!dtTrill) {
-        generateHideAnimation(trill)
+        setAnimation({
+          element: trill,
+          id: atId,
+          localName: 'trill',
+          states: {
+          findings: null,
+          diplomatic: null,
+          supplements: { type: 'translate', val: '0 0' },
+          conjectures: { type: 'translate', val: '0 0' },
+          annotated: { type: 'translate', val: '0 0' }
+        }
+        })
         return
       }
 
@@ -73,7 +95,18 @@ export const liquifyTrills = (ftSvg, dtSvg, atMeiDom, tools) => {
       logger.debug(`[Trill ${atId}] AT: (${atPos.x}, ${atPos.y}), DT: (${dtPos.x}, ${dtPos.y}), newPos: (${newPos.x}, ${newPos.y}), diff: (${atVal}, ${dtVal})`)
 
       // Apply animation to the trill use element
-      addTransformTranslate(trill, [atVal, dtVal])
+      setAnimation({
+        element: trill,
+        id: atId,
+        localName: 'trill',
+        states: {
+          findings: { type: 'translate', val: dtVal },
+          diplomatic: { type: 'translate', val: dtVal },
+          supplements: { type: 'translate', val: atVal },
+          conjectures: { type: 'translate', val: atVal },
+          annotated: { type: 'translate', val: atVal }
+        }
+      })
     })
   })
 }

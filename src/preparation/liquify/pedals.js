@@ -13,7 +13,7 @@
  * @param {Object} tools - Tools object containing helper functions and data
  */
 export const liquifyPedals = (ftSvg, dtSvg, atMeiDom, tools) => {
-  const { scaleFactor, getNewPos, correspMappings, addTransformTranslate, generateHideAnimation, logger } = tools
+  const { scaleFactor, getNewPos, correspMappings, setAnimation, logger } = tools
   
   const pedals = ftSvg.querySelectorAll('g.pedal:not(.bounding-box)')
   logger.debug(`[Pedals] Found ${pedals.length} pedals to animate`)
@@ -24,7 +24,18 @@ export const liquifyPedals = (ftSvg, dtSvg, atMeiDom, tools) => {
     
     if (!dtIds || dtIds.length === 0) {
       logger.debug(`[Pedals] No corresp for pedal ${atId}`)
-      generateHideAnimation(pedal)
+      setAnimation({
+        element: pedal,
+        id: atId,
+        localName: 'pedal',
+        states: {
+          findings: null,
+          diplomatic: null,
+          supplements: { type: 'translate', val: '0 0' },
+          conjectures: { type: 'translate', val: '0 0' },
+          annotated: { type: 'translate', val: '0 0' }
+        }
+      })
       return
     }
     
@@ -33,7 +44,18 @@ export const liquifyPedals = (ftSvg, dtSvg, atMeiDom, tools) => {
     dtIds.forEach(dtId => {
       const dtPedal = dtSvg.querySelector(`g.pedal[data-id="${dtId}"]`)
       if (!dtPedal) {
-        generateHideAnimation(pedal)
+        setAnimation({
+          element: pedal,
+          id: atId,
+          localName: 'pedal',
+          states: {
+          findings: null,
+          diplomatic: null,
+          supplements: { type: 'translate', val: '0 0' },
+          conjectures: { type: 'translate', val: '0 0' },
+          annotated: { type: 'translate', val: '0 0' }
+        }
+        })
         return
       }
 
@@ -79,7 +101,18 @@ export const liquifyPedals = (ftSvg, dtSvg, atMeiDom, tools) => {
       // Apply animation to the pedal group (not the use element, to avoid conflicts with transform attribute)
       const atVal = '0 0'
       const dtVal = `${diffX} ${diffY}`
-      addTransformTranslate(pedal, [atVal, dtVal])
+      setAnimation({
+        element: pedal,
+        id: atId,
+        localName: 'pedal',
+        states: {
+          findings: { type: 'translate', val: dtVal },
+          diplomatic: { type: 'translate', val: dtVal },
+          supplements: { type: 'translate', val: atVal },
+          conjectures: { type: 'translate', val: atVal },
+          annotated: { type: 'translate', val: atVal }
+        }
+      })
     })
   })
 }

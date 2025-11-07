@@ -1,5 +1,3 @@
-import { appendNewElement } from '../../utils/dom.js'
-
 /**
  * Animate chords between AT and DT transcriptions, including noteheads, stems, ledger lines, and flags
  * 
@@ -22,7 +20,7 @@ import { appendNewElement } from '../../utils/dom.js'
  * @param {Object} tools - Tools object containing helper functions and data
  */
 export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
-  const { scaleFactor, getNewPos, correspMappings, addTransform, addTransformTranslate, generateHideAnimation, logger } = tools
+  const { scaleFactor, getNewPos, correspMappings, setAnimation, logger } = tools
   
   const chords = ftSvg.querySelectorAll('g.chord:not(.bounding-box)')
   logger.debug(`[Chords] Found ${chords.length} chords to animate`)
@@ -41,7 +39,18 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
     dtIds.forEach(dtId => {
       const dtChord = dtSvg.querySelector(`g.chord[data-id="${dtId}"]`)
       if (!dtChord) {
-        generateHideAnimation(chord)
+        setAnimation({
+          element: chord,
+          id: atId,
+          localName: 'chord',
+          states: {
+          findings: null,
+          diplomatic: null,
+          supplements: { type: 'translate', val: '0 0' },
+          conjectures: { type: 'translate', val: '0 0' },
+          annotated: { type: 'translate', val: '0 0' }
+        }
+        })
         return
       }
 
@@ -110,7 +119,18 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
         const atNote = chord.querySelector('g.note:not(.bounding-box)[data-id="' + atHead.id + '"]')
         if (atNote) {
           const atHeadUse = atNote.querySelector('.notehead')
-          addTransformTranslate(atHeadUse, [atVal, dtVal])
+          setAnimation({
+            element: atHeadUse,
+            id: `${atHead.id}-notehead`,
+            localName: 'notehead',
+            states: {
+          findings: { type: 'translate', val: dtVal },
+          diplomatic: { type: 'translate', val: dtVal },
+          supplements: { type: 'translate', val: atVal },
+          conjectures: { type: 'translate', val: atVal },
+          annotated: { type: 'translate', val: atVal }
+        }
+          })
         }
       })
 
@@ -133,7 +153,19 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
           if (relatedIds.includes(relatedId)) {
             const atVal = atNotesPositions.find(pos => relatedId === '#' + pos.id)?.atVal || '0 0'
             const dtVal = atNotesPositions.find(pos => relatedId === '#' + pos.id)?.dtVal || '0 0'
-            addTransformTranslate(ledgerLine, [atVal, dtVal])
+            const ledgerId = ledgerLine.getAttribute('data-id') || `ledger-${atId}`
+            setAnimation({
+              element: ledgerLine,
+              id: ledgerId,
+              localName: 'ledgerLine',
+              states: {
+          findings: { type: 'translate', val: dtVal },
+          diplomatic: { type: 'translate', val: dtVal },
+          supplements: { type: 'translate', val: atVal },
+          conjectures: { type: 'translate', val: atVal },
+          annotated: { type: 'translate', val: atVal }
+        }
+            })
           }
         }
       })
@@ -177,13 +209,35 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
             newStemEndY = atY1 - newLength
             newD = `M${atX1} ${atY1} L${atX2} ${newStemEndY}`
             stemVals = [atNotesPositions[atNotesPositions.length - 1].atVal, atNotesPositions[atNotesPositions.length - 1].dtVal]
-            addTransformTranslate(atStem, [atNotesPositions[0].atVal, atNotesPositions[0].dtVal])
+            setAnimation({
+              element: atStem,
+              id: `${atId}-stem`,
+              localName: 'stem',
+              states: {
+          findings: { type: 'translate', val: atNotesPositions[0].dtVal },
+          diplomatic: { type: 'translate', val: atNotesPositions[0].dtVal },
+          supplements: { type: 'translate', val: atNotesPositions[0].atVal },
+          conjectures: { type: 'translate', val: atNotesPositions[0].atVal },
+          annotated: { type: 'translate', val: atNotesPositions[0].atVal }
+        }
+            })
           } else {
             // M is top, L is bottom - keep L fixed
             newStemEndY = atY2 - newLength
             newD = `M${atX1} ${newStemEndY} L${atX2} ${atY2}`
             stemVals = [atNotesPositions[atNotesPositions.length - 1].atVal, atNotesPositions[atNotesPositions.length - 1].dtVal]
-            addTransformTranslate(atStem, [atNotesPositions[0].atVal, atNotesPositions[0].dtVal])
+            setAnimation({
+              element: atStem,
+              id: `${atId}-stem`,
+              localName: 'stem',
+              states: {
+          findings: { type: 'translate', val: atNotesPositions[0].dtVal },
+          diplomatic: { type: 'translate', val: atNotesPositions[0].dtVal },
+          supplements: { type: 'translate', val: atNotesPositions[0].atVal },
+          conjectures: { type: 'translate', val: atNotesPositions[0].atVal },
+          annotated: { type: 'translate', val: atNotesPositions[0].atVal }
+        }
+            })
           }
         } else {
           // Stem goes down: keep top (lower y) fixed, extend downward (higher y)
@@ -192,17 +246,50 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
             newStemEndY = atY1 + newLength
             newD = `M${atX1} ${atY1} L${atX2} ${newStemEndY}`
             stemVals = [atNotesPositions[0].atVal, atNotesPositions[0].dtVal]
-            addTransformTranslate(atStem, [atNotesPositions[atNotesPositions.length - 1].atVal, atNotesPositions[atNotesPositions.length - 1].dtVal])
+            setAnimation({
+              element: atStem,
+              id: `${atId}-stem`,
+              localName: 'stem',
+              states: {
+          findings: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].dtVal },
+          diplomatic: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].dtVal },
+          supplements: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].atVal },
+          conjectures: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].atVal },
+          annotated: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].atVal }
+        }
+            })
           } else {
             // M is bottom, L is top - keep L fixed
             newStemEndY = atY2 + newLength
             newD = `M${atX1} ${newStemEndY} L${atX2} ${atY2}`
             stemVals = [atNotesPositions[0].atVal, atNotesPositions[0].dtVal]
-            addTransformTranslate(atStem, [atNotesPositions[atNotesPositions.length - 1].atVal, atNotesPositions[atNotesPositions.length - 1].dtVal])
+            setAnimation({
+              element: atStem,
+              id: `${atId}-stem`,
+              localName: 'stem',
+              states: {
+          findings: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].dtVal },
+          diplomatic: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].dtVal },
+          supplements: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].atVal },
+          conjectures: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].atVal },
+          annotated: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].atVal }
+        }
+            })
           }
         }
         
-        addTransform(atStem, 'd', [atD, newD])
+        setAnimation({
+          element: atStem,
+          id: `${atId}-stem-d`,
+          localName: 'stem',
+          states: {
+          findings: { type: 'd', val: newD },
+          diplomatic: { type: 'd', val: newD },
+          supplements: { type: 'd', val: atD },
+          conjectures: { type: 'd', val: atD },
+          annotated: { type: 'd', val: atD }
+        }
+        })
 
         // Animate the flag if present
         const flag = chord.querySelector('.flag')
@@ -212,8 +299,18 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
           const diff = newStemEndY - originalStemEndY
           stemVals[1] = stemVals[1].split(' ')[0] + ' ' + diff
           // Add translate animation: from "0 0" to "0 diff"
-          // const values = [`0 0`, `0 ${diff}`]
-          addTransformTranslate(flag, stemVals) // values)
+          setAnimation({
+            element: flag,
+            id: `${atId}-flag`,
+            localName: 'flag',
+            states: {
+          findings: { type: 'translate', val: stemVals[1] },
+          diplomatic: { type: 'translate', val: stemVals[1] },
+          supplements: { type: 'translate', val: stemVals[0] },
+          conjectures: { type: 'translate', val: stemVals[0] },
+          annotated: { type: 'translate', val: stemVals[0] }
+        }
+          })
         }
       }
     })

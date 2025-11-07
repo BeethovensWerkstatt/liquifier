@@ -1,5 +1,3 @@
-import { appendNewElement } from '../../utils/dom.js'
-
 /**
  * Animates rest elements in a fluid transcript.
  * Rests are simpler than notes as they only need position animation,
@@ -13,9 +11,7 @@ import { appendNewElement } from '../../utils/dom.js'
  * @param {Function} tools.convertD - Transforms entire path d attributes
  * @param {number} tools.scaleFactor - Scale factor between AT and DT
  * @param {Map} tools.correspMappings - Maps AT IDs to DT IDs
- * @param {Function} tools.addTransformTranslate - Adds animateTransform for translate
- * @param {Function} tools.addTransform - Adds animate element for any attribute
- * @param {Function} tools.generateHideAnimation - Fades out elements without DT correspondence
+ * @param {Function} tools.setAnimation - Creates 5-state animations from descriptors
  * 
  * @example
  * // Rest structure in AT:
@@ -29,7 +25,7 @@ import { appendNewElement } from '../../utils/dom.js'
  * // </g>
  */
 export function liquifyRests (ftSvg, dtSvg, atMeiDom, tools) {
-  const { scaleFactor, getNewPos, correspMappings, addTransformTranslate, generateHideAnimation, logger } = tools
+  const { scaleFactor, getNewPos, correspMappings, setAnimation, logger } = tools
   
   const rests = ftSvg.querySelectorAll('g.rest:not(.bounding-box)')
   rests.forEach(rest => {
@@ -37,7 +33,18 @@ export function liquifyRests (ftSvg, dtSvg, atMeiDom, tools) {
     const dtIds = correspMappings.get(atId)
     
     if (!dtIds || dtIds.length === 0) {
-      generateHideAnimation(rest)
+      setAnimation({
+        element: rest,
+        id: atId,
+        localName: 'rest',
+        states: {
+          findings: null,
+          diplomatic: null,
+          supplements: { type: 'translate', val: '0 0' },
+          conjectures: { type: 'translate', val: '0 0' },
+          annotated: { type: 'translate', val: '0 0' }
+        }
+      })
       return
     }
 
@@ -55,7 +62,18 @@ export function liquifyRests (ftSvg, dtSvg, atMeiDom, tools) {
     dtIds.forEach(dtId => {
       const dtRest = dtSvg.querySelector(`g.rest[data-id="${dtId}"]`)
       if (!dtRest) {
-        generateHideAnimation(rest)
+        setAnimation({
+          element: rest,
+          id: atId,
+          localName: 'rest',
+          states: {
+            findings: null,
+            diplomatic: null,
+            supplements: { type: 'translate', val: '0 0' },
+            conjectures: { type: 'translate', val: '0 0' },
+            annotated: { type: 'translate', val: '0 0' }
+          }
+        })
         return
       }
 
@@ -78,7 +96,18 @@ export function liquifyRests (ftSvg, dtSvg, atMeiDom, tools) {
       // Apply animation to the rest group
       const atVal = '0 0'
       const dtVal = `${diffX} ${diffY}`
-      addTransformTranslate(rest, [atVal, dtVal])
+      setAnimation({
+        element: rest,
+        id: atId,
+        localName: 'rest',
+        states: {
+          findings: { type: 'translate', val: dtVal },
+          diplomatic: { type: 'translate', val: dtVal },
+          supplements: { type: 'translate', val: atVal },
+          conjectures: { type: 'translate', val: atVal },
+          annotated: { type: 'translate', val: atVal }
+        }
+      })
     })
   })
 }

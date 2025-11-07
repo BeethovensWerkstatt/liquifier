@@ -271,9 +271,9 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, l
     return newD
   }
 
-  animateStaffLines(ftSvg, dtSvgElement, convertD, addTransform, logger)
+  animateStaffLines(ftSvg, dtSvgElement, convertD, setAnimation, logger)
 
-  const tools = { getNewPos, convertD, scaleFactor, correspMappings, addTransformTranslate, addTransform, generateHideAnimation, logger }
+  const tools = { getNewPos, convertD, scaleFactor, correspMappings, setAnimation, logger }
 
   liquifyMusic(ftSvg, dtSvgElement, atMeiDom, tools)
 
@@ -356,10 +356,10 @@ const adjustDtStaffLines = (svg) => {
  * @param {SVGElement} ftSvg - Fluid transcription SVG (cloned from AT)
  * @param {SVGElement} dtSvg - Diplomatic transcript SVG
  * @param {Function} convertD - Function to convert path d attribute: (atD, dtD) => newD
- * @param {Function} addTransform - Function to add animate element for attribute animation
+ * @param {Function} setAnimation - Function to create 5-state animations from descriptors
  * @param {Object} logger - Logger instance
  */
-const animateStaffLines = (ftSvg, dtSvg, convertD, addTransform, logger) => {
+const animateStaffLines = (ftSvg, dtSvg, convertD, setAnimation, logger) => {
   const ftStaffLines = ftSvg.querySelectorAll('path.rastrum')
   const dtStaffLines = dtSvg.querySelectorAll('.rastrum:not(.bounding-box) > path')
 
@@ -374,7 +374,18 @@ const animateStaffLines = (ftSvg, dtSvg, convertD, addTransform, logger) => {
 
     logger.debug(`[Animating Staff Line ${i}] AT D: ${atD}, DT D: ${newD}`)
 
-    addTransform(ftLine, 'd', [atD, newD])
+    setAnimation({
+      element: ftLine,
+      id: `staff-line-${i}`,
+      localName: 'staff-line',
+      states: {
+          findings: { type: 'd', val: newD },
+          diplomatic: { type: 'd', val: newD },
+          supplements: { type: 'd', val: atD },
+          conjectures: { type: 'd', val: atD },
+          annotated: { type: 'd', val: atD }
+        }
+    })
   })
 }
 
@@ -469,6 +480,105 @@ const addTransform = (node, attribute, values = []) => {
   anim.setAttribute('repeatCount', repeatCount)
   anim.setAttribute('dur', duration)
   // anim.setAttribute('calcMode', 'spline')
+}
+
+/**
+ * Set animation for an element based on a 5-state descriptor
+ * 
+ * This is the central animation function that handles the five editorial states:
+ * findings → diplomatic → supplements → conjectures → annotated
+ * 
+ * The descriptor contains state definitions for each phase. Missing states are filled with defaults:
+ * - diplomatic defaults to findings
+ * - supplements and conjectures default to annotated
+ * 
+ * Null states indicate the element doesn't exist in that phase and will be hidden (opacity: 0).
+ * 
+ * @param {Object} descriptor - Animation descriptor with the following structure:
+ * @param {SVGElement} descriptor.element - The SVG element to animate
+ * @param {string} descriptor.id - The element's ID (for logging)
+ * @param {string} descriptor.localName - The element's type (e.g., 'note', 'artic')
+ * @param {Object} descriptor.states - State definitions for each phase
+ * @param {Object} [descriptor.states.findings] - State in findings phase (original manuscript)
+ * @param {Object} [descriptor.states.diplomatic] - State in diplomatic phase (defaults to findings)
+ * @param {Object} [descriptor.states.supplements] - State in supplements phase (defaults to annotated)
+ * @param {Object} [descriptor.states.conjectures] - State in conjectures phase (defaults to annotated)
+ * @param {Object} [descriptor.states.annotated] - State in annotated phase (Verovio rendering)
+ * 
+ * Each state object has:
+ * @param {string} state.type - Animation type: 'translate', 'd', 'opacity', etc.
+ * @param {string} state.val - The value for that state
+ * 
+ * Example:
+ * {
+ *   element: noteElement,
+ *   id: 'note-123',
+ *   localName: 'note',
+ *   states: {
+ *     findings: { type: 'translate', val: '0 0' },
+ *     annotated: { type: 'translate', val: '100 50' }
+ *   }
+ * }
+ */
+const setAnimation = (descriptor) => {
+  const { element, id, localName, states } = descriptor
+  
+  // Fill in missing states with defaults
+  const findings = states.findings || null
+  const diplomatic = states.diplomatic || findings
+  const annotated = states.annotated || null
+  const supplements = states.supplements || annotated
+  const conjectures = states.conjectures || annotated
+  
+  const allStates = [findings, diplomatic, supplements, conjectures, annotated]
+  
+  // Handle case where element doesn't exist in some states (null values)
+  // Check if we need to handle visibility/opacity animations
+  const hasNullStates = allStates.some(state => state === null)
+  
+  if (hasNullStates) {
+    // Add opacity animation for elements that appear/disappear
+    const opacityValues = allStates.map(state => state === null ? '0' : '1')
+    addTransform(element, 'opacity', opacityValues)
+    
+    // Apply visual styling for supplied elements
+    if (findings === null || diplomatic === null) {
+      element.setAttribute('fill', '#009900')
+      element.setAttribute('stroke', '#009900')
+      const existingClasses = element.getAttribute('class') || ''
+      element.setAttribute('class', `${existingClasses} supplied`.trim())
+    }
+  }
+  
+  // Get non-null states to determine animation type
+  const validStates = allStates.filter(state => state !== null)
+  
+  if (validStates.length === 0) {
+    console.warn(`[setAnimation] No valid states for element ${id} (${localName})`)
+    return
+  }
+  
+  // Determine animation type from first valid state
+  const animationType = validStates[0].type
+  
+  // Build values array, using '0' or empty string for null states depending on type
+  const values = allStates.map(state => {
+    if (state === null) {
+      // For null states, use a neutral/hidden value
+      if (animationType === 'translate') return '0 0'
+      if (animationType === 'opacity') return '0'
+      return ''
+    }
+    return state.val
+  })
+  
+  // Apply the appropriate animation based on type
+  if (animationType === 'translate') {
+    addTransformTranslate(element, values)
+  } else {
+    // For 'd', 'opacity', and other attributes
+    addTransform(element, animationType, values)
+  }
 }
 
 /**

@@ -11,7 +11,7 @@
  * @param {Object} tools - Tools object containing helper functions and data
  */
 export const liquifyMeterSigs = (ftSvg, dtSvg, atMeiDom, tools) => {
-  const { scaleFactor, getNewPos, convertD, correspMappings, addTransform, addTransformTranslate, generateHideAnimation, logger } = tools
+  const { scaleFactor, getNewPos, convertD, correspMappings, setAnimation, logger } = tools
 
   const meterSigs = ftSvg.querySelectorAll('.meterSig:not(.bounding-box)')
   meterSigs.forEach(meterSig => {
@@ -19,7 +19,18 @@ export const liquifyMeterSigs = (ftSvg, dtSvg, atMeiDom, tools) => {
     const dtIds = correspMappings.get(atId)
 
     if (!dtIds || dtIds.length === 0) {
-      generateHideAnimation(meterSig)
+      setAnimation({
+        element: meterSig,
+        id: atId,
+        localName: 'meterSig',
+        states: {
+          findings: null,
+          diplomatic: null,
+          supplements: { type: 'translate', val: '0 0' },
+          conjectures: { type: 'translate', val: '0 0' },
+          annotated: { type: 'translate', val: '0 0' }
+        }
+      })
       return
     }
 
@@ -42,7 +53,18 @@ export const liquifyMeterSigs = (ftSvg, dtSvg, atMeiDom, tools) => {
       const currentMeterSig = meterSigElements[index]
       const dtMeterSig = dtSvg.querySelector(`.meterSig[data-id="${dtId}"]`)
       if (!dtMeterSig) {
-        generateHideAnimation(currentMeterSig)
+        setAnimation({
+          element: currentMeterSig,
+          id: `${atId}-${index}`,
+          localName: 'meterSig',
+          states: {
+          findings: null,
+          diplomatic: null,
+          supplements: { type: 'translate', val: '0 0' },
+          conjectures: { type: 'translate', val: '0 0' },
+          annotated: { type: 'translate', val: '0 0' }
+        }
+        })
         return
       }
       
@@ -77,7 +99,18 @@ export const liquifyMeterSigs = (ftSvg, dtSvg, atMeiDom, tools) => {
         // Apply animation to the meter signature group
         const atVal = '0 0'
         const dtVal = `${diffX} ${diffY}`
-        addTransformTranslate(currentMeterSig, [atVal, dtVal])
+        setAnimation({
+          element: currentMeterSig,
+          id: `${atId}-${index}`,
+          localName: 'meterSig',
+          states: {
+          findings: { type: 'translate', val: dtVal },
+          diplomatic: { type: 'translate', val: dtVal },
+          supplements: { type: 'translate', val: atVal },
+          conjectures: { type: 'translate', val: atVal },
+          annotated: { type: 'translate', val: atVal }
+        }
+        })
       }
     })
   })

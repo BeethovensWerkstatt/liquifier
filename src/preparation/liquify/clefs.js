@@ -11,7 +11,7 @@
  * @param {Object} tools - Tools object containing helper functions and data
  */
 export const liquifyClefs = (ftSvg, dtSvg, atMeiDom, tools) => {
-  const { scaleFactor, getNewPos, convertD, correspMappings, addTransform, addTransformTranslate, generateHideAnimation, logger } = tools
+  const { scaleFactor, getNewPos, convertD, correspMappings, setAnimation, logger } = tools
 
   const clefs = ftSvg.querySelectorAll('.clef:not(.bounding-box)')
   clefs.forEach(clef => {
@@ -19,7 +19,18 @@ export const liquifyClefs = (ftSvg, dtSvg, atMeiDom, tools) => {
     const dtIds = correspMappings.get(atId)
 
     if (!dtIds || dtIds.length === 0) {
-      generateHideAnimation(clef)
+      setAnimation({
+        element: clef,
+        id: atId,
+        localName: 'clef',
+        states: {
+          findings: null,
+          diplomatic: null,
+          supplements: { type: 'translate', val: '0 0' },
+          conjectures: { type: 'translate', val: '0 0' },
+          annotated: { type: 'translate', val: '0 0' }
+        }
+      })
       return
     }
 
@@ -42,7 +53,18 @@ export const liquifyClefs = (ftSvg, dtSvg, atMeiDom, tools) => {
       const currentClef = clefElements[index]
       const dtClef = dtSvg.querySelector(`.clef[data-id="${dtId}"]`)
       if (!dtClef) {
-        generateHideAnimation(currentClef)
+        setAnimation({
+          element: currentClef,
+          id: `${atId}-${index}`,
+          localName: 'clef',
+          states: {
+          findings: null,
+          diplomatic: null,
+          supplements: { type: 'translate', val: '0 0' },
+          conjectures: { type: 'translate', val: '0 0' },
+          annotated: { type: 'translate', val: '0 0' }
+        }
+        })
         return
       }
       
@@ -77,7 +99,18 @@ export const liquifyClefs = (ftSvg, dtSvg, atMeiDom, tools) => {
         // Apply animation to the clef group
         const atVal = '0 0'
         const dtVal = `${diffX} ${diffY}`
-        addTransformTranslate(currentClef, [atVal, dtVal])
+        setAnimation({
+          element: currentClef,
+          id: `${atId}-${index}`,
+          localName: 'clef',
+          states: {
+          findings: { type: 'translate', val: dtVal },
+          diplomatic: { type: 'translate', val: dtVal },
+          supplements: { type: 'translate', val: atVal },
+          conjectures: { type: 'translate', val: atVal },
+          annotated: { type: 'translate', val: atVal }
+        }
+        })
       }
     })
   })

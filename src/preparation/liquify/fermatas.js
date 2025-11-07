@@ -11,7 +11,7 @@
  * @param {Object} tools - Tools object containing helper functions and data
  */
 export const liquifyFermatas = (ftSvg, dtSvg, atMeiDom, tools) => {
-  const { scaleFactor, getNewPos, correspMappings, addTransformTranslate, generateHideAnimation, logger } = tools
+  const { scaleFactor, getNewPos, correspMappings, setAnimation, logger } = tools
   
   const fermatas = ftSvg.querySelectorAll('g.fermata:not(.bounding-box)')
   logger.debug(`[Fermatas] Found ${fermatas.length} fermatas to animate`)
@@ -22,7 +22,18 @@ export const liquifyFermatas = (ftSvg, dtSvg, atMeiDom, tools) => {
     
     if (!dtIds || dtIds.length === 0) {
       logger.debug(`[Fermatas] No corresp for fermata ${atId}`)
-      generateHideAnimation(fermata)
+      setAnimation({
+        element: fermata,
+        id: atId,
+        localName: 'fermata',
+        states: {
+          findings: null,
+          diplomatic: null,
+          supplements: { type: 'translate', val: '0 0' },
+          conjectures: { type: 'translate', val: '0 0' },
+          annotated: { type: 'translate', val: '0 0' }
+        }
+      })
       return
     }
     
@@ -31,7 +42,18 @@ export const liquifyFermatas = (ftSvg, dtSvg, atMeiDom, tools) => {
     dtIds.forEach(dtId => {
       const dtFermata = dtSvg.querySelector(`g.fermata[data-id="${dtId}"]`)
       if (!dtFermata) {
-        generateHideAnimation(fermata)
+        setAnimation({
+          element: fermata,
+          id: atId,
+          localName: 'fermata',
+          states: {
+          findings: null,
+          diplomatic: null,
+          supplements: { type: 'translate', val: '0 0' },
+          conjectures: { type: 'translate', val: '0 0' },
+          annotated: { type: 'translate', val: '0 0' }
+        }
+        })
         return
       }
 
@@ -77,7 +99,18 @@ export const liquifyFermatas = (ftSvg, dtSvg, atMeiDom, tools) => {
       // Apply animation to the fermata group (not the use element, to avoid conflicts with transform attribute)
       const atVal = '0 0'
       const dtVal = `${diffX} ${diffY}`
-      addTransformTranslate(fermata, [atVal, dtVal])
+      setAnimation({
+        element: fermata,
+        id: atId,
+        localName: 'fermata',
+        states: {
+          findings: { type: 'translate', val: dtVal },
+          diplomatic: { type: 'translate', val: dtVal },
+          supplements: { type: 'translate', val: atVal },
+          conjectures: { type: 'translate', val: atVal },
+          annotated: { type: 'translate', val: atVal }
+        }
+      })
     })
   })
 }

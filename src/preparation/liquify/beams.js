@@ -228,12 +228,10 @@ const removeDuplicatePoints = (points) => {
  *   - convertD: Function to convert path d attribute
  *   - scaleFactor: Scale factor between DT and AT
  *   - correspMappings: Map of AT to DT element IDs
- *   - addTransform: Function to add animate element
- *   - addTransformTranslate: Function to add animateTransform element
- *   - generateHideAnimation: Function to generate fade-out animation
+ *   - setAnimation: Function to create 5-state animations from descriptors
  */
 export const liquifyBeams = (ftSvg, dtSvg, atMeiDom, tools) => {
-  const { scaleFactor, getNewPos, convertD, correspMappings, addTransform, addTransformTranslate, generateHideAnimation, logger } = tools
+  const { scaleFactor, getNewPos, convertD, correspMappings, setAnimation, logger } = tools
   
   // First, prepare/adjust beam paths in the AT
   adjustAtBeams(ftSvg, logger)
@@ -246,7 +244,18 @@ export const liquifyBeams = (ftSvg, dtSvg, atMeiDom, tools) => {
     if (!dtIds || dtIds.length === 0) {
       // Fade out beams without DT correspondence
       const polygons = beam.querySelectorAll('polygon')
-      polygons.forEach(polygon => generateHideAnimation(polygon))
+      polygons.forEach(polygon => setAnimation({
+        element: polygon,
+        id: `${atId}-polygon`,
+        localName: 'beam-polygon',
+        states: {
+          findings: null,
+          diplomatic: null,
+          supplements: { type: 'points', val: polygon.getAttribute('points') },
+          conjectures: { type: 'points', val: polygon.getAttribute('points') },
+          annotated: { type: 'points', val: polygon.getAttribute('points') }
+        }
+      }))
       return
     }
 
@@ -268,7 +277,18 @@ export const liquifyBeams = (ftSvg, dtSvg, atMeiDom, tools) => {
 
     if (allDtPolygons.length === 0) {
       // Only fade out if there are truly no DT matches
-      atPolygons.forEach(polygon => generateHideAnimation(polygon))
+      atPolygons.forEach(polygon => setAnimation({
+        element: polygon,
+        id: `${atId}-polygon`,
+        localName: 'beam-polygon',
+        states: {
+          findings: null,
+          diplomatic: null,
+          supplements: { type: 'points', val: polygon.getAttribute('points') },
+          conjectures: { type: 'points', val: polygon.getAttribute('points') },
+          annotated: { type: 'points', val: polygon.getAttribute('points') }
+        }
+      }))
       return
     }
 
@@ -306,12 +326,34 @@ export const liquifyBeams = (ftSvg, dtSvg, atMeiDom, tools) => {
       
       logger.debug(`[Beam Animation] AT ID: ${atId}, DT ID: ${dtSorted[i].dtId}, line ${i} (AT y~${Math.round(atSorted[i].avgY)}, DT y~${Math.round(dtSorted[i].avgY)})`)
       
-      addTransform(atPolygon, 'points', [atPoints, newPoints])
+      setAnimation({
+        element: atPolygon,
+        id: `${atId}-polygon-${i}`,
+        localName: 'beam-polygon',
+        states: {
+          findings: { type: 'points', val: newPoints },
+          diplomatic: { type: 'points', val: newPoints },
+          supplements: { type: 'points', val: atPoints },
+          conjectures: { type: 'points', val: atPoints },
+          annotated: { type: 'points', val: atPoints }
+        }
+      })
     }
     
     // Fade out any extra AT polygons that don't have DT matches
     for (let i = minCount; i < atSorted.length; i++) {
-      generateHideAnimation(atSorted[i].element)
+      setAnimation({
+        element: atSorted[i].element,
+        id: `${atId}-polygon-${i}`,
+        localName: 'beam-polygon',
+        states: {
+          findings: null,
+          diplomatic: null,
+          supplements: { type: 'points', val: atSorted[i].element.getAttribute('points') },
+          conjectures: { type: 'points', val: atSorted[i].element.getAttribute('points') },
+          annotated: { type: 'points', val: atSorted[i].element.getAttribute('points') }
+        }
+      })
     }
   })
 }
