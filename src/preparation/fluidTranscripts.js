@@ -15,7 +15,7 @@ import { liquifyFings } from './liquify/fings.js'
 import { liquifyFs } from './liquify/fs.js'
 import { liquifyArtics } from './liquify/artics.js'
 
-const duration = '3s'
+const duration = '5s'
 const repeatCount = 'indefinite'
 const reverseAnimations = false
 
@@ -488,6 +488,12 @@ const addTransform = (node, attribute, values = []) => {
  * This is the central animation function that handles the five editorial states:
  * findings → diplomatic → supplements → conjectures → annotated
  * 
+ * The supplements phase is split into two sub-phases:
+ * 1. Position animations complete (all elements move to final positions)
+ * 2. Opacity animations complete (editorial additions fade in)
+ * 
+ * This creates a 6-frame animation where movement happens before editorial content appears.
+ * 
  * The descriptor contains state definitions for each phase. Missing states are filled with defaults:
  * - diplomatic defaults to findings
  * - supplements and conjectures default to annotated
@@ -537,8 +543,17 @@ const setAnimation = (descriptor) => {
   const hasNullStates = allStates.some(state => state === null)
   
   if (hasNullStates) {
-    // Add opacity animation for elements that appear/disappear
-    const opacityValues = allStates.map(state => state === null ? '0' : '1')
+    // Create 6-frame opacity animation: split supplements into position + opacity phases
+    // findings, diplomatic, supplements-position (still hidden), supplements-opacity (fade in), conjectures, annotated
+    const opacityValues = allStates.flatMap(state => {
+      if (state === supplements && state !== null) {
+        // Split supplements: first frame keeps opacity from previous state, second frame shows element
+        const prevState = diplomatic || findings
+        const prevOpacity = prevState === null ? '0' : '1'
+        return [prevOpacity, '1']  // [supplements-position (hidden/visible based on prev), supplements-opacity (visible)]
+      }
+      return [state === null ? '0' : '1']
+    })
     addTransform(element, 'opacity', opacityValues)
     
     // Apply visual styling for supplied elements
@@ -561,15 +576,20 @@ const setAnimation = (descriptor) => {
   // Determine animation type from first valid state
   const animationType = validStates[0].type
   
-  // Build values array, using '0' or empty string for null states depending on type
-  const values = allStates.map(state => {
+  // Build 6-frame values array: duplicate supplements for position/opacity split
+  const values = allStates.flatMap(state => {
+    if (state === supplements) {
+      // Duplicate supplements value for both position and opacity phases
+      const val = state === null ? (animationType === 'translate' ? '0 0' : animationType === 'opacity' ? '0' : '') : state.val
+      return [val, val]
+    }
     if (state === null) {
       // For null states, use a neutral/hidden value
-      if (animationType === 'translate') return '0 0'
-      if (animationType === 'opacity') return '0'
-      return ''
+      if (animationType === 'translate') return ['0 0']
+      if (animationType === 'opacity') return ['0']
+      return ['']
     }
-    return state.val
+    return [state.val]
   })
   
   // Apply the appropriate animation based on type
