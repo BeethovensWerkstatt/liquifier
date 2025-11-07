@@ -11,6 +11,7 @@ import { liquifyChords } from './liquify/chords.js'
 import { liquifyTrills } from './liquify/trills.js'
 import { liquifyFermatas } from './liquify/fermatas.js'
 import { liquifyPedals } from './liquify/pedals.js'
+import { liquifyFings } from './liquify/fings.js'
 
 const duration = '3s'
 const repeatCount = 'indefinite'
@@ -418,7 +419,7 @@ const liquifyMusic = (ftSvg, dtSvg, atMeiDom, tools) => {
   liquifyFermatas(ftSvg, dtSvg, atMeiDom, tools)
   liquifyPedals(ftSvg, dtSvg, atMeiDom, tools)
   // liquifyWords(ftSvg, dtSvg, atMeiDom, tools)
-  // liquifyFings(ftSvg, dtSvg, atMeiDom, tools)
+  liquifyFings(ftSvg, dtSvg, atMeiDom, tools)
   // liquifyFs(ftSvg, dtSvg, atMeiDom, tools)
   // liquifyMetamarks(ftSvg, dtSvg, atMeiDom, tools)
 }
