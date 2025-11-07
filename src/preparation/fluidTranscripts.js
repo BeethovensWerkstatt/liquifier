@@ -12,6 +12,8 @@ import { liquifyTrills } from './liquify/trills.js'
 import { liquifyFermatas } from './liquify/fermatas.js'
 import { liquifyPedals } from './liquify/pedals.js'
 import { liquifyFings } from './liquify/fings.js'
+import { liquifyFs } from './liquify/fs.js'
+import { liquifyArtics } from './liquify/artics.js'
 
 const duration = '3s'
 const repeatCount = 'indefinite'
@@ -403,7 +405,7 @@ const liquifyMusic = (ftSvg, dtSvg, atMeiDom, tools) => {
   liquifyClefs(ftSvg, dtSvg, atMeiDom, tools)
   // liquifyDots(ftSvg, dtSvg, atMeiDom, tools)
   liquifyMeterSigs(ftSvg, dtSvg, atMeiDom, tools)
-  // liquifyArtics(ftSvg, dtSvg, atMeiDom, tools)
+  liquifyArtics(ftSvg, dtSvg, atMeiDom, tools)
   // liquifyTupletNums(ftSvg, dtSvg, atMeiDom, tools)
 
   // controlevents
@@ -420,7 +422,7 @@ const liquifyMusic = (ftSvg, dtSvg, atMeiDom, tools) => {
   liquifyPedals(ftSvg, dtSvg, atMeiDom, tools)
   // liquifyWords(ftSvg, dtSvg, atMeiDom, tools)
   liquifyFings(ftSvg, dtSvg, atMeiDom, tools)
-  // liquifyFs(ftSvg, dtSvg, atMeiDom, tools)
+  liquifyFs(ftSvg, dtSvg, atMeiDom, tools)
   // liquifyMetamarks(ftSvg, dtSvg, atMeiDom, tools)
 }
 
