@@ -366,6 +366,11 @@ const animateStaffLines = (ftSvg, dtSvg, convertD, setAnimation, logger) => {
   ftStaffLines.forEach((ftLine, i) => {
     const dtLine = dtStaffLines[i]
     
+    if (!dtLine) {
+      logger.warn(`[animateStaffLines] No corresponding DT staff line for FT line ${i}`)
+      return
+    }
+    
     const atD = ftLine.getAttribute('d')
     const dtD = dtLine.getAttribute('d')
     
