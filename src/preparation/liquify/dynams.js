@@ -3,15 +3,21 @@
  * @module liquify/dynams
  */
 
+import { computeTextDiff } from '../../utils/textDiff.js'
+
 /**
- * Liquifies dynamics elements, creating cross-fade animations between DT text representation
- * and AT symbol representation. The DT text is shown at findings, then cross-faded to the AT
- * symbol at diplomatic, which then moves to the AT position at supplements.
+ * Liquifies dynamics elements, handling two cases:
  * 
- * Animation sequence:
- * - findings: DT text at DT position (DT opacity: 1, AT opacity: 0)
- * - diplomatic: Cross-fade (DT opacity: 0, AT opacity: 1) at DT position
- * - supplements: AT symbol at AT position (DT opacity: 0, AT opacity: 1)
+ * Case 1: AT has symbol (use element), DT has text
+ *   Creates cross-fade animation from DT text to AT symbol.
+ *   Animation sequence:
+ *   - findings: DT text at DT position (DT opacity: 1, AT opacity: 0)
+ *   - diplomatic: Cross-fade (DT opacity: 0, AT opacity: 1) at DT position
+ *   - supplements: AT symbol at AT position (DT opacity: 0, AT opacity: 1)
+ * 
+ * Case 2: AT has text, DT has text
+ *   Textual variation - currently only animates position.
+ *   Full textual variation handling to be implemented.
  * 
  * @param {Document} ftSvg - The fluid transcript SVG document
  * @param {Document} dtSvg - The diplomatic transcript SVG document
@@ -59,23 +65,46 @@ export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
       return
     }
 
-    // Get AT symbol element (use element)
+    // Check if AT has a use element (symbol) or text element (textual content)
     const atUseElement = atDynam.querySelector('use')
-    if (!atUseElement) {
-      logger.warn(`[liquifyDynams] No use element found in AT dynam ${atId}`)
+    const atTextElement = atDynam.querySelector('text')
+    
+    if (!atUseElement && !atTextElement) {
+      logger.warn(`[liquifyDynams] No use or text element found in AT dynam ${atId}`)
       return
     }
 
-    // Extract AT position from transform attribute
-    const atTransform = atUseElement.getAttribute('transform')
-    const atTransformMatch = atTransform?.match(/translate\(\s*([\d.-]+)\s*,\s*([\d.-]+)\s*\)/)
-    if (!atTransformMatch) {
-      logger.warn(`[liquifyDynams] Could not parse AT transform for dynam ${atId}: ${atTransform}`)
-      return
+    // Determine AT position and element type
+    let atX, atY, atElement, isAtSymbol
+    
+    if (atUseElement) {
+      // AT has a symbol (use element)
+      isAtSymbol = true
+      atElement = atUseElement
+      
+      // Extract AT position from transform attribute
+      const atTransform = atUseElement.getAttribute('transform')
+      const atTransformMatch = atTransform?.match(/translate\(\s*([\d.-]+)\s*,\s*([\d.-]+)\s*\)/)
+      if (!atTransformMatch) {
+        logger.warn(`[liquifyDynams] Could not parse AT transform for dynam ${atId}: ${atTransform}`)
+        return
+      }
+      atX = parseFloat(atTransformMatch[1])
+      atY = parseFloat(atTransformMatch[2])
+    } else {
+      // AT has text (textual content)
+      isAtSymbol = false
+      atElement = atTextElement
+      
+      // Extract AT position from text element
+      atX = parseFloat(atTextElement.getAttribute('x'))
+      atY = parseFloat(atTextElement.getAttribute('y'))
+      
+      if (isNaN(atX) || isNaN(atY)) {
+        logger.warn(`[liquifyDynams] Invalid AT text position for dynam ${atId}: x=${atX}, y=${atY}`)
+        return
+      }
     }
-
-    const atX = parseFloat(atTransformMatch[1])
-    const atY = parseFloat(atTransformMatch[2])
 
     // Try to find DT element
     let dtDynam = null
@@ -151,59 +180,206 @@ export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
     const translateX = newPos.x - atX
     const translateY = newPos.y - atY
 
-    logger.debug(`[liquifyDynams] Animating dynam ${atId}: AT(${atX}, ${atY}) -> DT(${dtX}, ${dtY}) -> newPos(${newPos.x}, ${newPos.y})`)
+        logger.debug(`[liquifyDynams] Animating dynam ${atId}: AT(${atX}, ${atY}) -> DT(${dtX}, ${dtY}) -> newPos(${newPos.x}, ${newPos.y}), isAtSymbol: ${isAtSymbol}`)
 
-    // Clone the DT text element into the FT for cross-fade
-    const dtTextClone = dtTextElement.cloneNode(true)
-    dtTextClone.setAttribute('data-dt-clone', 'true')
-    dtTextClone.setAttribute('class', 'dynam-dt')
+    if (isAtSymbol) {
+      // Case 1: AT has symbol, DT has text -> cross-fade from DT text to AT symbol
+      
+      // Clone the DT text element into the FT for cross-fade
+      const dtTextClone = dtTextElement.cloneNode(true)
+      dtTextClone.setAttribute('data-dt-clone', 'true')
+      dtTextClone.setAttribute('class', 'dynam-dt')
+      
+      // Insert DT clone before the AT use element
+      atElement.parentNode.insertBefore(dtTextClone, atElement)
+
+      // Add position animation to the dynam group (moves both DT text and AT symbol together)
+      setAnimation({
+        element: atDynam,
+        id: atId,
+        localName: 'dynam',
+        states: {
+          findings: { type: 'translate', val: `${translateX} ${translateY}` },
+          diplomatic: { type: 'translate', val: `${translateX} ${translateY}` },
+          supplements: { type: 'translate', val: '0 0' },
+          conjectures: { type: 'translate', val: '0 0' },
+          annotated: { type: 'translate', val: '0 0' }
+        }
+      })
+
+      // Animate DT text: visible at findings, fades out at diplomatic and thereafter
+      setAnimation({
+        element: dtTextClone,
+        id: `${atId}-dt`,
+        localName: 'dynam-dt-text',
+        states: {
+          findings: { type: 'opacity', val: '1' },
+          diplomatic: { type: 'opacity', val: '0' },
+          supplements: { type: 'opacity', val: '0' },
+          conjectures: { type: 'opacity', val: '0' },
+          annotated: { type: 'opacity', val: '0' }
+        }
+      })
+      
+      // Animate AT symbol: hidden at findings, visible from diplomatic onward
+      setAnimation({
+        element: atElement,
+        id: `${atId}-at`,
+        localName: 'dynam-at-symbol',
+        states: {
+          findings: { type: 'opacity', val: '0' },
+          diplomatic: { type: 'opacity', val: '1' },
+          supplements: { type: 'opacity', val: '1' },
+          conjectures: { type: 'opacity', val: '1' },
+          annotated: { type: 'opacity', val: '1' }
+        }
+      })
+      
+      logger.debug(`[liquifyDynams] Added symbol cross-fade for dynam ${atId}`)
+    } else {
+      // Case 2: AT has text, DT has text -> textual variation
+      // Compute diff between DT and AT text to animate character changes
+      
+      const dtText = dtTextElement.textContent.trim()
+      const atText = atTextElement.textContent.trim()
+      
+      logger.debug(`[liquifyDynams] Text diff for ${atId}: "${dtText}" -> "${atText}"`)
+      
+      // Compute the differences between the two text strings
+      const diffSegments = computeTextDiff(dtText, atText)
+      
+      logger.debug(`[liquifyDynams] Diff segments: ${JSON.stringify(diffSegments)}`)
+      
+      // Clear the AT text element's content
+      atTextElement.textContent = ''
+      
+      // Get or create the tspan container (AT structure: text > tspan > tspan)
+      let tspanContainer = atTextElement.querySelector('tspan[data-class="text"]')
+      if (!tspanContainer) {
+        tspanContainer = atTextElement.querySelector('tspan')
+      }
+      
+      if (!tspanContainer) {
+        // Create a tspan container if it doesn't exist
+        tspanContainer = atTextElement.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'tspan')
+        tspanContainer.setAttribute('data-class', 'text')
+        tspanContainer.setAttribute('class', 'text')
+        atTextElement.appendChild(tspanContainer)
+      } else {
+        // Clear existing content
+        tspanContainer.textContent = ''
+      }
+      
+      // Get font-size from existing tspan if available
+      const existingInnerTspan = tspanContainer.querySelector('tspan')
+      const fontSize = existingInnerTspan?.getAttribute('font-size') || '405px'
+      const fontStyle = existingInnerTspan?.getAttribute('font-style') || atTextElement.getAttribute('font-style') || 'italic'
+      
+      // Create tspan elements for each diff segment with appropriate animations
+      diffSegments.forEach((segment, index) => {
+        const segmentTspan = atTextElement.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'tspan')
+        segmentTspan.setAttribute('font-size', fontSize)
+        if (fontStyle) {
+          segmentTspan.setAttribute('font-style', fontStyle)
+        }
+        segmentTspan.textContent = segment.text
+        segmentTspan.setAttribute('data-diff-type', segment.type)
+        segmentTspan.setAttribute('data-diff-index', index)
+        
+        tspanContainer.appendChild(segmentTspan)
+        
+        // Apply opacity animation based on segment type
+        if (segment.type === 'common') {
+          // Common text: visible throughout
+          setAnimation({
+            element: segmentTspan,
+            id: `${atId}-text-common-${index}`,
+            localName: 'dynam-text-common',
+            states: {
+              findings: { type: 'opacity', val: '1' },
+              diplomatic: { type: 'opacity', val: '1' },
+              supplements: { type: 'opacity', val: '1' },
+              conjectures: { type: 'opacity', val: '1' },
+              annotated: { type: 'opacity', val: '1' }
+            }
+          })
+        } else if (segment.type === 'delete') {
+          // DT-only text: visible at findings/diplomatic, hidden and doesn't occupy space from supplements
+          setAnimation({
+            element: segmentTspan,
+            id: `${atId}-text-delete-${index}`,
+            localName: 'dynam-text-delete',
+            states: {
+              findings: { type: 'opacity', val: '1' },
+              diplomatic: { type: 'opacity', val: '1' },
+              supplements: { type: 'opacity', val: '0' },
+              conjectures: { type: 'opacity', val: '0' },
+              annotated: { type: 'opacity', val: '0' }
+            }
+          })
+          // Make it not occupy space when hidden
+          setAnimation({
+            element: segmentTspan,
+            id: `${atId}-text-delete-display-${index}`,
+            localName: 'dynam-text-delete-display',
+            states: {
+              findings: { type: 'display', val: 'inline' },
+              diplomatic: { type: 'display', val: 'inline' },
+              supplements: { type: 'display', val: 'none' },
+              conjectures: { type: 'display', val: 'none' },
+              annotated: { type: 'display', val: 'none' }
+            }
+          })
+        } else if (segment.type === 'insert') {
+          // AT-only text: hidden at findings/diplomatic, fades in at supplements
+          // Add "supplied" class for CSS styling
+          segmentTspan.classList.add('supplied')
+          
+          setAnimation({
+            element: segmentTspan,
+            id: `${atId}-text-insert-${index}`,
+            localName: 'dynam-text-insert',
+            states: {
+              findings: { type: 'opacity', val: '0' },
+              diplomatic: { type: 'opacity', val: '0' },
+              supplements: { type: 'opacity', val: '1' },
+              conjectures: { type: 'opacity', val: '1' },
+              annotated: { type: 'opacity', val: '1' }
+            }
+          })
+          // Make it not occupy space when hidden
+          setAnimation({
+            element: segmentTspan,
+            id: `${atId}-text-insert-display-${index}`,
+            localName: 'dynam-text-insert-display',
+            states: {
+              findings: { type: 'display', val: 'none' },
+              diplomatic: { type: 'display', val: 'none' },
+              supplements: { type: 'display', val: 'inline' },
+              conjectures: { type: 'display', val: 'inline' },
+              annotated: { type: 'display', val: 'inline' }
+            }
+          })
+        }
+      })
+      
+      // Animate the position of the entire dynam group
+      setAnimation({
+        element: atDynam,
+        id: atId,
+        localName: 'dynam',
+        states: {
+          findings: { type: 'translate', val: `${translateX} ${translateY}` },
+          diplomatic: { type: 'translate', val: `${translateX} ${translateY}` },
+          supplements: { type: 'translate', val: '0 0' },
+          conjectures: { type: 'translate', val: '0 0' },
+          annotated: { type: 'translate', val: '0 0' }
+        }
+      })
+      
+      logger.info(`[liquifyDynams] Text-to-text dynam ${atId}: animated ${diffSegments.length} text segments`)
+    }
     
-    // Insert DT clone before the AT use element
-    atUseElement.parentNode.insertBefore(dtTextClone, atUseElement)
-
-    // Add position animation to the dynam group (moves both DT text and AT symbol together)
-    setAnimation({
-      element: atDynam,
-      id: atId,
-      localName: 'dynam',
-      states: {
-        findings: { type: 'translate', val: `${translateX} ${translateY}` },
-        diplomatic: { type: 'translate', val: `${translateX} ${translateY}` },
-        supplements: { type: 'translate', val: '0 0' },
-        conjectures: { type: 'translate', val: '0 0' },
-        annotated: { type: 'translate', val: '0 0' }
-      }
-    })
-
-    // Animate DT text: visible at findings, fades out at diplomatic and thereafter
-    setAnimation({
-      element: dtTextClone,
-      id: `${atId}-dt`,
-      localName: 'dynam-dt-text',
-      states: {
-        findings: { type: 'opacity', val: '1' },
-        diplomatic: { type: 'opacity', val: '0' },
-        supplements: { type: 'opacity', val: '0' },
-        conjectures: { type: 'opacity', val: '0' },
-        annotated: { type: 'opacity', val: '0' }
-      }
-    })
-
-    // Animate AT symbol: hidden at findings, fades in at diplomatic, visible thereafter
-    setAnimation({
-      element: atUseElement,
-      id: `${atId}-at`,
-      localName: 'dynam-at-symbol',
-      states: {
-        findings: { type: 'opacity', val: '0' },
-        diplomatic: { type: 'opacity', val: '1' },
-        supplements: { type: 'opacity', val: '1' },
-        conjectures: { type: 'opacity', val: '1' },
-        annotated: { type: 'opacity', val: '1' }
-      }
-    })
-    
-    logger.debug(`[liquifyDynams] Added cross-fade for dynam ${atId}`)
     } catch (error) {
       logger.error(`[liquifyDynams] ERROR in dynams.js processing dynam ${atDynam?.getAttribute('data-id') || 'unknown'}: ${error.message}`)
       logger.error('[liquifyDynams] Stack trace:')
