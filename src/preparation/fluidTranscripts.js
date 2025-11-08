@@ -14,6 +14,7 @@ import { liquifyPedals } from './liquify/pedals.js'
 import { liquifyFings } from './liquify/fings.js'
 import { liquifyFs } from './liquify/fs.js'
 import { liquifyArtics } from './liquify/artics.js'
+import { liquifyDynams } from './liquify/dynams.js'
 
 const duration = '5s'
 const repeatCount = 'indefinite'
@@ -429,7 +430,7 @@ const liquifyMusic = (ftSvg, dtSvg, atMeiDom, tools) => {
   // liquifyRepeats(ftSvg, dtSvg, atMeiDom, tools)
   // liquifyDirs(ftSvg, dtSvg, atMeiDom, tools)
   // liquifyTempos(ftSvg, dtSvg, atMeiDom, tools)
-  // liquifyDynams(ftSvg, dtSvg, atMeiDom, tools)
+  liquifyDynams(ftSvg, dtSvg, atMeiDom, tools)
   liquifyCurves(ftSvg, dtSvg, atMeiDom, tools)
   // liquifyHairpins(ftSvg, dtSvg, atMeiDom, tools)
   liquifyTrills(ftSvg, dtSvg, atMeiDom, tools)
