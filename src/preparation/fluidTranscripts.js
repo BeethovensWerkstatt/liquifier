@@ -16,6 +16,7 @@ import { liquifyFs } from './liquify/fs.js'
 import { liquifyArtics } from './liquify/artics.js'
 import { liquifyDynams } from './liquify/dynams.js'
 import { liquifyTempo } from './liquify/tempo.js'
+import { liquifyDirs } from './liquify/dirs.js'
 
 const duration = '5s'
 const repeatCount = 'indefinite'
@@ -429,7 +430,7 @@ const liquifyMusic = (ftSvg, dtSvg, atMeiDom, tools) => {
   // controlevents
   liquifyBeams(ftSvg, dtSvg, atMeiDom, tools)
   // liquifyRepeats(ftSvg, dtSvg, atMeiDom, tools)
-  // liquifyDirs(ftSvg, dtSvg, atMeiDom, tools)
+  liquifyDirs(ftSvg, dtSvg, atMeiDom, tools)
   liquifyTempo(ftSvg, dtSvg, atMeiDom, tools)
   liquifyDynams(ftSvg, dtSvg, atMeiDom, tools)
   liquifyCurves(ftSvg, dtSvg, atMeiDom, tools)
