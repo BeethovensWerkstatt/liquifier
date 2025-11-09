@@ -38,22 +38,29 @@ export const liquifyAccids = (ftSvg, dtSvg, atMeiDom, tools) => {
 
     // Find the parent note's or chord's animation values (if accid is inside a note/chord)
     // We need to account for the note/chord's movement when calculating accid animation
-    const parentChord = accid.closest('g.chord:not(.bounding-box)')
-    const parentNote = accid.closest('g.note:not(.bounding-box)')
+    // Key signature accidentals don't have parent notes, so skip for them
+    const isKeyAccid = accid.classList.contains('keyAccid')
     let noteAnimationDiff = { x: 0, y: 0 }
     
-    // Check chord first, as notes inside chords are children of the chord
-    const parentToCheck = parentChord || parentNote
-    
-    if (parentToCheck) {
-      // Extract the parent's animation values from its animateTransform
-      const parentAnimation = parentToCheck.querySelector(':scope > animateTransform[type="translate"]')
-      if (parentAnimation) {
-        const parentValues = parentAnimation.getAttribute('values')
-        const parentMatch = parentValues?.match(/0 0;\s*([-\d.]+)\s+([-\d.]+)/)
-        if (parentMatch) {
-          noteAnimationDiff = { x: parseFloat(parentMatch[1]), y: parseFloat(parentMatch[2]) }
-          logger.debug(`[Accid] Parent ${parentChord ? 'chord' : 'note'} animation diff: (${noteAnimationDiff.x}, ${noteAnimationDiff.y})`)
+    if (!isKeyAccid) {
+      const parentChord = accid.closest('g.chord:not(.bounding-box)')
+      const parentNote = accid.closest('g.note:not(.bounding-box)')
+      
+      // Check chord first, as notes inside chords are children of the chord
+      const parentToCheck = parentChord || parentNote
+      
+      if (parentToCheck) {
+        // Extract the parent's animation values from its animateTransform
+        const parentAnimation = parentToCheck.querySelector(':scope > animateTransform[type="translate"]')
+        if (parentAnimation) {
+          const parentValues = parentAnimation.getAttribute('values')
+          // Extract the first position (findings/diplomatic state)
+          // Pattern: "x y;..." where we want the first x y values
+          const parentMatch = parentValues?.match(/^\s*([-\d.]+)\s+([-\d.]+)/)
+          if (parentMatch) {
+            noteAnimationDiff = { x: parseFloat(parentMatch[1]), y: parseFloat(parentMatch[2]) }
+            logger.debug(`[Accid] Parent ${parentChord ? 'chord' : 'note'} animation diff: (${noteAnimationDiff.x}, ${noteAnimationDiff.y})`)
+          }
         }
       }
     }
@@ -117,14 +124,13 @@ export const liquifyAccids = (ftSvg, dtSvg, atMeiDom, tools) => {
         const diffX = absDiffX - noteAnimationDiff.x
         const diffY = absDiffY - noteAnimationDiff.y
         
-        logger.debug(`[Accid Animation ${index}]`)
+        logger.debug(`[Accid Animation ${index}] ${atId} -> ${dtId}`)
         logger.debug(`  AT pos: (${atX}, ${atY})`)
         logger.debug(`  DT pos: (${dtX}, ${dtY})`)
         logger.debug(`  newPos: (${newPos.x}, ${newPos.y})`)
         logger.debug(`  abs diff:  (${absDiffX}, ${absDiffY})`)
         logger.debug(`  note diff: (${noteAnimationDiff.x}, ${noteAnimationDiff.y})`)
         logger.debug(`  rel diff:  (${diffX}, ${diffY})`)
-        logger.debug(`  AT ID: ${atId}, DT ID: ${dtId}`)
         
         // Apply relative animation to the parent accid group
         const atVal = '0 0'
