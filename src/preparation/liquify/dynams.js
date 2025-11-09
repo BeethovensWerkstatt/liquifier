@@ -190,6 +190,10 @@ export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
       dtTextClone.setAttribute('data-dt-clone', 'true')
       dtTextClone.setAttribute('class', 'dynam-dt')
       
+      // Position the cloned text at the AT symbol's position (both will be moved by group transform)
+      dtTextClone.setAttribute('x', atX)
+      dtTextClone.setAttribute('y', atY)
+      
       // Insert DT clone before the AT use element
       atElement.parentNode.insertBefore(dtTextClone, atElement)
 
@@ -207,28 +211,28 @@ export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
         }
       })
 
-      // Animate DT text: visible at findings, fades out at diplomatic and thereafter
+      // Animate DT text: visible at findings and diplomatic, fades out between diplomatic and supplements
       setAnimation({
         element: dtTextClone,
         id: `${atId}-dt`,
         localName: 'dynam-dt-text',
         states: {
           findings: { type: 'opacity', val: '1' },
-          diplomatic: { type: 'opacity', val: '0' },
+          diplomatic: { type: 'opacity', val: '1' },
           supplements: { type: 'opacity', val: '0' },
           conjectures: { type: 'opacity', val: '0' },
           annotated: { type: 'opacity', val: '0' }
         }
       })
       
-      // Animate AT symbol: hidden at findings, visible from diplomatic onward
+      // Animate AT symbol: hidden at findings and diplomatic, fades in between diplomatic and supplements
       setAnimation({
         element: atElement,
         id: `${atId}-at`,
         localName: 'dynam-at-symbol',
         states: {
           findings: { type: 'opacity', val: '0' },
-          diplomatic: { type: 'opacity', val: '1' },
+          diplomatic: { type: 'opacity', val: '0' },
           supplements: { type: 'opacity', val: '1' },
           conjectures: { type: 'opacity', val: '1' },
           annotated: { type: 'opacity', val: '1' }
