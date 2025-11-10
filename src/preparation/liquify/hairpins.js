@@ -48,6 +48,12 @@ export function liquifyHairpins (ftSvg, dtSvg, atMeiDom, tools) {
       return
     }
 
+    // Warn about spanning hairpins (partial representations that cross system boundaries)
+    // This indicates a data issue where the hairpin should be placed in the correct system
+    if (atHairpinGroup.classList.contains('spanning')) {
+      logger.warn(`[liquifyHairpins] Spanning hairpin ${atId} detected - this hairpin crosses system boundaries and may have incorrect DT correspondence data. This should be fixed in the source data.`)
+    }
+
     // Find corresponding MEI element
     const atHairpin = atMeiDom.querySelector(`hairpin[xml\\:id="${atId}"]`)
     if (!atHairpin) {
