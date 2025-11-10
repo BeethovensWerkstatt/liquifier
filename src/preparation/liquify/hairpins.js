@@ -180,15 +180,31 @@ function handleSingleCorrespondence (atHairpinGroup, dtHairpinId, atId, dtSvg, t
 
 /**
  * Handle multi-correspondence: multiple DT hairpins → single AT hairpin.
- * Animates to the first DT hairpin position.
+ * Filters to find DT hairpins that exist in the current system, then animates to the first available one.
  */
 function handleMultiCorrespondence (atHairpinGroup, dtHairpinIds, atId, dtSvg, tools) {
   const { logger } = tools
 
   logger.debug(`[liquifyHairpins] Multi-correspondence for AT ${atId}: ${dtHairpinIds.length} DT hairpins`)
   
-  // For now, use the first DT hairpin (similar to dirs multi-corresp strategy)
-  const firstDtId = dtHairpinIds[0]
+  // Filter to only DT hairpins that exist in this system's DT SVG
+  const availableDtIds = dtHairpinIds.filter(dtId => {
+    const exists = dtSvg.querySelector(`[data-id="${dtId}"]`) !== null
+    if (!exists) {
+      logger.debug(`[liquifyHairpins] DT hairpin ${dtId} not in this system's DT SVG, skipping`)
+    }
+    return exists
+  })
+
+  if (availableDtIds.length === 0) {
+    logger.warn(`[liquifyHairpins] None of the ${dtHairpinIds.length} DT hairpins for AT ${atId} exist in this system's DT SVG`)
+    return
+  }
+
+  logger.debug(`[liquifyHairpins] Using DT hairpin ${availableDtIds[0]} from ${availableDtIds.length} available in this system`)
+  
+  // Use the first available DT hairpin in this system
+  const firstDtId = availableDtIds[0]
   handleSingleCorrespondence(atHairpinGroup, firstDtId, atId, dtSvg, tools)
 }
 
@@ -305,6 +321,19 @@ function animateHairpinLeg (polyline, atPoints, dtPoints, id, getNewPos, setAnim
   // Update the polyline's base points attribute to match this leg's AT position
   const basePointsStr = atPoints.map(p => `${p.x},${p.y}`).join(' ')
   polyline.setAttribute('points', basePointsStr)
+  
+  // Check if hairpin direction is reversed between AT and DT
+  // If AT goes left→right but DT goes right→left (or vice versa), reverse DT points
+  if (atPoints.length >= 2 && dtPoints.length >= 2) {
+    const atDirection = atPoints[atPoints.length - 1].x - atPoints[0].x // Positive if left→right
+    const dtDirection = dtPoints[dtPoints.length - 1].x - dtPoints[0].x
+    
+    // If directions have opposite signs, reverse DT points to match AT direction
+    if ((atDirection > 0 && dtDirection < 0) || (atDirection < 0 && dtDirection > 0)) {
+      logger.debug(`[liquifyHairpins] Reversing DT leg direction for ${id} (AT: ${atDirection > 0 ? 'L→R' : 'R→L'}, DT: ${dtDirection > 0 ? 'L→R' : 'R→L'})`)
+      dtPoints.reverse()
+    }
+  }
   
   // Ensure both legs have the same number of points (pad if needed)
   const maxLen = Math.max(atPoints.length, dtPoints.length)
