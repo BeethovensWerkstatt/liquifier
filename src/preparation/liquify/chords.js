@@ -149,10 +149,13 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
       
       chord.closest('.measure').querySelectorAll('.ledgerLines .lineDash').forEach(ledgerLine => {
         if (ledgerLine.hasAttribute('data-related')) {
-          const relatedId = ledgerLine.getAttribute('data-related')
-          if (relatedIds.includes(relatedId)) {
-            const atVal = atNotesPositions.find(pos => relatedId === '#' + pos.id)?.atVal || '0 0'
-            const dtVal = atNotesPositions.find(pos => relatedId === '#' + pos.id)?.dtVal || '0 0'
+          const relatedAttr = ledgerLine.getAttribute('data-related')
+          // Check if ANY of the chord's note IDs appear in the ledgerLine's data-related attribute
+          const matchingNoteId = relatedIds.find(noteId => relatedAttr.includes(noteId))
+          if (matchingNoteId) {
+            // Use the position of the matching note for the animation
+            const atVal = atNotesPositions.find(pos => matchingNoteId === '#' + pos.id)?.atVal || '0 0'
+            const dtVal = atNotesPositions.find(pos => matchingNoteId === '#' + pos.id)?.dtVal || '0 0'
             const ledgerId = ledgerLine.getAttribute('data-id') || `ledger-${atId}`
             setAnimation({
               element: ledgerLine,

@@ -95,20 +95,24 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
 
       // identify relevant ledger lines
       note.closest('.measure').querySelectorAll('.ledgerLines .lineDash').forEach(ledgerLine => {
-        if (ledgerLine.hasAttribute('data-related') && ledgerLine.getAttribute('data-related') === '#' + atId) {
-          const ledgerId = ledgerLine.getAttribute('data-id') || `ledger-${atId}`
-          setAnimation({
-            element: ledgerLine,
-            id: ledgerId,
-            localName: 'ledgerLine',
-            states: {
-              findings: { type: 'translate', val: dtVal },
-              diplomatic: { type: 'translate', val: dtVal },
-              supplements: { type: 'translate', val: atVal },
-              conjectures: { type: 'translate', val: atVal },
-              annotated: { type: 'translate', val: atVal }
-            }
-          })
+        if (ledgerLine.hasAttribute('data-related')) {
+          const relatedIds = ledgerLine.getAttribute('data-related')
+          // Check if this note's ID is included in the space-separated list of related IDs
+          if (relatedIds.includes('#' + atId)) {
+            const ledgerId = ledgerLine.getAttribute('data-id') || `ledger-${atId}`
+            setAnimation({
+              element: ledgerLine,
+              id: ledgerId,
+              localName: 'ledgerLine',
+              states: {
+                findings: { type: 'translate', val: dtVal },
+                diplomatic: { type: 'translate', val: dtVal },
+                supplements: { type: 'translate', val: atVal },
+                conjectures: { type: 'translate', val: atVal },
+                annotated: { type: 'translate', val: atVal }
+              }
+            })
+          }
         }
       }) 
 
