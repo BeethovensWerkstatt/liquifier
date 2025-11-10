@@ -28,7 +28,7 @@
   "dependencies": {
     "jsdom": "^25.0.1",
     "minimist": "^1.2.8",
-    "thulemeier": "file:../thulemeier",
+    "thulemeier": "github:BeethovensWerkstatt/thulemeier",
     "verovio": "^5.2.0",
     "xmldom-qsa": "^1.1.3"
   },

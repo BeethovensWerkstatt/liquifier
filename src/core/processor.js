@@ -71,7 +71,7 @@ async function processData ({ data, triple, config, verovio, logger }) {
     // Annotated Transcript rendering
     if (config.types.indexOf('at') >= 0) {
       if (config.media.indexOf('svg') >= 0) {
-        renderAnnotatedTranscriptSvg(renderParams)
+        await renderAnnotatedTranscriptSvg(renderParams)
       }
       if (config.media.indexOf('midi') >= 0) {
         renderAnnotatedTranscriptMidi(renderParams)

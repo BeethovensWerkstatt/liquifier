@@ -295,8 +295,8 @@ export async function fetchData (triple, verbose = false, inputDir = './') {
   }
 }
 
-export async function writeData (content, filePath) {
-  fs.promises.mkdir(path.dirname(filePath), { recursive: true })
+export function writeData (content, filePath) {
+  return fs.promises.mkdir(path.dirname(filePath), { recursive: true })
     .then(x => fs.promises.writeFile(filePath, content))
 }
 

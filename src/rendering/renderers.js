@@ -31,7 +31,7 @@ function shouldRender (recreate, sourceDates, outputDate) {
  * @param {boolean} params.recreate - Force recreation flag
  * @param {Object} params.logger - Logger instance
  */
-export function renderAnnotatedTranscriptSvg ({ data, triple, verovio, pageDimensions, recreate, logger }) {
+export async function renderAnnotatedTranscriptSvg ({ data, triple, verovio, pageDimensions, recreate, logger }) {
   const { atDate, atSvgPath, atSvgDate } = triple
 
   if (shouldRender(recreate, [atDate], atSvgDate)) {
@@ -40,7 +40,7 @@ export function renderAnnotatedTranscriptSvg ({ data, triple, verovio, pageDimen
 
     // Render full continuous AT
     const atSvgString = renderContinuousAt(atOutDom, verovio, 'annotated', pageDimensions)
-    writeData(atSvgString, atSvgPath)
+    await writeData(atSvgString, atSvgPath)
     logger.info('Successfully rendered ' + atSvgPath)
 
     // Render individual system ATs
@@ -50,12 +50,12 @@ export function renderAnnotatedTranscriptSvg ({ data, triple, verovio, pageDimen
       if (systemSvgs.length > 0) {
         logger.info(`Rendering ${systemSvgs.length} individual AT systems...`)
 
-        systemSvgs.forEach(({ systemId, svg }) => {
+        systemSvgs.forEach(async ({ systemId, svg }) => {
           if (systemId && svg) {
             // Generate system-specific filename
             // Pattern: {source}_{page}_{wz}_sys{systemId}_at.svg
             const systemSvgPath = atSvgPath.replace('_at.svg', `_sys${systemId}_at.svg`)
-            writeData(svg, systemSvgPath)
+            await writeData(svg, systemSvgPath)
             logger.debug(`  Rendered AT system ${systemId}`)
           }
         })
@@ -136,7 +136,7 @@ export async function renderDiplomaticTranscriptSvg ({ data, triple, verovio, pa
 
       // Render full DT using Thulemeier
       const dtSvgString = await renderDiplomaticTranscript(preparedDt)
-      writeData(dtSvgString, dtSvgPath)
+      await writeData(dtSvgString, dtSvgPath)
       logger.info('Successfully rendered ' + dtSvgPath)
 
       // Extract system IDs from original DT DOM
@@ -162,7 +162,7 @@ export async function renderDiplomaticTranscriptSvg ({ data, triple, verovio, pa
               systemMargin: 1800 // 20mm margin around system content
             })
 
-            writeData(systemSvgString, systemSvgPath)
+            await writeData(systemSvgString, systemSvgPath)
             logger.debug(`  Rendered system ${systemId}`)
           } catch (systemError) {
             // Fail completely if any system fails (as per requirement)
