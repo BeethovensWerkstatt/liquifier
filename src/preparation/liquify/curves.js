@@ -13,46 +13,89 @@
 export const liquifyCurves = (ftSvg, dtSvg, atMeiDom, tools) => {
   const { scaleFactor, getNewPos, convertD, correspMappings, setAnimation } = tools
   
-  const curves = ftSvg.querySelectorAll('.slur:not(.bounding-box), .tie:not(.bounding-box)')
+  const curves = ftSvg.querySelectorAll('.slur:not(.bounding-box), .tie:not(.bounding-box), .curve:not(.bounding-box)')
   curves.forEach(curve => {
-  const atId = curve.getAttribute('data-id')
+    const atId = curve.getAttribute('data-id')
     const dtIds = correspMappings.get(atId)
     if (!dtIds || dtIds.length === 0) {
+      const atPath = curve.querySelector('path')
       setAnimation({
-        element: curve,
+        element: atPath || curve,
         id: atId,
         localName: 'curve',
         states: {
           findings: null,
           diplomatic: null,
-          supplements: { type: 'd', val: curve.querySelector('path')?.getAttribute('d') || '' },
-          conjectures: { type: 'd', val: curve.querySelector('path')?.getAttribute('d') || '' },
-          annotated: { type: 'd', val: curve.querySelector('path')?.getAttribute('d') || '' }
+          supplements: { type: 'd', val: atPath?.getAttribute('d') || '' },
+          conjectures: { type: 'd', val: atPath?.getAttribute('d') || '' },
+          annotated: { type: 'd', val: atPath?.getAttribute('d') || '' }
         }
       })
       return
     }
-     
-    dtIds.forEach(dtId => {
-      const dtCurve = dtSvg.querySelector(`.curve[data-id="${dtId}"]`)
-      if (!dtCurve) {
-        setAnimation({
-          element: curve,
-          id: atId,
-          localName: 'curve',
-          states: {
+
+    // Filter to only DT curves that exist in this system's DT SVG
+    const availableDtIds = dtIds.filter(dtId => {
+      return dtSvg.querySelector(`.curve[data-id="${dtId}"]`) !== null
+    })
+
+    if (availableDtIds.length === 0) {
+      // No DT curves in this system - fade out
+      const atPath = curve.querySelector('path')
+      setAnimation({
+        element: atPath || curve,
+        id: atId,
+        localName: 'curve',
+        states: {
           findings: null,
           diplomatic: null,
-          supplements: { type: 'd', val: curve.querySelector('path')?.getAttribute('d') || '' },
-          conjectures: { type: 'd', val: curve.querySelector('path')?.getAttribute('d') || '' },
-          annotated: { type: 'd', val: curve.querySelector('path')?.getAttribute('d') || '' }
+          supplements: { type: 'd', val: atPath?.getAttribute('d') || '' },
+          conjectures: { type: 'd', val: atPath?.getAttribute('d') || '' },
+          annotated: { type: 'd', val: atPath?.getAttribute('d') || '' }
         }
+      })
+      return
+    }
+
+    // Create array to hold the original and cloned curves
+    const curveElements = [curve]
+    
+    // If multiple DT curves in this system, create clones for each additional one
+    if (availableDtIds.length > 1) {
+      const parent = curve.parentNode
+      for (let i = 1; i < availableDtIds.length; i++) {
+        const clone = curve.cloneNode(true)
+        // Insert clone after the previous element
+        parent.insertBefore(clone, curveElements[i - 1].nextSibling)
+        curveElements.push(clone)
+      }
+    }
+
+    // Iterate through available DT curves with corresponding AT elements
+    availableDtIds.forEach((dtId, index) => {
+      const currentCurve = curveElements[index]
+      const dtCurve = dtSvg.querySelector(`.curve[data-id="${dtId}"]`)
+      
+      if (!dtCurve) {
+        // Should not happen after filtering, but handle it anyway
+        const atPath = currentCurve.querySelector('path')
+        setAnimation({
+          element: atPath || currentCurve,
+          id: `${atId}-${index}`,
+          localName: 'curve',
+          states: {
+            findings: null,
+            diplomatic: null,
+            supplements: { type: 'd', val: atPath?.getAttribute('d') || '' },
+            conjectures: { type: 'd', val: atPath?.getAttribute('d') || '' },
+            annotated: { type: 'd', val: atPath?.getAttribute('d') || '' }
+          }
         })
         return
       }
 
       // Animate curve path
-      const atPath = curve.querySelector('path')
+      const atPath = currentCurve.querySelector('path')
       const dtPath = dtCurve.querySelector('path')
       if (atPath && dtPath) {
         const atD = atPath.getAttribute('d')
@@ -60,15 +103,15 @@ export const liquifyCurves = (ftSvg, dtSvg, atMeiDom, tools) => {
         const newD = convertD(atD, dtD)
         setAnimation({
           element: atPath,
-          id: `${atId}-path`,
+          id: `${atId}-path-${index}`,
           localName: 'curve-path',
           states: {
-          findings: { type: 'd', val: newD },
-          diplomatic: { type: 'd', val: newD },
-          supplements: { type: 'd', val: atD },
-          conjectures: { type: 'd', val: atD },
-          annotated: { type: 'd', val: atD }
-        }
+            findings: { type: 'd', val: newD },
+            diplomatic: { type: 'd', val: newD },
+            supplements: { type: 'd', val: atD },
+            conjectures: { type: 'd', val: atD },
+            annotated: { type: 'd', val: atD }
+          }
         })
       }
     })

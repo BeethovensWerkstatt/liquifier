@@ -102,27 +102,67 @@ export const liquifyBarlines = (ftSvg, dtSvg, atMeiDom, tools) => {
       return
     }
 
-    dtIds.forEach(dtId => {
-      const dtBarline = dtSvg.querySelector('.barLine[data-id="' + dtId + '"] path')
-      if (!dtBarline) {
-        atBarline.forEach((barLine) =>
-          setAnimation({
-            element: barLine,
-            id: `${atId}-barline`,
-            localName: 'barline',
-            states: {
+    // Filter to only DT barlines that exist in this system's DT SVG
+    const availableDtIds = dtIds.filter(dtId => {
+      return dtSvg.querySelector('.barLine[data-id="' + dtId + '"] path') !== null
+    })
+
+    if (availableDtIds.length === 0) {
+      // No DT barline in this system - fade out
+      atBarline.forEach((barLine) =>
+        setAnimation({
+          element: barLine,
+          id: `${atId}-barline`,
+          localName: 'barline',
+          states: {
           findings: null,
           diplomatic: null,
           supplements: { type: 'd', val: barLine.getAttribute('d') },
           conjectures: { type: 'd', val: barLine.getAttribute('d') },
           annotated: { type: 'd', val: barLine.getAttribute('d') }
         }
-          })
-        )
+        })
+      )
+      return
+    }
+
+    // Create array to hold the original and cloned barLine paths
+    const barLineElements = [atBarline[0]]
+    
+    // If multiple DT barlines in this system, create clones for each additional one
+    if (availableDtIds.length > 1) {
+      const parent = atBarline[0].parentNode
+      for (let i = 1; i < availableDtIds.length; i++) {
+        const clone = atBarline[0].cloneNode(true)
+        // Insert clone after the previous element
+        parent.insertBefore(clone, barLineElements[i - 1].nextSibling)
+        barLineElements.push(clone)
+      }
+    }
+
+    // Iterate through available DT barlines with corresponding AT elements
+    availableDtIds.forEach((dtId, index) => {
+      const currentBarLine = barLineElements[index]
+      const dtBarline = dtSvg.querySelector('.barLine[data-id="' + dtId + '"] path')
+      
+      if (!dtBarline) {
+        // Should not happen after filtering, but handle it anyway
+        setAnimation({
+          element: currentBarLine,
+          id: `${atId}-barline-${index}`,
+          localName: 'barline',
+          states: {
+          findings: null,
+          diplomatic: null,
+          supplements: { type: 'd', val: currentBarLine.getAttribute('d') },
+          conjectures: { type: 'd', val: currentBarLine.getAttribute('d') },
+          annotated: { type: 'd', val: currentBarLine.getAttribute('d') }
+        }
+        })
         return
       }
 
-      const atPath = atBarline[0].getAttribute('d')
+      const atPath = currentBarLine.getAttribute('d')
       const dtPath = dtBarline.getAttribute('d')
       const atX1 = parseFloat(atPath.match(/M\s*([\d.-]+)\s+([\d.-]+)/)[1])
       const atY1 = parseFloat(atPath.match(/M\s*([\d.-]+)\s+([\d.-]+)/)[2])
@@ -140,8 +180,8 @@ export const liquifyBarlines = (ftSvg, dtSvg, atMeiDom, tools) => {
       const dtVal = `M${newStartPos.x} ${newStartPos.y} L${newEndPos.x} ${newEndPos.y}`
 
       setAnimation({
-        element: atBarline[0],
-        id: `${atId}-barline`,
+        element: currentBarLine,
+        id: `${atId}-barline-${index}`,
         localName: 'barline',
         states: {
           findings: { type: 'd', val: dtVal },
