@@ -18,6 +18,7 @@ import { liquifyDynams } from './liquify/dynams.js'
 import { liquifyTempo } from './liquify/tempo.js'
 import { liquifyDirs } from './liquify/dirs.js'
 import { liquifyHairpins } from './liquify/hairpins.js'
+import { adjustViewBoxForContent } from './liquify/viewbox.js'
 
 const duration = '5s'
 const repeatCount = 'indefinite'
@@ -280,6 +281,9 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, l
   const tools = { getNewPos, convertD, scaleFactor, correspMappings, setAnimation, logger }
 
   liquifyMusic(ftSvg, dtSvgElement, atMeiDom, tools)
+
+  // Adjust viewBox to encompass all animated content
+  adjustViewBoxForContent(ftSvg, tools)
 
   return ftSvg
 }
