@@ -9,11 +9,13 @@
  * segments that share endpoints (indicating they connect). Only segments that
  * attach to each other are combined.
  * 
+ * Also handles beamSpan elements which have the same structure as beam elements.
+ * 
  * @param {SVGElement} svg - AT SVG DOM containing beam elements
  * @param {Object} logger - Logger instance
  */
 const adjustAtBeams = (svg, logger) => {
-  const beams = svg.querySelectorAll('g.beam:not(.bounding-box)')
+  const beams = svg.querySelectorAll('g.beam:not(.bounding-box), g.beamSpan:not(.bounding-box)')
   
   beams.forEach(beamG => {
     const polygons = beamG.querySelectorAll('polygon')
@@ -461,7 +463,7 @@ export const liquifyBeams = (ftSvg, dtSvg, atMeiDom, tools) => {
   // First, prepare/adjust beam paths in the AT
   adjustAtBeams(ftSvg, logger)
   
-  const beams = ftSvg.querySelectorAll('g.beam:not(.bounding-box)')
+  const beams = ftSvg.querySelectorAll('g.beam:not(.bounding-box), g.beamSpan:not(.bounding-box)')
   beams.forEach(beam => {
     const atId = beam.getAttribute('data-id')
     const dtIds = correspMappings.get(atId)
