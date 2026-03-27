@@ -5,7 +5,9 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --test",
+    "test:coverage": "c8 --all --include=index.js --include=src/**/*.js --include=src/**/*.mjs --exclude=node_modules/** --check-coverage --lines 80 --functions 80 --branches 80 --statements 80 node --test",
+    "test:coverage:report": "c8 --all --include=index.js --include=src/**/*.js --include=src/**/*.mjs --exclude=node_modules/** --reporter=text --reporter=lcov node --test",
     "lint": "standard 'index.js' 'src/**/*.js' 'src/**/*.mjs'",
     "lint:fix": "standard --fix 'index.js' 'src/**/*.js' 'src/**/*.mjs'"
   },
@@ -33,6 +35,7 @@
     "xmldom-qsa": "^1.1.3"
   },
   "devDependencies": {
+    "c8": "^10.1.3",
     "standard": "^17.1.2"
   }
 }
