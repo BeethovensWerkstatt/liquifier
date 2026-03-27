@@ -11,25 +11,25 @@
  */
 const adjustAtBarLines = (svg) => {
   const barLines = svg.querySelectorAll('g.measure:not(.bounding-box) .barLine:not(.bounding-box)')
-  
+
   barLines.forEach(barLineG => {
     const paths = barLineG.querySelectorAll('path')
     if (paths.length === 0) return
-    
+
     // Group paths by their x position
     const linesByX = new Map()
-    
+
     paths.forEach(path => {
       const d = path.getAttribute('d')
       const match = d.match(/M\s*([\d.-]+)\s+([\d.-]+)\s+L\s*([\d.-]+)\s+([\d.-]+)/)
       if (!match) return
-      
+
       const x1 = parseFloat(match[1])
       const y1 = parseFloat(match[2])
       const x2 = parseFloat(match[3])
       const y2 = parseFloat(match[4])
       const strokeWidth = path.getAttribute('stroke-width')
-      
+
       // Check if this is a vertical line (x1 === x2)
       if (x1 === x2) {
         const x = x1
@@ -39,15 +39,15 @@ const adjustAtBarLines = (svg) => {
         linesByX.get(x).yCoords.push(y1, y2)
       }
     })
-    
+
     // Remove all existing paths
     paths.forEach(path => path.remove())
-    
+
     // Create merged paths
     linesByX.forEach(({ yCoords, strokeWidth }, x) => {
       const minY = Math.min(...yCoords)
       const maxY = Math.max(...yCoords)
-      
+
       const doc = barLineG.ownerDocument || barLineG
       const newPath = doc.createElementNS('http://www.w3.org/2000/svg', 'path')
       newPath.setAttribute('d', `M${x} ${minY} L${x} ${maxY}`)
@@ -59,11 +59,11 @@ const adjustAtBarLines = (svg) => {
 
 /**
  * Animate barlines between AT and DT transcriptions
- * 
+ *
  * First merges multi-staff barlines in the AT into single continuous lines,
  * then animates each barline path based on corresponding DT barline position.
  * Handles measures without DT correspondence by fading them out.
- * 
+ *
  * @param {SVGElement} ftSvg - Fluid transcription SVG (cloned from AT)
  * @param {SVGElement} dtSvg - Diplomatic transcript SVG
  * @param {Document} atMeiDom - AT MEI DOM for accessing element metadata
@@ -71,14 +71,14 @@ const adjustAtBarLines = (svg) => {
  */
 export const liquifyBarlines = (ftSvg, dtSvg, atMeiDom, tools) => {
   const { scaleFactor, getNewPos, convertD, correspMappings, setAnimation } = tools
-  
+
   // First, merge multi-staff barlines into single continuous lines
   adjustAtBarLines(ftSvg)
-  
+
   const measures = ftSvg.querySelectorAll('.measure:not(.bounding-box)')
   measures.forEach(measure => {
     const atId = measure.getAttribute('data-id')
-    
+
     // Animate the barline
     const atBarline = [...measure.querySelectorAll('.barLine > path')]
     if (atBarline.length === 0) return
@@ -91,12 +91,12 @@ export const liquifyBarlines = (ftSvg, dtSvg, atMeiDom, tools) => {
           id: `${atId}-barline`,
           localName: 'barline',
           states: {
-          findings: null,
-          diplomatic: null,
-          supplements: { type: 'd', val: barLine.getAttribute('d') },
-          conjectures: { type: 'd', val: barLine.getAttribute('d') },
-          annotated: { type: 'd', val: barLine.getAttribute('d') }
-        }
+            findings: null,
+            diplomatic: null,
+            supplements: { type: 'd', val: barLine.getAttribute('d') },
+            conjectures: { type: 'd', val: barLine.getAttribute('d') },
+            annotated: { type: 'd', val: barLine.getAttribute('d') }
+          }
         })
       )
       return
@@ -115,12 +115,12 @@ export const liquifyBarlines = (ftSvg, dtSvg, atMeiDom, tools) => {
           id: `${atId}-barline`,
           localName: 'barline',
           states: {
-          findings: null,
-          diplomatic: null,
-          supplements: { type: 'd', val: barLine.getAttribute('d') },
-          conjectures: { type: 'd', val: barLine.getAttribute('d') },
-          annotated: { type: 'd', val: barLine.getAttribute('d') }
-        }
+            findings: null,
+            diplomatic: null,
+            supplements: { type: 'd', val: barLine.getAttribute('d') },
+            conjectures: { type: 'd', val: barLine.getAttribute('d') },
+            annotated: { type: 'd', val: barLine.getAttribute('d') }
+          }
         })
       )
       return
@@ -128,7 +128,7 @@ export const liquifyBarlines = (ftSvg, dtSvg, atMeiDom, tools) => {
 
     // Create array to hold the original and cloned barLine paths
     const barLineElements = [atBarline[0]]
-    
+
     // If multiple DT barlines in this system, create clones for each additional one
     if (availableDtIds.length > 1) {
       const parent = atBarline[0].parentNode
@@ -144,7 +144,7 @@ export const liquifyBarlines = (ftSvg, dtSvg, atMeiDom, tools) => {
     availableDtIds.forEach((dtId, index) => {
       const currentBarLine = barLineElements[index]
       const dtBarline = dtSvg.querySelector('.barLine[data-id="' + dtId + '"] path')
-      
+
       if (!dtBarline) {
         // Should not happen after filtering, but handle it anyway
         setAnimation({
@@ -152,12 +152,12 @@ export const liquifyBarlines = (ftSvg, dtSvg, atMeiDom, tools) => {
           id: `${atId}-barline-${index}`,
           localName: 'barline',
           states: {
-          findings: null,
-          diplomatic: null,
-          supplements: { type: 'd', val: currentBarLine.getAttribute('d') },
-          conjectures: { type: 'd', val: currentBarLine.getAttribute('d') },
-          annotated: { type: 'd', val: currentBarLine.getAttribute('d') }
-        }
+            findings: null,
+            diplomatic: null,
+            supplements: { type: 'd', val: currentBarLine.getAttribute('d') },
+            conjectures: { type: 'd', val: currentBarLine.getAttribute('d') },
+            annotated: { type: 'd', val: currentBarLine.getAttribute('d') }
+          }
         })
         return
       }
