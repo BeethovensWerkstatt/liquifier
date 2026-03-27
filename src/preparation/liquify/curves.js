@@ -1,18 +1,18 @@
 /**
  * Animate curves (slurs, ties, etc.) between AT and DT transcriptions
- * 
+ *
  * For each curve in the AT (fluid transcription):
  * - Animates the curve path based on corresponding DT curve position
  * - Handles curves without DT correspondence by fading them out
- * 
+ *
  * @param {SVGElement} ftSvg - Fluid transcription SVG (cloned from AT)
  * @param {SVGElement} dtSvg - Diplomatic transcript SVG
  * @param {Document} atMeiDom - AT MEI DOM for accessing element metadata
  * @param {Object} tools - Tools object containing helper functions and data
  */
 export const liquifyCurves = (ftSvg, dtSvg, atMeiDom, tools) => {
-  const { scaleFactor, getNewPos, convertD, correspMappings, setAnimation } = tools
-  
+  const { convertD, correspMappings, setAnimation } = tools
+
   const curves = ftSvg.querySelectorAll('.slur:not(.bounding-box), .tie:not(.bounding-box), .curve:not(.bounding-box)')
   curves.forEach(curve => {
     const atId = curve.getAttribute('data-id')
@@ -59,7 +59,7 @@ export const liquifyCurves = (ftSvg, dtSvg, atMeiDom, tools) => {
 
     // Create array to hold the original and cloned curves
     const curveElements = [curve]
-    
+
     // If multiple DT curves in this system, create clones for each additional one
     if (availableDtIds.length > 1) {
       const parent = curve.parentNode
@@ -75,7 +75,7 @@ export const liquifyCurves = (ftSvg, dtSvg, atMeiDom, tools) => {
     availableDtIds.forEach((dtId, index) => {
       const currentCurve = curveElements[index]
       const dtCurve = dtSvg.querySelector(`.curve[data-id="${dtId}"]`)
-      
+
       if (!dtCurve) {
         // Should not happen after filtering, but handle it anyway
         const atPath = currentCurve.querySelector('path')

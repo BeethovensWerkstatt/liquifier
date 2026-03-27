@@ -2,7 +2,7 @@
  * Animates rest elements in a fluid transcript.
  * Rests are simpler than notes as they only need position animation,
  * without stems, flags, or other child elements.
- * 
+ *
  * @param {SVGElement} ftSvg - The fluid transcript SVG element
  * @param {SVGElement} dtSvg - The diplomatic transcript SVG element
  * @param {Document} atMeiDom - The annotated transcript MEI DOM (for corresp mapping)
@@ -12,26 +12,26 @@
  * @param {number} tools.scaleFactor - Scale factor between AT and DT
  * @param {Map} tools.correspMappings - Maps AT IDs to DT IDs
  * @param {Function} tools.setAnimation - Creates 5-state animations from descriptors
- * 
+ *
  * @example
  * // Rest structure in AT:
  * // <g data-id="x123" class="rest">
  * //   <use href="#E4E5" transform="translate(1234, 5678) scale(0.72, 0.72)"/>
  * // </g>
- * 
+ *
  * // Rest structure in DT:
  * // <g data-id="d456" class="rest">
  * //   <use href="#sym_rest_quarter" x="2345" y="13456"/>
  * // </g>
  */
 export function liquifyRests (ftSvg, dtSvg, atMeiDom, tools) {
-  const { scaleFactor, getNewPos, correspMappings, setAnimation, logger } = tools
-  
+  const { getNewPos, correspMappings, setAnimation, logger } = tools
+
   const rests = ftSvg.querySelectorAll('g.rest:not(.bounding-box)')
   rests.forEach(rest => {
     const atId = rest.getAttribute('data-id')
     const dtIds = correspMappings.get(atId)
-    
+
     if (!dtIds || dtIds.length === 0) {
       setAnimation({
         element: rest,
@@ -51,10 +51,10 @@ export function liquifyRests (ftSvg, dtSvg, atMeiDom, tools) {
     // Extract AT position from the use element's transform
     const atUse = rest.querySelector('use')
     if (!atUse) return
-    
+
     const atTransform = atUse.getAttribute('transform')?.match(/translate\(\s*([\d.-]+)\s*,\s*([\d.-]+)\s*\)/)
     if (!atTransform) return
-    
+
     const atX = parseFloat(atTransform[1])
     const atY = parseFloat(atTransform[2])
 

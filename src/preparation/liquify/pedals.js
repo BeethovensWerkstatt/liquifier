@@ -1,27 +1,27 @@
 /**
  * Animate pedals between AT and DT transcriptions
- * 
+ *
  * For each pedal in the AT (fluid transcription):
  * - Animates the pedal symbol position based on corresponding DT pedal position
  * - Handles pedals without DT correspondence by fading them out
- * 
+ *
  * Pedals include pedalDown (Ped.) and pedalUp (*) symbols.
- * 
+ *
  * @param {SVGElement} ftSvg - Fluid transcription SVG (cloned from AT)
  * @param {SVGElement} dtSvg - Diplomatic transcript SVG
  * @param {Document} atMeiDom - AT MEI DOM for accessing pedal metadata
  * @param {Object} tools - Tools object containing helper functions and data
  */
 export const liquifyPedals = (ftSvg, dtSvg, atMeiDom, tools) => {
-  const { scaleFactor, getNewPos, correspMappings, setAnimation, logger } = tools
-  
+  const { getNewPos, correspMappings, setAnimation, logger } = tools
+
   const pedals = ftSvg.querySelectorAll('g.pedal:not(.bounding-box)')
   logger.debug(`[Pedals] Found ${pedals.length} pedals to animate`)
-  
+
   pedals.forEach(pedal => {
     const atId = pedal.getAttribute('data-id')
     const dtIds = correspMappings.get(atId)
-    
+
     if (!dtIds || dtIds.length === 0) {
       logger.debug(`[Pedals] No corresp for pedal ${atId}`)
       setAnimation({
@@ -38,7 +38,7 @@ export const liquifyPedals = (ftSvg, dtSvg, atMeiDom, tools) => {
       })
       return
     }
-    
+
     logger.debug(`[Pedals] Processing pedal ${atId}, dtIds: ${dtIds.join(', ')}`)
 
     dtIds.forEach(dtId => {
@@ -49,12 +49,12 @@ export const liquifyPedals = (ftSvg, dtSvg, atMeiDom, tools) => {
           id: atId,
           localName: 'pedal',
           states: {
-          findings: null,
-          diplomatic: null,
-          supplements: { type: 'translate', val: '0 0' },
-          conjectures: { type: 'translate', val: '0 0' },
-          annotated: { type: 'translate', val: '0 0' }
-        }
+            findings: null,
+            diplomatic: null,
+            supplements: { type: 'translate', val: '0 0' },
+            conjectures: { type: 'translate', val: '0 0' },
+            annotated: { type: 'translate', val: '0 0' }
+          }
         })
         return
       }
@@ -62,7 +62,7 @@ export const liquifyPedals = (ftSvg, dtSvg, atMeiDom, tools) => {
       // Get pedal positions from the use element
       const atUse = pedal.querySelector('use')
       const dtUse = dtPedal.querySelector('use')
-      
+
       if (!atUse || !dtUse) {
         return
       }
@@ -83,7 +83,7 @@ export const liquifyPedals = (ftSvg, dtSvg, atMeiDom, tools) => {
         x: parseFloat(atMatch[1]),
         y: parseFloat(atMatch[2])
       }
-      
+
       const dtPos = {
         x: dtX,
         y: dtY

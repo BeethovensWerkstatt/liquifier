@@ -198,34 +198,34 @@ export function renderFluidTranscriptSvg ({ data, triple, verovio, pageDimension
 
   if (shouldRender(recreate, [atDate, dtDate], ftSvgDate)) {
     logger.info('Rendering Fluid Transcripts for system pairs...')
-    
+
     try {
       const dom = new JSDOM()
       const parser = new dom.window.DOMParser()
       const serializer = new dom.window.XMLSerializer()
-      
+
       // Find system SVG files
       const atSvgDir = path.dirname(atSvgPath)
       const baseFilename = path.basename(atSvgPath).replace('_at.svg', '')
-      
+
       // Find all AT system files in the directory
       const files = fs.readdirSync(atSvgDir)
-      const atSystemFiles = files.filter(f => 
-        f.startsWith(baseFilename) && 
-        f.includes('_sys') && 
+      const atSystemFiles = files.filter(f =>
+        f.startsWith(baseFilename) &&
+        f.includes('_sys') &&
         f.endsWith('_at.svg')
       )
-      
+
       if (atSystemFiles.length === 0) {
         logger.warn('No AT system files found for fluid transcription generation')
         return
       }
-      
+
       logger.info(`Found ${atSystemFiles.length} system pairs to process`)
-      
+
       let successCount = 0
       let errorCount = 0
-      
+
       // Process each system
       atSystemFiles.forEach(atSystemFile => {
         try {
@@ -236,7 +236,7 @@ export function renderFluidTranscriptSvg ({ data, triple, verovio, pageDimension
             return
           }
           const systemId = systemIdMatch[1]
-          
+
           // Build corresponding DT and FT paths
           const atSystemPath = path.join(atSvgDir, atSystemFile)
           const dtSystemPath = atSystemPath
@@ -245,45 +245,43 @@ export function renderFluidTranscriptSvg ({ data, triple, verovio, pageDimension
           const ftSystemPath = atSystemPath
             .replace('/annotatedTranscripts/', '/fluidTranscripts/')
             .replace('_at.svg', '_ft.svg')
-          
+
           // Check if DT system file exists
           if (!fs.existsSync(dtSystemPath)) {
             logger.warn(`DT system file not found: ${dtSystemPath}`)
             errorCount++
             return
           }
-          
+
           // Read SVG files
           const atSystemSvgString = fs.readFileSync(atSystemPath, 'utf8')
           const dtSystemSvgString = fs.readFileSync(dtSystemPath, 'utf8')
-          
+
           const atSystemSvg = parser.parseFromString(atSystemSvgString, 'image/svg+xml')
           const dtSystemSvg = parser.parseFromString(dtSystemSvgString, 'image/svg+xml')
-          
+
           // Generate fluid transcription
-          const ftSvg = generateFluidTranscription(dtSystemSvg, atSystemSvg, data.atDom, logger) //data.dtDom?
-          
+          const ftSvg = generateFluidTranscription(dtSystemSvg, atSystemSvg, data.atDom, logger) // data.dtDom?
+
           // Serialize and save
           const ftSvgString = serializer.serializeToString(ftSvg)
-          
+
           // Create directory if it doesn't exist
           const ftDir = path.dirname(ftSystemPath)
           if (!fs.existsSync(ftDir)) {
             fs.mkdirSync(ftDir, { recursive: true })
           }
-          
+
           writeData(ftSvgString, ftSystemPath)
           logger.debug(`  Generated FT for system ${systemId}`)
           successCount++
-          
         } catch (err) {
           logger.error(`Error processing system: ${err.message}`)
           errorCount++
         }
       })
-      
+
       logger.info(`Fluid Transcript generation complete: ${successCount} succeeded, ${errorCount} failed`)
-      
     } catch (err) {
       logger.error(`Error rendering fluid transcripts: ${err.message}`)
     }

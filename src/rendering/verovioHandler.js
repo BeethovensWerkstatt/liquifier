@@ -35,7 +35,7 @@ export const renderContinuousAt = (dom, verovio, target, pageDimensions) => {
   const svgDom = new DOMParser().parseFromString(svgString, 'image/svg+xml')
   fixScoreDefChildIds(svgDom, dom)
   const fixedSvgString = new XMLSerializer().serializeToString(svgDom)
-  
+
   return fixedSvgString
 }
 
@@ -96,9 +96,9 @@ export const renderSystemBasedAt = (dom, verovio, pageDimensions) => {
     const svgString = verovio.renderToSVG(pageNo)
     const systemId = systemIds[pageNo - 1] // pageNo is 1-indexed
 
-      const svgDom = new DOMParser().parseFromString(svgString, 'image/svg+xml')
-      fixScoreDefChildIds(svgDom, dom)
-      const fixedSvgString = new XMLSerializer().serializeToString(svgDom)
+    const svgDom = new DOMParser().parseFromString(svgString, 'image/svg+xml')
+    fixScoreDefChildIds(svgDom, dom)
+    const fixedSvgString = new XMLSerializer().serializeToString(svgDom)
 
     systemSvgs.push({
       systemId,

@@ -3,36 +3,36 @@ import { computeTextDiff } from '../../utils/textDiff.js'
 /**
  * Prepares animations for <dir> elements (musical directions like "pizz.", "8tel auch 6te", etc.)
  * between DT (diplomatic transcript) and AT (annotated transcript).
- * 
+ *
  * DIR ELEMENT COMPLEXITY:
  * - Multi-line support via <lb/> (line break) elements in MEI
  * - Multiple DT correspondence: one AT dir can map to multiple DT dirs (space-separated corresp attribute)
  * - Text variations: DT "8tel" → AT "16tel", DT "Stim." → AT "Stimme"
- * 
+ *
  * THREE ANIMATION STRATEGIES:
- * 
+ *
  * 1. LINE-BY-LINE (same line count):
  *    - Each line gets independent text diff (common/delete/insert segments)
  *    - Entire group translates to first line's DT position
  *    - Example: DT "andere tiefe Stim.\ndasselbe" → AT "andere tiefe Stimme\ndasselbe"
- * 
+ *
  * 2. MULTI-CORRESPONDENCE (multiple DT dirs → single AT line):
  *    - Split AT text into segments matching DT text boundaries
  *    - Each segment wrapped in <g> with independent translate animation
  *    - Sequential positioning in AT using estimated character width (~162 units @ 405px font)
  *    - Example: DT "8tel" + "auch" + "6te" → AT "8tel auch 6te" (animated as 3 independent words)
- * 
+ *
  * 3. FULL TEXT DIFF (mismatched line counts):
  *    - Concatenate all lines with spaces, compute single text diff
  *    - Group translates to first line's DT position
  *    - Fallback for complex structural mismatches
- * 
+ *
  * KEY TECHNICAL DETAILS:
  * - Transform animations only work on <g> elements, not <tspan> in SVG
  * - Multi-correspondence requires wrapping each word in its own <g>
  * - Character width estimation uses proportional font with 12% extra spacing
  * - Text diff shows insertions (class="supplied") and deletions (opacity fade)
- * 
+ *
  * @param {SVGSVGElement} ftSvg - The fluid transcript SVG (output, will be modified)
  * @param {SVGSVGElement} dtSvg - The diplomatic transcript SVG (reference, read-only)
  * @param {Document} atMeiDom - The annotated transcript MEI DOM (source of dir elements)
@@ -63,7 +63,7 @@ export function liquifyDirs (ftSvg, dtSvg, atMeiDom, tools) {
 
     if (!dtIds || dtIds.length === 0) {
       logger.debug(`[liquifyDirs] AT dir ${atId} has no DT correspondence (editorial), fade in from supplements`)
-      
+
       // Handle editorial dirs: fade in from supplements (hidden in findings/diplomatic)
       const atDirGroup = ftSvg.querySelector(`g[data-id="${atId}"][data-class="dir"]`)
       if (!atDirGroup) {
@@ -83,11 +83,11 @@ export function liquifyDirs (ftSvg, dtSvg, atMeiDom, tools) {
 
       // Apply fade-in animation to all tspans with data-class="text"
       const textTspans = textElement.querySelectorAll('tspan[data-class="text"]')
-      
+
       textTspans.forEach((tspan, index) => {
         // Add "supplied" class to mark this as editorial content
         tspan.classList.add('supplied')
-        
+
         // Apply opacity animation (fade in from supplements)
         setAnimation({
           element: tspan,
@@ -101,7 +101,7 @@ export function liquifyDirs (ftSvg, dtSvg, atMeiDom, tools) {
             annotated: { type: 'opacity', val: '1' }
           }
         })
-        
+
         // Apply display animation (hidden until supplements)
         setAnimation({
           element: tspan,
@@ -188,12 +188,12 @@ export function liquifyDirs (ftSvg, dtSvg, atMeiDom, tools) {
     logger.debug('[liquifyDirs]   DT lines: ' + allDtLines.map(l => `"${l.text}" at (${l.x},${l.y})`).join(', '))
 
     // STRATEGY SELECTION: Choose animation approach based on line structure
-    // 
+    //
     // We have three different strategies for animating dir elements:
     // 1. Line-by-line: Same line count → animate each line independently with text diff
     // 2. Multi-correspondence: Multiple DT dirs → single AT line → independent word animations
     // 3. Full text diff: Mismatched structures → concatenate all text and do single diff
-    
+
     if (allDtLines.length === 0 || atLines.length === 0) {
       logger.warn(`[liquifyDirs] AT dir ${atId} has empty lines, skipping`)
       return
@@ -221,11 +221,11 @@ export function liquifyDirs (ftSvg, dtSvg, atMeiDom, tools) {
       logger.debug(`[liquifyDirs] AT dir ${atId}: Full text diff (DT: ${allDtLines.length} lines, AT: ${atLines.length} lines)`)
       const dtFullText = allDtLines.map(l => l.text).join(' ')
       const atFullText = atLines.map(l => l.text).join(' ')
-      
+
       // Use first line position for DT, first line position for AT
       const dtPos = { x: allDtLines[0].x, y: allDtLines[0].y }
       const atPos = { x: atLines[0].x, y: atLines[0].y }
-      
+
       animateFullText(atDirGroup, dtFullText, atFullText, dtPos, atPos, getNewPos, setAnimation, logger, atId)
     }
   })
@@ -267,7 +267,7 @@ function animateLineByLine (atDirGroup, dtLines, atLines, getNewPos, setAnimatio
     const lineTspan = atTextElement.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'tspan')
     lineTspan.setAttribute('x', atLine.x)
     lineTspan.setAttribute('y', atLine.y)
-    
+
     // Add data attributes to match AT structure
     lineTspan.setAttribute('data-class', 'text')
     lineTspan.classList.add('text')
@@ -383,14 +383,14 @@ function animateLineByLine (atDirGroup, dtLines, atLines, getNewPos, setAnimatio
  * Each word segment animates independently to its corresponding DT position.
  *
  * EXAMPLE: AT has "8tel auch 6te" (single dir), DT has three separate dirs: "8tel", "auch", "6te"
- * 
+ *
  * APPROACH:
  * 1. Split the AT text into segments matching each DT text boundary
  * 2. Compute text diff for each segment individually (allows for variations like "8tel" vs "16tel")
  * 3. Wrap each segment (and spaces between them) in its own <g> element
  * 4. Apply independent translate animations to each <g> based on corresponding DT position
  * 5. Calculate sequential x-offsets for proper AT positioning (since font is proportional)
- * 
+ *
  * POSITIONING CHALLENGE:
  * - In findings/diplomatic states: Each segment translates to its DT position independently
  * - In supplements/conjectures/annotated: Segments converge to AT, forming continuous text
@@ -399,7 +399,7 @@ function animateLineByLine (atDirGroup, dtLines, atLines, getNewPos, setAnimatio
  *   This creates slightly uneven gaps but ensures readability without complex width calculations
  * - Character width formula: fontSize * 0.40 ≈ 162 units/char
  *   (Based on measured bounding box: 2020 width / 14 chars ≈ 144 units, plus 12% padding)
- * 
+ *
  * SVG STRUCTURE:
  * Original AT: <text x="14691" y="279"><tspan>8tel auch 6te</tspan></text>
  * After transformation:
@@ -408,9 +408,9 @@ function animateLineByLine (atDirGroup, dtLines, atLines, getNewPos, setAnimatio
  *   <g data-class="dir-segment"><text x="15501" y="279"><tspan>auch</tspan></text><animateTransform translate="6023 -704;...;0 0"/></g>
  *   <g data-class="dir-segment"><text x="16149" y="279"><tspan> </tspan></text></g>
  *   <g data-class="dir-segment"><text x="16311" y="279"><tspan>6te</tspan></text><animateTransform translate="9457 -1147;...;0 0"/></g>
- * 
+ *
  * Each x-position is calculated cumulatively: previous x + (segment length × charWidth)
- * 
+ *
  * IMPORTANT: Transform animations only work on <g> elements, not <tspan> elements in SVG.
  * This is why we wrap each segment in a group and apply the animateTransform to the group.
  *
@@ -446,11 +446,11 @@ function animateMultiCorrespondence (atDirGroup, dtDirData, atLine, getNewPos, s
 
     // Try to find this DT text in the remaining AT text
     const remainingAt = atText.substring(atOffset)
-    
+
     // Compute diff between DT text and corresponding portion of AT text
     // For simplicity, assume the AT text contains the DT texts in order
     let atSegmentText = ''
-    
+
     if (remainingAt.startsWith(dtText)) {
       // Exact match
       atSegmentText = dtText
@@ -471,7 +471,7 @@ function animateMultiCorrespondence (atDirGroup, dtDirData, atLine, getNewPos, s
     })
 
     atOffset += atSegmentText.length
-    
+
     // Skip spaces between words
     while (atOffset < atText.length && atText[atOffset] === ' ') {
       segments.push({
@@ -496,47 +496,47 @@ function animateMultiCorrespondence (atDirGroup, dtDirData, atLine, getNewPos, s
   }
 
   // RENDERING MULTI-CORRESPONDENCE SEGMENTS AS ANIMATED GROUPS
-  // 
-  // We need to wrap each word in a <g> element because SVG doesn't support 
+  //
+  // We need to wrap each word in a <g> element because SVG doesn't support
   // transform animations on <tspan> elements (only on containers like <g>).
-  // 
+  //
   // Each segment gets its own <g> with:
   // 1. A <text> element positioned at the correct x-offset for sequential rendering in AT
   // 2. An <animateTransform> that moves the entire group to its DT position in findings/diplomatic
-  
+
   // Remove the original text element and replace with groups for each segment
   atDirGroup.removeChild(atTextElement)
-  
+
   // CHARACTER WIDTH CALCULATION FOR SEQUENTIAL POSITIONING
-  // 
+  //
   // Challenge: We need to position segments sequentially in the AT state to form continuous text,
   // but we can't easily calculate the actual rendered width of each character.
-  // 
+  //
   // Approach: Use average character width with extra spacing
   // - Measured from Verovio: font-size 405px renders "8tel auch 6te" (14 chars) with width 2020
   // - Average: 2020 / 14 = 144.3 units per character
   // - We use 162 units (405 * 0.40) to add ~12% extra spacing
-  // 
+  //
   // Why extra spacing?
   // - Font is proportional (not monospaced): 'w' is wider than 'i', 't' wider than 'l', etc.
   // - Using average width creates uneven gaps (some too narrow, some too wide)
   // - Extra spacing ensures readability even when character widths vary
   // - Trade-off: Some gaps will be slightly larger than ideal
-  // 
+  //
   // Future optimization: Could calculate actual rendered widths using browser/DOM APIs
   // or extract from Verovio's bounding box data per segment if available.
   const fontSize = 405
   const charWidth = fontSize * 0.40 // ~162 units per character (144.3 base + 12% padding)
-  
+
   // CREATE ANIMATED GROUPS FOR EACH SEGMENT
-  // 
+  //
   // Each segment (word or space) gets wrapped in a <g> element with:
   // - Sequential x-position in AT (cumulativeXOffset tracks this)
   // - Text content with opacity/display animations for text diff
   // - Transform animation to move to DT position (if segment has DT correspondence)
   let globalSegIndex = 0
   let cumulativeXOffset = 0 // Cumulative x-offset for sequential rendering in AT state
-  
+
   segments.forEach((seg, segIndex) => {
     const { diffSegments, dtPos, dtIndex } = seg
 
@@ -664,15 +664,15 @@ function animateMultiCorrespondence (atDirGroup, dtDirData, atLine, getNewPos, s
     }
 
     atDirGroup.appendChild(segmentGroup)
-    
+
     // UPDATE CUMULATIVE OFFSET FOR NEXT SEGMENT
-    // 
+    //
     // Calculate the width of this segment based on its text content length
     // and add it to the cumulative offset so the next segment is positioned correctly.
-    // 
+    //
     // Example: "8tel" (4 chars) = 4 × 162 = 648 units
     // Next segment starts at: previousX + 648
-    // 
+    //
     // Note: This uses average character width, so actual rendered widths may vary
     // due to proportional font. The extra spacing (12%) helps compensate.
     const segmentText = diffSegments.map(ds => ds.text).join('')

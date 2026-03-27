@@ -1,6 +1,6 @@
 /**
  * Animate figured bass numbers (<f> elements) between AT and DT transcriptions
- * 
+ *
  * For each fi      logger.debug(`[F ${atId}] AT: (${atPos.x}, ${atPos.y}), DT: (${dtPos.x}, ${dtPos.y}), newPos: (${newPos.x}, ${newPos.y}), diff: (${diffX}, ${diffY})`)
 
       // Apply animation to the parent text element
@@ -23,29 +23,29 @@
 }s number in the AT (fluid transcription):
  * - Animates the individual number position based on corresponding DT position
  * - Handles figured bass numbers without DT correspondence by fading them out
- * 
+ *
  * Figured bass numbers (<f>) are individual digits or symbols within figured bass notation,
  * typically found in Baroque and Classical music to indicate harmony above a bass line.
  * They are wrapped in <tspan> elements within <text> elements.
- * 
+ *
  * Note: In many cases, figured bass is editorial (not in the original manuscript),
  * so these elements will often fade out as they have no DT correspondence.
- * 
+ *
  * @param {SVGElement} ftSvg - Fluid transcription SVG (cloned from AT)
  * @param {SVGElement} dtSvg - Diplomatic transcript SVG
  * @param {Document} atMeiDom - AT MEI DOM for accessing figured bass metadata
  * @param {Object} tools - Tools object containing helper functions and data
  */
 export const liquifyFs = (ftSvg, dtSvg, atMeiDom, tools) => {
-  const { scaleFactor, getNewPos, correspMappings, setAnimation, logger } = tools
-  
+  const { getNewPos, correspMappings, setAnimation, logger } = tools
+
   const fs = ftSvg.querySelectorAll('tspan.f:not(.bounding-box)')
   logger.debug(`[Fs] Found ${fs.length} figured bass numbers to animate`)
-  
+
   fs.forEach(f => {
     const atId = f.getAttribute('data-id')
     const dtIds = correspMappings.get(atId)
-    
+
     if (!dtIds || dtIds.length === 0) {
       logger.debug(`[Fs] No corresp for figured bass number ${atId}`)
       // Fade out the parent text element to hide the entire figured bass number
@@ -56,17 +56,17 @@ export const liquifyFs = (ftSvg, dtSvg, atMeiDom, tools) => {
           id: `${atId}-text`,
           localName: 'f-text',
           states: {
-          findings: null,
-          diplomatic: null,
-          supplements: { type: 'translate', val: '0 0' },
-          conjectures: { type: 'translate', val: '0 0' },
-          annotated: { type: 'translate', val: '0 0' }
-        }
+            findings: null,
+            diplomatic: null,
+            supplements: { type: 'translate', val: '0 0' },
+            conjectures: { type: 'translate', val: '0 0' },
+            annotated: { type: 'translate', val: '0 0' }
+          }
         })
       }
       return
     }
-    
+
     logger.debug(`[Fs] Processing figured bass number ${atId}, dtIds: ${dtIds.join(', ')}`)
 
     dtIds.forEach(dtId => {
@@ -79,12 +79,12 @@ export const liquifyFs = (ftSvg, dtSvg, atMeiDom, tools) => {
             id: `${atId}-text`,
             localName: 'f-text',
             states: {
-          findings: null,
-          diplomatic: null,
-          supplements: { type: 'translate', val: '0 0' },
-          conjectures: { type: 'translate', val: '0 0' },
-          annotated: { type: 'translate', val: '0 0' }
-        }
+              findings: null,
+              diplomatic: null,
+              supplements: { type: 'translate', val: '0 0' },
+              conjectures: { type: 'translate', val: '0 0' },
+              annotated: { type: 'translate', val: '0 0' }
+            }
           })
         }
         return
@@ -93,7 +93,7 @@ export const liquifyFs = (ftSvg, dtSvg, atMeiDom, tools) => {
       // Get positions from the parent text element's x and y attributes
       const atText = f.closest('text')
       const dtText = dtF.closest('text')
-      
+
       if (!atText || !dtText) {
         return
       }
@@ -112,7 +112,7 @@ export const liquifyFs = (ftSvg, dtSvg, atMeiDom, tools) => {
         x: atX,
         y: atY
       }
-      
+
       const dtPos = {
         x: dtX,
         y: dtY

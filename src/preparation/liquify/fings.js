@@ -1,28 +1,28 @@
 /**
  * Animate fingerings between AT and DT transcriptions
- * 
+ *
  * For each fingering in the AT (fluid transcription):
  * - Animates the fingering text position based on corresponding DT fingering position
  * - Handles fingerings without DT correspondence by fading them out
- * 
+ *
  * Fingerings are text elements (typically numbers 1-5) that indicate which finger
  * should be used to play a note.
- * 
+ *
  * @param {SVGElement} ftSvg - Fluid transcription SVG (cloned from AT)
  * @param {SVGElement} dtSvg - Diplomatic transcript SVG
  * @param {Document} atMeiDom - AT MEI DOM for accessing fingering metadata
  * @param {Object} tools - Tools object containing helper functions and data
  */
 export const liquifyFings = (ftSvg, dtSvg, atMeiDom, tools) => {
-  const { scaleFactor, getNewPos, correspMappings, setAnimation, logger } = tools
-  
+  const { getNewPos, correspMappings, setAnimation, logger } = tools
+
   const fings = ftSvg.querySelectorAll('g.fing:not(.bounding-box)')
   logger.debug(`[Fings] Found ${fings.length} fingerings to animate`)
-  
+
   fings.forEach(fing => {
     const atId = fing.getAttribute('data-id')
     const dtIds = correspMappings.get(atId)
-    
+
     if (!dtIds || dtIds.length === 0) {
       logger.debug(`[Fings] No corresp for fingering ${atId}`)
       setAnimation({
@@ -39,7 +39,7 @@ export const liquifyFings = (ftSvg, dtSvg, atMeiDom, tools) => {
       })
       return
     }
-    
+
     logger.debug(`[Fings] Processing fingering ${atId}, dtIds: ${dtIds.join(', ')}`)
 
     dtIds.forEach(dtId => {
@@ -50,12 +50,12 @@ export const liquifyFings = (ftSvg, dtSvg, atMeiDom, tools) => {
           id: atId,
           localName: 'fing',
           states: {
-          findings: null,
-          diplomatic: null,
-          supplements: { type: 'translate', val: '0 0' },
-          conjectures: { type: 'translate', val: '0 0' },
-          annotated: { type: 'translate', val: '0 0' }
-        }
+            findings: null,
+            diplomatic: null,
+            supplements: { type: 'translate', val: '0 0' },
+            conjectures: { type: 'translate', val: '0 0' },
+            annotated: { type: 'translate', val: '0 0' }
+          }
         })
         return
       }
@@ -63,7 +63,7 @@ export const liquifyFings = (ftSvg, dtSvg, atMeiDom, tools) => {
       // Get fingering positions from the text element's x and y attributes
       const atText = fing.querySelector('text')
       const dtText = dtFing.querySelector('text')
-      
+
       if (!atText || !dtText) {
         return
       }
@@ -82,7 +82,7 @@ export const liquifyFings = (ftSvg, dtSvg, atMeiDom, tools) => {
         x: atX,
         y: atY
       }
-      
+
       const dtPos = {
         x: dtX,
         y: dtY

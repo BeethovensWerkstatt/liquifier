@@ -18,13 +18,13 @@ export function liquifyTempo (ftSvg, dtSvg, atMeiDom, tools) {
 
   // Get all tempo elements from FT (based on AT)
   const atTempos = ftSvg.querySelectorAll('g.tempo:not(.bounding-box)')
-  
+
   logger.info(`[liquifyTempo] Processing ${atTempos.length} tempo elements`)
 
   atTempos.forEach(atTempo => {
     try {
       const atId = atTempo.getAttribute('data-id')
-      
+
       if (!atId) {
         logger.warn('[liquifyTempo] Tempo element missing data-id, skipping')
         return
@@ -34,7 +34,7 @@ export function liquifyTempo (ftSvg, dtSvg, atMeiDom, tools) {
 
       // Get the corresponding DT element IDs
       const dtIds = correspMappings.get(atId)
-      
+
       if (!dtIds || dtIds.length === 0) {
         // AT element has no DT correspondence - it's editorial
         logger.debug(`[liquifyTempo] No DT correspondence for tempo ${atId}, fading in (editorial)`)
@@ -58,7 +58,7 @@ export function liquifyTempo (ftSvg, dtSvg, atMeiDom, tools) {
 
       // Find the DT tempo element
       const dtTempo = dtSvg.querySelector(`[data-id="${dtId}"]`)
-      
+
       if (!dtTempo) {
         logger.warn(`[liquifyTempo] Could not find DT tempo ${dtId} for AT tempo ${atId}`)
         return
@@ -105,7 +105,7 @@ export function liquifyTempo (ftSvg, dtSvg, atMeiDom, tools) {
 
       // Calculate the new position using coordinate transformation
       const newPos = getNewPos({ x: atX, y: atY }, { x: dtX, y: dtY })
-      
+
       // Calculate the translation offset needed
       const translateX = newPos.x - atX
       const translateY = newPos.y - atY
@@ -115,23 +115,23 @@ export function liquifyTempo (ftSvg, dtSvg, atMeiDom, tools) {
       // Extract text content from DT and AT
       const dtText = dtTextElement.textContent.trim()
       const atText = atTextElement.textContent.trim()
-      
+
       logger.debug(`[liquifyTempo] Text diff for ${atId}: "${dtText}" -> "${atText}"`)
-      
+
       // Compute the differences between the two text strings
       const diffSegments = computeTextDiff(dtText, atText)
-      
+
       logger.debug(`[liquifyTempo] Diff segments: ${JSON.stringify(diffSegments)}`)
-      
+
       // Clear the AT text element's content
       atTextElement.textContent = ''
-      
+
       // Get or create the tspan container (AT structure: text > tspan > tspan)
       let tspanContainer = atTextElement.querySelector('tspan[data-class="text"]')
       if (!tspanContainer) {
         tspanContainer = atTextElement.querySelector('tspan')
       }
-      
+
       if (!tspanContainer) {
         // Create a tspan container if it doesn't exist
         tspanContainer = atTextElement.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'tspan')
@@ -142,12 +142,12 @@ export function liquifyTempo (ftSvg, dtSvg, atMeiDom, tools) {
         // Clear existing content
         tspanContainer.textContent = ''
       }
-      
+
       // Get font-size from existing tspan if available
       const existingInnerTspan = tspanContainer.querySelector('tspan')
       const fontSize = existingInnerTspan?.getAttribute('font-size') || '405px'
       const fontStyle = existingInnerTspan?.getAttribute('font-style') || atTextElement.getAttribute('font-style') || 'italic'
-      
+
       // Create tspan elements for each diff segment with appropriate animations
       diffSegments.forEach((segment, index) => {
         const segmentTspan = atTextElement.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'tspan')
@@ -158,9 +158,9 @@ export function liquifyTempo (ftSvg, dtSvg, atMeiDom, tools) {
         segmentTspan.textContent = segment.text
         segmentTspan.setAttribute('data-diff-type', segment.type)
         segmentTspan.setAttribute('data-diff-index', index)
-        
+
         tspanContainer.appendChild(segmentTspan)
-        
+
         // Apply opacity animation based on segment type
         if (segment.type === 'common') {
           // Common text: visible throughout
@@ -207,7 +207,7 @@ export function liquifyTempo (ftSvg, dtSvg, atMeiDom, tools) {
           // AT-only text: hidden at findings/diplomatic, fades in at supplements
           // Add "supplied" class for CSS styling
           segmentTspan.classList.add('supplied')
-          
+
           setAnimation({
             element: segmentTspan,
             id: `${atId}-text-insert-${index}`,
@@ -235,7 +235,7 @@ export function liquifyTempo (ftSvg, dtSvg, atMeiDom, tools) {
           })
         }
       })
-      
+
       // Animate the position of the entire tempo group
       setAnimation({
         element: atTempo,
@@ -249,15 +249,14 @@ export function liquifyTempo (ftSvg, dtSvg, atMeiDom, tools) {
           annotated: { type: 'translate', val: '0 0' }
         }
       })
-      
+
       logger.info(`[liquifyTempo] Tempo ${atId}: animated ${diffSegments.length} text segments`)
-      
     } catch (error) {
       logger.error(`[liquifyTempo] ERROR processing tempo ${atTempo?.getAttribute('data-id') || 'unknown'}: ${error.message}`)
       logger.error('[liquifyTempo] Stack trace:')
       logger.error(error.stack)
     }
   })
-  
+
   logger.info('[liquifyTempo] Completed tempo liquification')
 }

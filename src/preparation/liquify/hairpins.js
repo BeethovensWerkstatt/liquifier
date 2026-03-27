@@ -1,7 +1,7 @@
 /**
  * Prepares animations for <hairpin> elements (crescendo/diminuendo wedges)
  * between DT (diplomatic transcript) and AT (annotated transcript).
- * 
+ *
  * HAIRPIN ELEMENT COMPLEXITY:
  * - Visual wedge elements with form attribute: "cres" (crescendo) or "dim" (diminuendo)
  * - Multiple DT correspondence: one AT hairpin can map to multiple DT hairpins (space-separated corresp attribute)
@@ -11,7 +11,7 @@
  *     - Two separate 2-point polylines for top/bottom lines
  *   AT (Verovio):
  *     - Polyline representation (various point counts)
- * 
+ *
  * ANIMATION STRATEGY:
  * Hairpins consist of two legs (upper and lower). To create smooth morphing animation:
  * 1. Find AT hairpin in FT SVG (cloned from AT SVG rendered by Verovio)
@@ -21,10 +21,10 @@
  *    - If 3-point wedge: upper edge (points 0→1) and lower edge (points 2→1)
  *    - If two 2-point polylines: use top and bottom as-is
  * 5. Create independent animations for each leg from AT position to DT position
- * 
+ *
  * This allows both legs to morph independently, creating a smooth transition between
  * the AT and DT hairpin shapes (e.g., from AT center line to DT wedge).
- * 
+ *
  * @param {SVGSVGElement} ftSvg - The fluid transcript SVG (output, will be modified)
  * @param {SVGSVGElement} dtSvg - The diplomatic transcript SVG (reference, read-only)
  * @param {Document} atMeiDom - The annotated transcript MEI DOM (source of hairpin elements)
@@ -34,7 +34,7 @@
  *   - logger: Debug logging utility
  */
 export function liquifyHairpins (ftSvg, dtSvg, atMeiDom, tools) {
-  const { getNewPos, setAnimation, logger } = tools
+  const { setAnimation, logger } = tools
 
   // Find all AT hairpin groups in FT SVG (system-specific)
   // Query SVG first (not MEI) to only get hairpins in this system
@@ -121,8 +121,8 @@ function handleSingleCorrespondence (atHairpinGroup, dtHairpinId, atId, dtSvg, t
 
   // Find DT hairpin in DT SVG
   // Try multiple selectors for compatibility (class name bug: "hairpincres" vs "hairpin cres")
-  let dtHairpinGroup = dtSvg.querySelector(`[data-id="${dtHairpinId}"]`)
-  
+  const dtHairpinGroup = dtSvg.querySelector(`[data-id="${dtHairpinId}"]`)
+
   // Debug: check what hairpins exist in DT SVG
   if (!dtHairpinGroup) {
     const allHairpins = dtSvg.querySelectorAll('[data-class*="hairpin"]')
@@ -152,7 +152,7 @@ function handleSingleCorrespondence (atHairpinGroup, dtHairpinId, atId, dtSvg, t
 
   // Split AT hairpin into two legs
   const atLegs = splitHairpinIntoLegs(atPolylines, 'AT', logger)
-  
+
   // Split DT hairpin into two legs
   const dtLegs = splitHairpinIntoLegs(dtPolylines, 'DT', logger)
 
@@ -163,10 +163,10 @@ function handleSingleCorrespondence (atHairpinGroup, dtHairpinId, atId, dtSvg, t
 
   // Now we have: atLegs.upper, atLegs.lower, dtLegs.upper, dtLegs.lower
   // Each is an array of {x, y} points
-  
+
   // Convert coordinates and animate each leg
   animateHairpinLeg(atPolylines[0], atLegs.upper, dtLegs.upper, `${atId}-upper`, getNewPos, setAnimation, logger)
-  
+
   // For the lower leg, we need to either use an existing polyline or create a new one
   if (atPolylines.length > 1) {
     animateHairpinLeg(atPolylines[1], atLegs.lower, dtLegs.lower, `${atId}-lower`, getNewPos, setAnimation, logger)
@@ -186,7 +186,7 @@ function handleMultiCorrespondence (atHairpinGroup, dtHairpinIds, atId, dtSvg, t
   const { logger } = tools
 
   logger.debug(`[liquifyHairpins] Multi-correspondence for AT ${atId}: ${dtHairpinIds.length} DT hairpins`)
-  
+
   // Filter to only DT hairpins that exist in this system's DT SVG
   const availableDtIds = dtHairpinIds.filter(dtId => {
     const exists = dtSvg.querySelector(`[data-id="${dtId}"]`) !== null
@@ -202,7 +202,7 @@ function handleMultiCorrespondence (atHairpinGroup, dtHairpinIds, atId, dtSvg, t
   }
 
   logger.debug(`[liquifyHairpins] Using DT hairpin ${availableDtIds[0]} from ${availableDtIds.length} available in this system`)
-  
+
   // Use the first available DT hairpin in this system
   const firstDtId = availableDtIds[0]
   handleSingleCorrespondence(atHairpinGroup, firstDtId, atId, dtSvg, tools)
@@ -210,11 +210,11 @@ function handleMultiCorrespondence (atHairpinGroup, dtHairpinIds, atId, dtSvg, t
 
 /**
  * Split hairpin polyline(s) into upper and lower legs.
- * 
+ *
  * Handles two cases:
  * 1. Single polyline with 3 points (wedge): split into upper (0→1) and lower (2→1) edges
  * 2. Two polylines: treat as upper and lower legs
- * 
+ *
  * @param {Array<SVGPolylineElement>} polylines - Hairpin polylines
  * @param {string} label - 'AT' or 'DT' for logging
  * @param {Object} logger - Logger instance
@@ -238,14 +238,14 @@ function splitHairpinIntoLegs (polylines, label, logger) {
       // Identify upper vs lower by Y coordinate (lower Y = higher on screen = upper)
       const outerPoints = [points[0], points[2]]
       const closedPoint = points[1]
-      
+
       // Sort outer points by Y coordinate (ascending = top to bottom on screen)
       outerPoints.sort((a, b) => a.y - b.y)
-      
+
       logger.debug(`[liquifyHairpins] ${label} single 3-point wedge, upper Y=${outerPoints[0].y}, lower Y=${outerPoints[1].y}`)
       return {
         upper: [outerPoints[0], closedPoint], // Lower Y value = upper on screen
-        lower: [outerPoints[1], closedPoint]  // Higher Y value = lower on screen
+        lower: [outerPoints[1], closedPoint] // Higher Y value = lower on screen
       }
     } else if (points.length === 2) {
       // 2-point line: duplicate for both legs (will be at same position)
@@ -274,7 +274,7 @@ function splitHairpinIntoLegs (polylines, label, logger) {
     // (In SVG, lower Y = higher on screen = upper)
     const firstY = points[0].y
     const secondY = points2[0].y
-    
+
     logger.debug(`[liquifyHairpins] ${label} two polylines: first Y=${firstY}, second Y=${secondY}`)
 
     if (firstY < secondY) {
@@ -295,7 +295,7 @@ function splitHairpinIntoLegs (polylines, label, logger) {
 
 /**
  * Parse polyline points attribute into array of {x, y} objects.
- * 
+ *
  * @param {string} pointsAttr - Points attribute value (e.g., "708,297 8335,387")
  * @returns {Array<{x: number, y: number}>} - Array of point objects
  */
@@ -308,7 +308,7 @@ function parsePolylinePoints (pointsAttr) {
 
 /**
  * Animate a single hairpin leg from AT to DT position.
- * 
+ *
  * @param {SVGPolylineElement} polyline - The polyline element to animate
  * @param {Array<{x, y}>} atPoints - AT leg points
  * @param {Array<{x, y}>} dtPoints - DT leg points
@@ -321,27 +321,27 @@ function animateHairpinLeg (polyline, atPoints, dtPoints, id, getNewPos, setAnim
   // Update the polyline's base points attribute to match this leg's AT position
   const basePointsStr = atPoints.map(p => `${p.x},${p.y}`).join(' ')
   polyline.setAttribute('points', basePointsStr)
-  
+
   // Check if hairpin direction is reversed between AT and DT
   // If AT goes left→right but DT goes right→left (or vice versa), reverse DT points
   if (atPoints.length >= 2 && dtPoints.length >= 2) {
     const atDirection = atPoints[atPoints.length - 1].x - atPoints[0].x // Positive if left→right
     const dtDirection = dtPoints[dtPoints.length - 1].x - dtPoints[0].x
-    
+
     // If directions have opposite signs, reverse DT points to match AT direction
     if ((atDirection > 0 && dtDirection < 0) || (atDirection < 0 && dtDirection > 0)) {
       logger.debug(`[liquifyHairpins] Reversing DT leg direction for ${id} (AT: ${atDirection > 0 ? 'L→R' : 'R→L'}, DT: ${dtDirection > 0 ? 'L→R' : 'R→L'})`)
       dtPoints.reverse()
     }
   }
-  
+
   // Ensure both legs have the same number of points (pad if needed)
   const maxLen = Math.max(atPoints.length, dtPoints.length)
-  
+
   while (atPoints.length < maxLen) {
     atPoints.push(atPoints[atPoints.length - 1]) // Duplicate last point
   }
-  
+
   while (dtPoints.length < maxLen) {
     dtPoints.push(dtPoints[dtPoints.length - 1]) // Duplicate last point
   }
@@ -361,7 +361,7 @@ function animateHairpinLeg (polyline, atPoints, dtPoints, id, getNewPos, setAnim
   // Apply animation
   setAnimation({
     element: polyline,
-    id: id,
+    id,
     localName: 'hairpin-leg',
     states: {
       findings: { type: 'points', val: findingsPointsStr },

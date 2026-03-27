@@ -1,25 +1,25 @@
 /**
  * Animate fermatas between AT and DT transcriptions
- * 
+ *
  * For each fermata in the AT (fluid transcription):
  * - Animates the fermata symbol position based on corresponding DT fermata position
  * - Handles fermatas without DT correspondence by fading them out
- * 
+ *
  * @param {SVGElement} ftSvg - Fluid transcription SVG (cloned from AT)
  * @param {SVGElement} dtSvg - Diplomatic transcript SVG
  * @param {Document} atMeiDom - AT MEI DOM for accessing fermata metadata
  * @param {Object} tools - Tools object containing helper functions and data
  */
 export const liquifyFermatas = (ftSvg, dtSvg, atMeiDom, tools) => {
-  const { scaleFactor, getNewPos, correspMappings, setAnimation, logger } = tools
-  
+  const { getNewPos, correspMappings, setAnimation, logger } = tools
+
   const fermatas = ftSvg.querySelectorAll('g.fermata:not(.bounding-box)')
   logger.debug(`[Fermatas] Found ${fermatas.length} fermatas to animate`)
-  
+
   fermatas.forEach(fermata => {
     const atId = fermata.getAttribute('data-id')
     const dtIds = correspMappings.get(atId)
-    
+
     if (!dtIds || dtIds.length === 0) {
       logger.debug(`[Fermatas] No corresp for fermata ${atId}`)
       setAnimation({
@@ -36,7 +36,7 @@ export const liquifyFermatas = (ftSvg, dtSvg, atMeiDom, tools) => {
       })
       return
     }
-    
+
     logger.debug(`[Fermatas] Processing fermata ${atId}, dtIds: ${dtIds.join(', ')}`)
 
     dtIds.forEach(dtId => {
@@ -47,12 +47,12 @@ export const liquifyFermatas = (ftSvg, dtSvg, atMeiDom, tools) => {
           id: atId,
           localName: 'fermata',
           states: {
-          findings: null,
-          diplomatic: null,
-          supplements: { type: 'translate', val: '0 0' },
-          conjectures: { type: 'translate', val: '0 0' },
-          annotated: { type: 'translate', val: '0 0' }
-        }
+            findings: null,
+            diplomatic: null,
+            supplements: { type: 'translate', val: '0 0' },
+            conjectures: { type: 'translate', val: '0 0' },
+            annotated: { type: 'translate', val: '0 0' }
+          }
         })
         return
       }
@@ -60,7 +60,7 @@ export const liquifyFermatas = (ftSvg, dtSvg, atMeiDom, tools) => {
       // Get fermata positions from the use element
       const atUse = fermata.querySelector('use')
       const dtUse = dtFermata.querySelector('use')
-      
+
       if (!atUse || !dtUse) {
         return
       }
@@ -81,7 +81,7 @@ export const liquifyFermatas = (ftSvg, dtSvg, atMeiDom, tools) => {
         x: parseFloat(atMatch[1]),
         y: parseFloat(atMatch[2])
       }
-      
+
       const dtPos = {
         x: dtX,
         y: dtY

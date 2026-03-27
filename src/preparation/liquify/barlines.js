@@ -1,12 +1,12 @@
 /**
  * Merge AT barLine paths sharing the same x position into single continuous lines
- * 
+ *
  * For each barLine group in the AT, identifies all vertical path segments and groups them
  * by their x coordinate. Paths with the same x position (representing the same vertical
  * line across multiple staves) are merged into a single continuous path stretching from
  * the topmost to the lowest y coordinate. This consolidates multi-staff barlines that
  * are rendered as separate segments per staff into unified lines.
- * 
+ *
  * @param {SVGElement} svg - AT SVG DOM containing barLine elements
  */
 const adjustAtBarLines = (svg) => {
@@ -70,7 +70,7 @@ const adjustAtBarLines = (svg) => {
  * @param {Object} tools - Tools object containing helper functions and data
  */
 export const liquifyBarlines = (ftSvg, dtSvg, atMeiDom, tools) => {
-  const { scaleFactor, getNewPos, convertD, correspMappings, setAnimation } = tools
+  const { getNewPos, correspMappings, setAnimation } = tools
 
   // First, merge multi-staff barlines into single continuous lines
   adjustAtBarLines(ftSvg)
@@ -84,7 +84,7 @@ export const liquifyBarlines = (ftSvg, dtSvg, atMeiDom, tools) => {
     if (atBarline.length === 0) return
 
     const dtIds = correspMappings.get(atId)
-    if (!dtIds || dtIds.length === 0) { 
+    if (!dtIds || dtIds.length === 0) {
       atBarline.forEach((barLine) =>
         setAnimation({
           element: barLine,

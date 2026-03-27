@@ -34,43 +34,30 @@ const reverseAnimations = false
 const calculateDtSystemCenter = (svg) => {
   // Get all rastrum bounding boxes
   const rastrumBBoxes = svg.querySelectorAll('g.rastrum.bounding-box rect')
-  
+
   if (rastrumBBoxes.length === 0) {
     throw new Error('No rastrum bounding boxes found in DT SVG')
   }
-  
-  // Calculate bounds of all rastrums
+
   let minX = Infinity
   let maxX = -Infinity
   let minY = Infinity
   let maxY = -Infinity
-  
+
   rastrumBBoxes.forEach(rect => {
     const x = parseFloat(rect.getAttribute('x'))
     const y = parseFloat(rect.getAttribute('y'))
     const width = parseFloat(rect.getAttribute('width'))
     const height = parseFloat(rect.getAttribute('height'))
-    
+
     // Get the transform-origin from parent rastrum group
     const rastrumGroup = rect.closest('g.rastrum')
     const style = rastrumGroup?.getAttribute('style')
-    let transformOriginX = x + width / 2
-    let transformOriginY = y + height / 2
-    let rotation = 0
-    
     if (style) {
-      const rotateMatch = style.match(/rotate\(([-\d.]+)deg\)/)
-      const originMatch = style.match(/transform-origin:\s*([\d.]+)px\s+([\d.]+)px/)
-      
-      if (rotateMatch) {
-        rotation = parseFloat(rotateMatch[1])
-      }
-      if (originMatch) {
-        transformOriginX = parseFloat(originMatch[1])
-        transformOriginY = parseFloat(originMatch[2])
-      }
+      // Rotation metadata may exist on rastrum groups, but current bbox logic intentionally
+      // uses the axis-aligned approximation for performance and stability.
     }
-    
+
     // For small rotations (<1°), we can approximate the bounding box
     // without doing full rotation math (the effect is negligible)
     minX = Math.min(minX, x)
@@ -78,9 +65,9 @@ const calculateDtSystemCenter = (svg) => {
     minY = Math.min(minY, y)
     maxY = Math.max(maxY, y + height)
   })
-  
+
   const viewBox = svg.getAttribute('viewBox').split(' ').map(Number)
-  const [vbx, vby, vbWidth, vbHeight] = viewBox
+  const [vbx] = viewBox
 
   // Calculate center of all rastrums
   const xCenter = vbx // parseFloat((minX + maxX) / 2)
@@ -104,7 +91,7 @@ const calculateAtSystemCenter = (svg) => {
   let bottom = -Infinity
   let left = Infinity
   let right = -Infinity
-  
+
   staffLines.forEach(path => {
     const d = path.getAttribute('d')
     const match = d.match(/M\s*([\d.-]+)\s+([\d.-]+)\s+L\s*([\d.-]+)\s+([\d.-]+)/)
@@ -112,8 +99,6 @@ const calculateAtSystemCenter = (svg) => {
       const x1 = parseFloat(match[1])
       const y1 = parseFloat(match[2])
       const x2 = parseFloat(match[3])
-      const y2 = parseFloat(match[4])
-      
       top = Math.min(top, y1)
       bottom = Math.max(bottom, y1)
       left = Math.min(left, x1)
@@ -164,26 +149,26 @@ export const calculateScaleFactor = (dtSystemSvg, atSystemSvg) => {
  */
 const extractCorrespMappings = (atMeiDom) => {
   const mappings = new Map()
-  
+
   // Find all elements with @corresp attribute
   const correspElements = atMeiDom.querySelectorAll('[corresp]')
-  
+
   correspElements.forEach(element => {
     const atId = element.getAttribute('xml:id')
     const corresp = element.getAttribute('corresp')
-    
+
     // Extract DT ID after the # (format: ../path/file.xml#dtId)
     if (atId && corresp && corresp.includes('#')) {
       const arr = corresp
         .trim()
-        .replace(/\s+/g, ' ')  // Replace multiple whitespaces with single space
+        .replace(/\s+/g, ' ') // Replace multiple whitespaces with single space
         .split(' ')
         .map(corresp => corresp.split('#')[1])
-        .filter(id => id && id.length > 0)  // Filter out empty strings
+        .filter(id => id && id.length > 0) // Filter out empty strings
       mappings.set(atId, arr)
     }
   })
-  
+
   return mappings
 }
 
@@ -201,10 +186,10 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, l
   const atSvgElement = atSystemSvg.documentElement || atSystemSvg
 
   const correspMappings = extractCorrespMappings(atMeiDom)
-  
+
   // Calculate scale factor
   const scaleFactor = calculateScaleFactor(dtSvgElement, atSvgElement)
-  
+
   // Calculate system centers
   const dtCenter = calculateDtSystemCenter(dtSvgElement)
   const atCenter = calculateAtSystemCenter(atSvgElement)
@@ -216,14 +201,14 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, l
   adjustDtStaffLines(dtSvgElement)
 
   // helper function that will get the translation between two points
-  const getNewPos = (at = { x, y }, dt = { x, y }) => {
+  const getNewPos = (at = { x: 0, y: 0 }, dt = { x: 0, y: 0 }) => {
     const atOffX = atCenter.x - at.x
     const atOffY = atCenter.y - at.y
     const dtOffX = dtCenter.x - dt.x
     const dtOffY = dtCenter.y - dt.y
 
-    const diffX =  atOffX - dtOffX * scaleFactor // ((dtOffX * scaleFactor) - atOffX) * -1
-    const diffY =  atOffY - dtOffY * scaleFactor // ((dtOffY * scaleFactor) - atOffY) * 1
+    const diffX = atOffX - dtOffX * scaleFactor // ((dtOffX * scaleFactor) - atOffX) * -1
+    const diffY = atOffY - dtOffY * scaleFactor // ((dtOffY * scaleFactor) - atOffY) * 1
     const newPos = { x: Math.round(at.x + diffX), y: Math.round(at.y + diffY) }
     logger.debug(`[Position Diff] AT: (${at.x}, ${at.y}), DT: (${dt.x}, ${dt.y}) => newPos: (${newPos.x}, ${newPos.y})`)
     return newPos
@@ -231,14 +216,14 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, l
 
   /**
    * Convert all coordinates in a path's d attribute using getNewPos transformation
-   * 
+   *
    * Parses the path d attribute, extracts all coordinate pairs, transforms them using
    * getNewPos (which applies scale factor and coordinate system transformations), and
    * reconstructs the path string with the new coordinates.
-   * 
-   * Supports path commands: M (moveto), L (lineto), H (horizontal), V (vertical), 
+   *
+   * Supports path commands: M (moveto), L (lineto), H (horizontal), V (vertical),
    * C (cubic bezier), S (smooth cubic), Q (quadratic), T (smooth quadratic), A (arc)
-   * 
+   *
    * @param {string} atD - The AT path's d attribute
    * @param {string} dtD - The DT path's d attribute (same shape, different coordinates)
    * @returns {string} New d attribute with transformed coordinates
@@ -247,33 +232,33 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, l
     // Parse coordinates from both paths
     const atCoords = []
     const dtCoords = []
-    
+
     // Regex to match coordinate pairs (handles both space and comma separated)
     const coordRegex = /([-\d.]+)[,\s]+([-\d.]+)/g
-    
+
     let match
     while ((match = coordRegex.exec(atD)) !== null) {
       atCoords.push({ x: parseFloat(match[1]), y: parseFloat(match[2]) })
     }
-    
+
     coordRegex.lastIndex = 0
     while ((match = coordRegex.exec(dtD)) !== null) {
       dtCoords.push({ x: parseFloat(match[1]), y: parseFloat(match[2]) })
     }
-    
+
     // Transform all coordinates
     const newCoords = atCoords.map((atPos, i) => {
       const dtPos = dtCoords[i] || atPos // fallback if coords don't match
       return getNewPos(atPos, dtPos)
     })
-    
+
     // Reconstruct the path by replacing coordinates in the original AT path
     let coordIndex = 0
     const newD = atD.replace(coordRegex, () => {
       const coord = newCoords[coordIndex++]
       return `${coord.x} ${coord.y}`
     })
-    
+
     return newD
   }
 
@@ -298,7 +283,7 @@ const adjustAtStaffLines = (svg) => {
 
   let left = Infinity
   let right = -Infinity
-  
+
   // get left/right extent of staff lines
   staffLines.forEach(path => {
     const d = path.getAttribute('d')
@@ -334,18 +319,18 @@ const adjustAtStaffLines = (svg) => {
 
 /**
  * Cut DT staff lines to fit within the viewBox
- * @param {*} svg 
+ * @param {*} svg
  */
 const adjustDtStaffLines = (svg) => {
   const viewBox = svg.getAttribute('viewBox').split(' ').map(Number)
-  const [vbx, vby, vbWidth, vbHeight] = viewBox
+  const [vbx, , vbWidth] = viewBox
   const staffLines = svg.querySelectorAll('.rastrum:not(.bounding-box) > path')
   staffLines.forEach(path => {
     const d = path.getAttribute('d')
     const match = d.match(/M\s*([\d.-]+)\s+([\d.-]+)\s+L\s*([\d.-]+)\s+([\d.-]+)/)
     if (match) {
-      let x1 = Math.max(parseFloat(match[1]), vbx)
-      let x2 = Math.min(parseFloat(match[3]), vbx + vbWidth)
+      const x1 = Math.max(parseFloat(match[1]), vbx)
+      const x2 = Math.min(parseFloat(match[3]), vbx + vbWidth)
       const y = parseFloat(match[2])
       const newD = `M${x1} ${y} L${x2} ${y}`
       path.setAttribute('d', newD)
@@ -355,13 +340,13 @@ const adjustDtStaffLines = (svg) => {
 
 /**
  * Animate staff lines between AT and DT transcriptions
- * 
+ *
  * Pairs each staff line from the fluid transcription with its corresponding DT staff line
  * and creates animations for the `d` attribute (path data) to morph between the two positions.
- * 
+ *
  * Uses the `convertD` function to transform all coordinates in the path, which applies
  * scale factor and coordinate system transformations.
- * 
+ *
  * @param {SVGElement} ftSvg - Fluid transcription SVG (cloned from AT)
  * @param {SVGElement} dtSvg - Diplomatic transcript SVG
  * @param {Function} convertD - Function to convert path d attribute: (atD, dtD) => newD
@@ -374,15 +359,15 @@ const animateStaffLines = (ftSvg, dtSvg, convertD, setAnimation, logger) => {
 
   ftStaffLines.forEach((ftLine, i) => {
     const dtLine = dtStaffLines[i]
-    
+
     if (!dtLine) {
       logger.warn(`[animateStaffLines] No corresponding DT staff line for FT line ${i}`)
       return
     }
-    
+
     const atD = ftLine.getAttribute('d')
     const dtD = dtLine.getAttribute('d')
-    
+
     // Use convertD to transform all coordinates
     const newD = convertD(atD, dtD)
 
@@ -393,21 +378,21 @@ const animateStaffLines = (ftSvg, dtSvg, convertD, setAnimation, logger) => {
       id: `staff-line-${i}`,
       localName: 'staff-line',
       states: {
-          findings: { type: 'd', val: newD },
-          diplomatic: { type: 'd', val: newD },
-          supplements: { type: 'd', val: atD },
-          conjectures: { type: 'd', val: atD },
-          annotated: { type: 'd', val: atD }
-        }
+        findings: { type: 'd', val: newD },
+        diplomatic: { type: 'd', val: newD },
+        supplements: { type: 'd', val: atD },
+        conjectures: { type: 'd', val: atD },
+        annotated: { type: 'd', val: atD }
+      }
     })
   })
 }
 
 /**
  * Orchestrate animation of all musical events (notes, rests, chords, etc.) between AT and DT transcriptions
- * 
+ *
  * This function serves as the main coordinator for animating all types of musical notation elements.
- * 
+ *
  * @param {SVGElement} ftSvg - Fluid transcription SVG (cloned from AT)
  * @param {SVGElement} dtSvg - Diplomatic transcript SVG
  * @param {Document} atMeiDom - AT MEI DOM for accessing element metadata
@@ -453,11 +438,11 @@ const liquifyMusic = (ftSvg, dtSvg, atMeiDom, tools) => {
 
 /**
  * Add an SVG animateTransform element for translate animations
- * 
+ *
  * Creates an `<animateTransform>` element with type="translate" to animate the position
  * of an SVG element. The animation transitions between the provided values using the
  * global duration and repeat settings.
- * 
+ *
  * @param {SVGElement} node - The SVG element to add the animation to
  * @param {string[]} values - Array of translate values (e.g., ["0 0", "100 50"]) representing
  *                            the start and end positions as "x y" strings
@@ -477,10 +462,10 @@ const addTransformTranslate = (node, values = []) => {
 
 /**
  * Add an SVG animate element for animating any attribute
- * 
+ *
  * Creates an `<animate>` element to animate any SVG attribute (e.g., `d`, `opacity`, `fill`).
  * The animation transitions between the provided values using the global duration and repeat settings.
- * 
+ *
  * @param {SVGElement} node - The SVG element to add the animation to
  * @param {string} attribute - The name of the attribute to animate (e.g., "d", "opacity", "fill")
  * @param {string[]} values - Array of attribute values representing the animation states
@@ -488,7 +473,7 @@ const addTransformTranslate = (node, values = []) => {
 const addTransform = (node, attribute, values = []) => {
   const anim = appendNewElement(node, 'animate', 'http://www.w3.org/2000/svg')
   anim.setAttribute('attributeName', attribute)
-  
+
   const reverse = reverseAnimations ? values.slice(0, -1).reverse() : []
   anim.setAttribute('values', values.concat(reverse).join(';'))
   anim.setAttribute('repeatCount', repeatCount)
@@ -498,22 +483,22 @@ const addTransform = (node, attribute, values = []) => {
 
 /**
  * Set animation for an element based on a 5-state descriptor
- * 
+ *
  * This is the central animation function that handles the five editorial states:
  * findings → diplomatic → supplements → conjectures → annotated
- * 
+ *
  * The supplements phase is split into two sub-phases:
  * 1. Position animations complete (all elements move to final positions)
  * 2. Opacity animations complete (editorial additions fade in)
- * 
+ *
  * This creates a 6-frame animation where movement happens before editorial content appears.
- * 
+ *
  * The descriptor contains state definitions for each phase. Missing states are filled with defaults:
  * - diplomatic defaults to findings
  * - supplements and conjectures default to annotated
- * 
+ *
  * Null states indicate the element doesn't exist in that phase and will be hidden (opacity: 0).
- * 
+ *
  * @param {Object} descriptor - Animation descriptor with the following structure:
  * @param {SVGElement} descriptor.element - The SVG element to animate
  * @param {string} descriptor.id - The element's ID (for logging)
@@ -524,11 +509,11 @@ const addTransform = (node, attribute, values = []) => {
  * @param {Object} [descriptor.states.supplements] - State in supplements phase (defaults to annotated)
  * @param {Object} [descriptor.states.conjectures] - State in conjectures phase (defaults to annotated)
  * @param {Object} [descriptor.states.annotated] - State in annotated phase (Verovio rendering)
- * 
+ *
  * Each state object has:
  * @param {string} state.type - Animation type: 'translate', 'd', 'opacity', etc.
  * @param {string} state.val - The value for that state
- * 
+ *
  * Example:
  * {
  *   element: noteElement,
@@ -542,20 +527,20 @@ const addTransform = (node, attribute, values = []) => {
  */
 const setAnimation = (descriptor) => {
   const { element, id, localName, states } = descriptor
-  
+
   // Fill in missing states with defaults
   const findings = states.findings || null
   const diplomatic = states.diplomatic || findings
   const annotated = states.annotated || null
   const supplements = states.supplements || annotated
   const conjectures = states.conjectures || annotated
-  
+
   const allStates = [findings, diplomatic, supplements, conjectures, annotated]
-  
+
   // Handle case where element doesn't exist in some states (null values)
   // Check if we need to handle visibility/opacity animations
   const hasNullStates = allStates.some(state => state === null)
-  
+
   if (hasNullStates) {
     // Create 6-frame opacity animation: split supplements into position + opacity phases
     // findings, diplomatic, supplements-position (still hidden), supplements-opacity (fade in), conjectures, annotated
@@ -564,12 +549,12 @@ const setAnimation = (descriptor) => {
         // Split supplements: first frame keeps opacity from previous state, second frame shows element
         const prevState = diplomatic || findings
         const prevOpacity = prevState === null ? '0' : '1'
-        return [prevOpacity, '1']  // [supplements-position (hidden/visible based on prev), supplements-opacity (visible)]
+        return [prevOpacity, '1'] // [supplements-position (hidden/visible based on prev), supplements-opacity (visible)]
       }
       return [state === null ? '0' : '1']
     })
     addTransform(element, 'opacity', opacityValues)
-    
+
     // Apply visual styling for supplied elements
     if (findings === null || diplomatic === null) {
       element.setAttribute('fill', '#009900')
@@ -578,18 +563,18 @@ const setAnimation = (descriptor) => {
       element.setAttribute('class', `${existingClasses} supplied`.trim())
     }
   }
-  
+
   // Get non-null states to determine animation type
   const validStates = allStates.filter(state => state !== null)
-  
+
   if (validStates.length === 0) {
     console.warn(`[setAnimation] No valid states for element ${id} (${localName})`)
     return
   }
-  
+
   // Determine animation type from first valid state
   const animationType = validStates[0].type
-  
+
   // Build 6-frame values array: duplicate supplements for position/opacity split
   const values = allStates.flatMap(state => {
     if (state === supplements) {
@@ -605,7 +590,7 @@ const setAnimation = (descriptor) => {
     }
     return [state.val]
   })
-  
+
   // Apply the appropriate animation based on type
   if (animationType === 'translate') {
     addTransformTranslate(element, values)

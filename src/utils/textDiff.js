@@ -6,14 +6,14 @@
 /**
  * Compute the differences between two strings using a dynamic programming approach.
  * Returns segments that are common, only in source (DT), or only in target (AT).
- * 
+ *
  * This uses a simplified diff algorithm similar to the Myers algorithm, optimized
  * for short text strings like musical dynamics annotations.
- * 
+ *
  * @param {string} source - Source string (DT text)
  * @param {string} target - Target string (AT text)
  * @returns {Array<{text: string, type: 'common'|'delete'|'insert'}>} Array of text segments
- * 
+ *
  * @example
  * computeTextDiff('dimin:', 'dim.')
  * // Returns:
@@ -26,11 +26,11 @@
 export function computeTextDiff (source, target) {
   const sourceLen = source.length
   const targetLen = target.length
-  
+
   // Build a matrix for dynamic programming (Longest Common Subsequence approach)
   // lcs[i][j] = length of longest common subsequence of source[0..i-1] and target[0..j-1]
   const lcs = Array(sourceLen + 1).fill(null).map(() => Array(targetLen + 1).fill(0))
-  
+
   // Fill the LCS matrix
   for (let i = 1; i <= sourceLen; i++) {
     for (let j = 1; j <= targetLen; j++) {
@@ -41,12 +41,12 @@ export function computeTextDiff (source, target) {
       }
     }
   }
-  
+
   // Backtrack to find the actual diff
   const segments = []
   let i = sourceLen
   let j = targetLen
-  
+
   // Work backwards from the end of both strings
   while (i > 0 || j > 0) {
     if (i > 0 && j > 0 && source[i - 1] === target[j - 1]) {
@@ -61,7 +61,10 @@ export function computeTextDiff (source, target) {
     } else if (j > 0 && (i === 0 || lcs[i][j - 1] >= lcs[i - 1][j])) {
       // Character only in target (insertion in AT)
       let insertText = ''
-      while (j > 0 && (i === 0 || lcs[i][j - 1] >= lcs[i - 1][j])) {
+      while (j > 0) {
+        if (!(i === 0 || lcs[i][j - 1] >= lcs[i - 1][j])) {
+          break
+        }
         // Check if next iteration would be a match
         if (i > 0 && j > 0 && source[i - 1] === target[j - 1]) {
           break
@@ -79,7 +82,10 @@ export function computeTextDiff (source, target) {
     } else if (i > 0) {
       // Character only in source (deletion from DT)
       let deleteText = ''
-      while (i > 0 && (j === 0 || lcs[i - 1][j] >= lcs[i][j - 1])) {
+      while (i > 0) {
+        if (!(j === 0 || lcs[i - 1][j] >= lcs[i][j - 1])) {
+          break
+        }
         // Check if next iteration would be a match
         if (i > 0 && j > 0 && source[i - 1] === target[j - 1]) {
           break
@@ -96,22 +102,19 @@ export function computeTextDiff (source, target) {
       }
     }
   }
-  
+
   return segments
 }
 
 /**
  * Compute text diff with word-level granularity instead of character-level.
  * Useful for longer text where word-by-word comparison is more appropriate.
- * 
+ *
  * @param {string} source - Source string (DT text)
  * @param {string} target - Target string (AT text)
  * @returns {Array<{text: string, type: 'common'|'delete'|'insert'}>} Array of text segments
  */
 export function computeWordDiff (source, target) {
-  const sourceWords = source.split(/(\s+)/)
-  const targetWords = target.split(/(\s+)/)
-  
   // For now, just use character-level diff
   // Could be extended to proper word-level diff if needed
   return computeTextDiff(source, target)
