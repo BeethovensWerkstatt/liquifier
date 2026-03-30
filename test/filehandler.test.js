@@ -41,6 +41,10 @@ test('getFilesObject returns expected page-based output paths', () => {
     path.join(outputDir, 'sources/SRC_01/annotatedMidi/p005/SRC_01_p005_wz06_at.mid')
   )
   assert.equal(
+    triple.editedAtPath,
+    path.join(outputDir, 'sources/SRC_01/editedAT/p005/SRC_01_p005_wz06_eat.xml')
+  )
+  assert.equal(
     triple.ftSvgPath,
     path.join(outputDir, 'sources/SRC_01/fluidTranscripts/p005/SRC_01_p005_wz06_ft.svg')
   )

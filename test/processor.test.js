@@ -15,7 +15,7 @@ test('processFiles returns early when no files are provided', async () => {
   await processFiles({
     fileNames: [],
     config: {
-      types: ['at', 'dt', 'ft'],
+      types: ['at', 'dt', 'ft', 'editedAt'],
       media: ['svg', 'midi', 'html'],
       inputDir: './',
       outputDir: './cache',

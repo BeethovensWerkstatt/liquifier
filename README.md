@@ -104,7 +104,8 @@ The liquifier script can be run with the following command line arguments:
 - `--hours <number>`: specifies the number of hours to look back for modified files (default `24`)
 - `--since <date>`: specifies a date to look back for modified files (supersedes `--hours`)
 - `--full`: generates full fluid transcriptions instead of only the changes (supersedes `--hours` and `--since`)
-- `--types`: comma separated list of transcription types (`at`,`dt`,`ft`  | *default all*)
+- `--types`: comma separated list of transcription types (`at`,`dt`,`ft`,`editedAt` | *default all*)
+  - compatibility note: legacy `eat` is accepted and normalized to `editedAt`
 - `--media`: comma separated list of files to create (`svg`,`midi`,`html` | *default all*)
 - `--input-dir` (or `-i`): specifies the base directory for input files (default `./`)
 - `--output-dir` (or `-o`): specifies the base directory for output files (default `./cache`)
@@ -162,6 +163,9 @@ cache/sources/D-BNba_MH_60_Engelmann/
 ├── fluidTranscripts/
 │   └── p005/
 │       └── D-BNba_MH_60_Engelmann_p005_wz06_ft.svg
+├── editedAT/
+│   └── p005/
+│       └── D-BNba_MH_60_Engelmann_p005_wz06_eat.xml
 └── fluidHTML/
     └── p005/
         └── D-BNba_MH_60_Engelmann_p005_wz06_ft.html
@@ -170,7 +174,7 @@ cache/sources/D-BNba_MH_60_Engelmann/
 **Page folder naming:**
 - Extracted from input filename using pattern `_p(\d{3})_`
 - Always three-digit page numbers: `p005`, `p042`, `p123`, etc.
-- Applied to all output types: AT, DT, FT, MIDI, HTML
+- Applied to all output types: AT, DT, FT, Edited AT, MIDI, HTML
 
 ### Diplomatic Transcript System Files
 
@@ -214,6 +218,7 @@ All output files follow consistent naming conventions:
 | Diplomatic Transcript (Full) | `{source}_{page}_{wz}_dt.svg` | `D-BNba_MH_60_Engelmann_p005_wz06_dt.svg` |
 | Diplomatic System | `{source}_{page}_{wz}_sys{systemId}_dt.svg` | `D-BNba_MH_60_Engelmann_p005_wz06_syss289fb17d-10e3-4b27-9b64-8d2d6a560c1d_dt.svg` |
 | Fluid Transcript | `{source}_{page}_{wz}_ft.svg` | `D-BNba_MH_60_Engelmann_p005_wz06_ft.svg` |
+| Edited AT (MEI) | `{source}_{page}_{wz}_eat.xml` | `D-BNba_MH_60_Engelmann_p005_wz06_eat.xml` |
 | Fluid HTML | `{source}_{page}_{wz}_ft.html` | `D-BNba_MH_60_Engelmann_p005_wz06_ft.html` |
 
 Where:
@@ -221,6 +226,22 @@ Where:
 - `{page}`: Three-digit page number (e.g., `p005`)
 - `{wz}`: Writing zone identifier (e.g., `wz06`)
 - `{systemId}`: MEI system element ID (e.g., `s289fb17d-10e3-4b27-9b64-8d2d6a560c1d`)
+
+### Edited Annotated Transcript Semantics
+
+When `editedAt` output is enabled, one additional MEI file is created for every input annotated transcript:
+
+- Output folder: `editedAT/{page}/`
+- Filename suffix: `_eat.xml` (short filename suffix only; internal type key is `editedAt`)
+
+Current wrapping behavior for Edited AT generation:
+
+- Only elements inside the `<music>` subtree are considered.
+- Only elements from this allow-list are considered:
+  - `note`, `chord`, `syl`, `rest`, `mRest`, `beam`, `beamSpan`, `artic`, `accid`, `clef`, `slur`, `tie`, `curve`, `dynam`, `dir`, `keyAccid`, `meterSig`, `barLine`, `dot`, `hairpin`, `trill`, `tempo`, `pedal`, `fing`, `fermata`, `octave`
+- Candidate elements must have `xml:id`.
+- If no diplomatic correspondence is present (no `@corresp` token pointing to `diplomaticTranscripts` / `_dt.xml`), the element is wrapped as:
+  - `<supplied resp="#bw">...</supplied>`
 
 ## Environment variables
 
@@ -260,6 +281,7 @@ src/
 │
 ├── preparation/                       # Data preparation for rendering
 │   ├── annotatedTranscripts.js       # Annotated transcript preparation
+│   ├── editedAnnotatedTranscripts.js # Edited annotated transcript preparation
 │   ├── diplomaticTranscripts.js      # Diplomatic transcript preparation
 │   ├── fluidTranscripts.js           # Fluid transcript preparation
 │   └── mei.js                         # MEI XML manipulation utilities

@@ -11,7 +11,7 @@ test('parseCliArguments uses defaults when no args are provided', () => {
 
   assert.equal(parsed.quiet, false)
   assert.equal(parsed.verbose, false)
-  assert.deepEqual(parsed.types, ['at', 'dt', 'ft'])
+  assert.deepEqual(parsed.types, ['at', 'dt', 'ft', 'editedAt'])
   assert.deepEqual(parsed.media, ['svg', 'midi', 'html'])
   assert.equal(parsed.inputDir, './')
   assert.equal(parsed.outputDir, './cache')
@@ -71,4 +71,9 @@ test('parseCliArguments supports short directory aliases', () => {
   const parsed = parseCliArguments(['-i', '/input-short', '-o', '/output-short'])
   assert.equal(parsed.inputDir, '/input-short')
   assert.equal(parsed.outputDir, '/output-short')
+})
+
+test('parseCliArguments normalizes legacy eat type to editedAt', () => {
+  const parsed = parseCliArguments(['--types=at,eat'])
+  assert.deepEqual(parsed.types, ['at', 'editedAt'])
 })

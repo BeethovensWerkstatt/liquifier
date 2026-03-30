@@ -239,6 +239,14 @@ export function getFilesObject (file, inputDir = './', outputDir = './cache') {
       get atMidDate () {
         return gitFileDate(this.atMidPath)
       },
+      get editedAtPath () {
+        const basePath = path
+          .join(outputDir, this.at.replace('_at.xml', '_eat.xml').replace('/annotatedTranscripts/', '/editedAT/'))
+        return insertPageFolder(basePath, this.page)
+      },
+      get editedAtDate () {
+        return gitFileDate(this.editedAtPath)
+      },
       get ftSvgPath () {
         const basePath = path.join(outputDir, this.at.replace('_at.xml', '_ft.svg').replace('/annotatedTranscripts/', '/fluidTranscripts/'))
         return insertPageFolder(basePath, this.page)

@@ -3,6 +3,7 @@ import { getPageDimensions } from '../utils/utils.js'
 import {
   renderAnnotatedTranscriptSvg,
   renderAnnotatedTranscriptMidi,
+  renderEditedAnnotatedTranscript,
   renderDiplomaticTranscriptSvg,
   renderFluidTranscriptSvg,
   renderFluidTranscriptHtml
@@ -60,6 +61,9 @@ async function processData ({ data, triple, config, verovio, logger }) {
   if (config.types.indexOf('ft') >= 0) {
     logger.info(triple.ftSvgDate + ' ' + triple.ftSvgDate)
   }
+  if (config.types.indexOf('editedAt') >= 0) {
+    logger.info(triple.editedAtPath + ' ' + triple.editedAtDate)
+  }
 
   try {
     const pageDimensions = getPageDimensions(data.sourceDom, data.dtDom)
@@ -76,6 +80,11 @@ async function processData ({ data, triple, config, verovio, logger }) {
       if (config.media.indexOf('midi') >= 0) {
         renderAnnotatedTranscriptMidi(renderParams)
       }
+    }
+
+    // Edited Annotated Transcript rendering
+    if (config.types.indexOf('editedAt') >= 0) {
+      await renderEditedAnnotatedTranscript(renderParams)
     }
 
     // Diplomatic Transcript rendering

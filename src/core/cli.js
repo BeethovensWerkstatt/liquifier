@@ -6,7 +6,7 @@ import minimist from 'minimist'
  * @returns {Object} Configuration object with parsed and normalized values
  * @property {boolean} quiet - Suppress normal output
  * @property {boolean} verbose - Show detailed debug output
- * @property {string[]} types - Transcript types to process (at, dt, ft)
+ * @property {string[]} types - Transcript types to process (at, dt, ft, editedAt)
  * @property {string[]} media - Media types to generate (svg, midi, html)
  * @property {string} inputDir - Base directory for input files
  * @property {string} outputDir - Base directory for output files
@@ -24,7 +24,8 @@ export function parseCliArguments (argv) {
   const verbose = (args.v || false) && !quiet
 
   // Parse types and media with defaults
-  const types = args.types?.split(',') || ['at', 'dt', 'ft']
+  const parsedTypes = args.types?.split(',') || ['at', 'dt', 'ft', 'editedAt']
+  const types = [...new Set(parsedTypes.map(type => type === 'eat' ? 'editedAt' : type))]
   const media = args.media?.split(',') || ['svg', 'midi', 'html']
 
   // Directory paths with defaults

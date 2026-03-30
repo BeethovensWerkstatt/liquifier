@@ -1,5 +1,7 @@
 import { prepareAtDomForRendering } from '../preparation/annotatedTranscripts.js'
+import { prepareEditedAtDom } from '../preparation/editedAnnotatedTranscripts.js'
 import { prepareDtForThulemeier } from '../preparation/mei.js'
+import { serializeXmlCanonical } from '../utils/xml.js'
 import { renderContinuousAt, renderSystemBasedAt, renderMidi } from './verovioHandler.js'
 import { renderDiplomaticTranscript } from './thulemeierHandler.js'
 import { writeData } from '../filehandlers/filehandler.js'
@@ -18,6 +20,30 @@ import fs from 'fs'
 function shouldRender (recreate, sourceDates, outputDate) {
   if (recreate) return true
   return sourceDates.some(sourceDate => sourceDate.getTime() > outputDate.getTime())
+}
+
+/**
+ * Render Edited Annotated Transcript (MEI XML)
+ * @param {Object} params - Rendering parameters
+ * @param {Object} params.data - Source data (atDom, dtDom, sourceDom)
+ * @param {Object} params.triple - File paths and dates
+ * @param {boolean} params.recreate - Force recreation flag
+ * @param {Object} params.logger - Logger instance
+ */
+export async function renderEditedAnnotatedTranscript ({ data, triple, recreate, logger }) {
+  const { atDate, editedAtPath, editedAtDate } = triple
+
+  if (shouldRender(recreate, [atDate], editedAtDate)) {
+    logger.info('Rendering Edited Annotated Transcript for ' + editedAtPath + ' ...')
+
+    const editedAtDom = prepareEditedAtDom(data.atDom)
+    const editedAtString = serializeXmlCanonical(editedAtDom)
+
+    await writeData(editedAtString, editedAtPath)
+    logger.info('Successfully rendered ' + editedAtPath)
+  } else {
+    logger.info('Skipping Edited Annotated Transcript for ' + editedAtPath)
+  }
 }
 
 /**
