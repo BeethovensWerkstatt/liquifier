@@ -46,8 +46,9 @@ export const liquifyTupletNums = (ftSvg, dtSvg, atMeiDom, tools) => {
       states: {
         finding: null,
         normalization: null,
-        supplements: { type: 'translate', val: '0 0' },
+        // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
         regulation: { type: 'translate', val: '0 0' },
+        supplements: { type: 'translate', val: '0 0' },
         interventions: { type: 'translate', val: '0 0' }
       }
     })

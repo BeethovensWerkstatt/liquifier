@@ -47,8 +47,9 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
         states: {
           finding: null,
           normalization: null,
-          supplements: { type: 'translate', val: '0 0' },
+          // readingOrder: this will be automatically determined from normalization and supplements in fluidTranscripts.js, so skipped here for clarity
           regulation: { type: 'translate', val: '0 0' },
+          supplements: { type: 'translate', val: '0 0' },
           interventions: { type: 'translate', val: '0 0' }
         }
       })
@@ -65,8 +66,9 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
           states: {
             finding: null,
             normalization: null,
-            supplements: { type: 'translate', val: '0 0' },
+            // readingOrder: this will be automatically determined from normalization and supplements in fluidTranscripts.js, so skipped here for clarity
             regulation: { type: 'translate', val: '0 0' },
+            supplements: { type: 'translate', val: '0 0' },
             interventions: { type: 'translate', val: '0 0' }
           }
         })
@@ -93,8 +95,9 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
         states: {
           finding: { type: 'translate', val: dtVal },
           normalization: { type: 'translate', val: dtVal },
-          supplements: { type: 'translate', val: regSuppVal },
+          // readingOrder: this will be automatically determined from normalization and supplements in fluidTranscripts.js, so skipped here for clarity
           regulation: { type: 'translate', val: regSuppVal },
+          supplements: { type: 'translate', val: regSuppVal },
           interventions: { type: 'translate', val: atVal }
         }
       })
@@ -113,8 +116,9 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
               states: {
                 finding: { type: 'translate', val: dtVal },
                 normalization: { type: 'translate', val: dtVal },
-                supplements: { type: 'translate', val: regSuppVal },
+                // readingOrder: this will be automatically determined from normalization and supplements in fluidTranscripts.js, so skipped here for clarity
                 regulation: { type: 'translate', val: regSuppVal },
+                supplements: { type: 'translate', val: regSuppVal },
                 interventions: { type: 'translate', val: atVal }
               }
             })
@@ -212,8 +216,9 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
           states: {
             finding: { type: 'd', val: findingsD },
             normalization: { type: 'd', val: diplomaticD },
-            supplements: { type: 'd', val: atD },
+            // readingOrder: this will be automatically determined from normalization and supplements in fluidTranscripts.js, so skipped here for clarity
             regulation: { type: 'd', val: atD },
+            supplements: { type: 'd', val: atD },
             interventions: { type: 'd', val: atD }
           }
         })
@@ -234,8 +239,9 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
             states: {
               finding: { type: 'translate', val: `0 ${findingsDiff}` },
               normalization: { type: 'translate', val: `0 ${diplomaticDiff}` },
-              supplements: { type: 'translate', val: '0 0' },
+              // readingOrder: this will be automatically determined from normalization and supplements in fluidTranscripts.js, so skipped here for clarity
               regulation: { type: 'translate', val: '0 0' },
+              supplements: { type: 'translate', val: '0 0' },
               interventions: { type: 'translate', val: '0 0' }
             }
           })

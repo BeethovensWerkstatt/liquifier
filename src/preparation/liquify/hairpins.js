@@ -105,8 +105,9 @@ function handleEditorialHairpin (atHairpinGroup, setAnimation) {
     states: {
       finding: null,
       normalization: null,
-      supplements: { type: 'display', val: 'inline' },
+      // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
       regulation: { type: 'display', val: 'inline' },
+      supplements: { type: 'display', val: 'inline' },
       interventions: { type: 'display', val: 'inline' }
     }
   })
@@ -366,8 +367,9 @@ function animateHairpinLeg (polyline, atPoints, dtPoints, id, getNewPos, setAnim
     states: {
       finding: { type: 'points', val: findingsPointsStr },
       normalization: { type: 'points', val: findingsPointsStr },
-      supplements: { type: 'points', val: atPointsStr },
+      // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
       regulation: { type: 'points', val: atPointsStr },
+      supplements: { type: 'points', val: atPointsStr },
       interventions: { type: 'points', val: atPointsStr }
     }
   })

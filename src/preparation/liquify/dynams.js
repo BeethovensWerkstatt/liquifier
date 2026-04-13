@@ -57,8 +57,9 @@ export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
           states: {
             finding: null,
             normalization: null,
-            supplements: { type: 'translate', val: '0 0' },
+            // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
             regulation: { type: 'translate', val: '0 0' },
+            supplements: { type: 'translate', val: '0 0' },
             interventions: { type: 'translate', val: '0 0' }
           }
         })
@@ -125,8 +126,9 @@ export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
           states: {
             finding: null,
             normalization: null,
-            supplements: { type: 'translate', val: '0 0' },
+            // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
             regulation: { type: 'translate', val: '0 0' },
+            supplements: { type: 'translate', val: '0 0' },
             interventions: { type: 'translate', val: '0 0' }
           }
         })
@@ -144,8 +146,9 @@ export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
           states: {
             finding: null,
             normalization: null,
-            supplements: { type: 'translate', val: '0 0' },
+            // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
             regulation: { type: 'translate', val: '0 0' },
+            supplements: { type: 'translate', val: '0 0' },
             interventions: { type: 'translate', val: '0 0' }
           }
         })
@@ -165,8 +168,9 @@ export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
           states: {
             finding: null,
             normalization: null,
-            supplements: { type: 'translate', val: '0 0' },
+            // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
             regulation: { type: 'translate', val: '0 0' },
+            supplements: { type: 'translate', val: '0 0' },
             interventions: { type: 'translate', val: '0 0' }
           }
         })
@@ -205,8 +209,9 @@ export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
           states: {
             finding: { type: 'translate', val: `${translateX} ${translateY}` },
             normalization: { type: 'translate', val: `${translateX} ${translateY}` },
-            supplements: { type: 'translate', val: '0 0' },
+            // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
             regulation: { type: 'translate', val: '0 0' },
+            supplements: { type: 'translate', val: '0 0' },
             interventions: { type: 'translate', val: '0 0' }
           }
         })
@@ -219,8 +224,9 @@ export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
           states: {
             finding: { type: 'opacity', val: '1' },
             normalization: { type: 'opacity', val: '1' },
-            supplements: { type: 'opacity', val: '0' },
+            // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
             regulation: { type: 'opacity', val: '0' },
+            supplements: { type: 'opacity', val: '0' },
             interventions: { type: 'opacity', val: '0' }
           }
         })
@@ -233,8 +239,9 @@ export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
           states: {
             finding: { type: 'opacity', val: '0' },
             normalization: { type: 'opacity', val: '0' },
-            supplements: { type: 'opacity', val: '1' },
+            // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
             regulation: { type: 'opacity', val: '1' },
+            supplements: { type: 'opacity', val: '1' },
             interventions: { type: 'opacity', val: '1' }
           }
         })
@@ -302,8 +309,9 @@ export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
               states: {
                 finding: { type: 'opacity', val: '1' },
                 normalization: { type: 'opacity', val: '1' },
-                supplements: { type: 'opacity', val: '1' },
+                // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
                 regulation: { type: 'opacity', val: '1' },
+                supplements: { type: 'opacity', val: '1' },
                 interventions: { type: 'opacity', val: '1' }
               }
             })
@@ -316,8 +324,9 @@ export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
               states: {
                 finding: { type: 'opacity', val: '1' },
                 normalization: { type: 'opacity', val: '1' },
-                supplements: { type: 'opacity', val: '0' },
+                // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
                 regulation: { type: 'opacity', val: '0' },
+                supplements: { type: 'opacity', val: '0' },
                 interventions: { type: 'opacity', val: '0' }
               }
             })
@@ -329,8 +338,9 @@ export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
               states: {
                 finding: { type: 'display', val: 'inline' },
                 normalization: { type: 'display', val: 'inline' },
-                supplements: { type: 'display', val: 'none' },
+                // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
                 regulation: { type: 'display', val: 'none' },
+                supplements: { type: 'display', val: 'none' },
                 interventions: { type: 'display', val: 'none' }
               }
             })
@@ -346,8 +356,9 @@ export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
               states: {
                 finding: { type: 'opacity', val: '0' },
                 normalization: { type: 'opacity', val: '0' },
-                supplements: { type: 'opacity', val: '1' },
+                // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
                 regulation: { type: 'opacity', val: '1' },
+                supplements: { type: 'opacity', val: '1' },
                 interventions: { type: 'opacity', val: '1' }
               }
             })
@@ -359,8 +370,9 @@ export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
               states: {
                 finding: { type: 'display', val: 'none' },
                 normalization: { type: 'display', val: 'none' },
-                supplements: { type: 'display', val: 'inline' },
+                // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
                 regulation: { type: 'display', val: 'inline' },
+                supplements: { type: 'display', val: 'inline' },
                 interventions: { type: 'display', val: 'inline' }
               }
             })
@@ -375,8 +387,9 @@ export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
           states: {
             finding: { type: 'translate', val: `${translateX} ${translateY}` },
             normalization: { type: 'translate', val: `${translateX} ${translateY}` },
-            supplements: { type: 'translate', val: '0 0' },
+            // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
             regulation: { type: 'translate', val: '0 0' },
+            supplements: { type: 'translate', val: '0 0' },
             interventions: { type: 'translate', val: '0 0' }
           }
         })

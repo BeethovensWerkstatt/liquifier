@@ -46,8 +46,9 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
           states: {
             finding: null,
             normalization: null,
-            supplements: { type: 'translate', val: '0 0' },
+            // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
             regulation: { type: 'translate', val: '0 0' },
+            supplements: { type: 'translate', val: '0 0' },
             interventions: { type: 'translate', val: '0 0' }
           }
         })
@@ -126,8 +127,9 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
             states: {
               finding: { type: 'translate', val: dtVal },
               normalization: { type: 'translate', val: dtVal },
-              supplements: { type: 'translate', val: atVal },
+              // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
               regulation: { type: 'translate', val: atVal },
+              supplements: { type: 'translate', val: atVal },
               interventions: { type: 'translate', val: atVal }
             }
           })
@@ -164,8 +166,9 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
               states: {
                 finding: { type: 'translate', val: dtVal },
                 normalization: { type: 'translate', val: dtVal },
-                supplements: { type: 'translate', val: atVal },
+                // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
                 regulation: { type: 'translate', val: atVal },
+                supplements: { type: 'translate', val: atVal },
                 interventions: { type: 'translate', val: atVal }
               }
             })
@@ -222,8 +225,9 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
               states: {
                 finding: { type: 'translate', val: atNotesPositions[0].dtVal },
                 normalization: { type: 'translate', val: atNotesPositions[0].dtVal },
-                supplements: { type: 'translate', val: atNotesPositions[0].atVal },
+                // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
                 regulation: { type: 'translate', val: atNotesPositions[0].atVal },
+                supplements: { type: 'translate', val: atNotesPositions[0].atVal },
                 interventions: { type: 'translate', val: atNotesPositions[0].atVal }
               }
             })
@@ -241,8 +245,9 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
               states: {
                 finding: { type: 'translate', val: atNotesPositions[0].dtVal },
                 normalization: { type: 'translate', val: atNotesPositions[0].dtVal },
-                supplements: { type: 'translate', val: atNotesPositions[0].atVal },
+                // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
                 regulation: { type: 'translate', val: atNotesPositions[0].atVal },
+                supplements: { type: 'translate', val: atNotesPositions[0].atVal },
                 interventions: { type: 'translate', val: atNotesPositions[0].atVal }
               }
             })
@@ -263,8 +268,9 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
               states: {
                 finding: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].dtVal },
                 normalization: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].dtVal },
-                supplements: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].atVal },
+                // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
                 regulation: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].atVal },
+                supplements: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].atVal },
                 interventions: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].atVal }
               }
             })
@@ -282,8 +288,9 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
               states: {
                 finding: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].dtVal },
                 normalization: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].dtVal },
-                supplements: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].atVal },
+                // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
                 regulation: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].atVal },
+                supplements: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].atVal },
                 interventions: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].atVal }
               }
             })
@@ -297,8 +304,9 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
           states: {
             finding: { type: 'd', val: findingsD },
             normalization: { type: 'd', val: diplomaticD },
-            supplements: { type: 'd', val: atD },
+            // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
             regulation: { type: 'd', val: atD },
+            supplements: { type: 'd', val: atD },
             interventions: { type: 'd', val: atD }
           }
         })
@@ -323,8 +331,9 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
             states: {
               finding: { type: 'translate', val: findingsFlagVal },
               normalization: { type: 'translate', val: diplomaticFlagVal },
-              supplements: { type: 'translate', val: stemVals[0] },
+              // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
               regulation: { type: 'translate', val: stemVals[0] },
+              supplements: { type: 'translate', val: stemVals[0] },
               interventions: { type: 'translate', val: stemVals[0] }
             }
           })

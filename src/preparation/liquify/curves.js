@@ -26,8 +26,9 @@ export const liquifyCurves = (ftSvg, dtSvg, atMeiDom, tools) => {
         states: {
           finding: null,
           normalization: null,
-          supplements: { type: 'd', val: atPath?.getAttribute('d') || '' },
+          // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
           regulation: { type: 'd', val: atPath?.getAttribute('d') || '' },
+          supplements: { type: 'd', val: atPath?.getAttribute('d') || '' },
           interventions: { type: 'd', val: atPath?.getAttribute('d') || '' }
         }
       })
@@ -49,8 +50,9 @@ export const liquifyCurves = (ftSvg, dtSvg, atMeiDom, tools) => {
         states: {
           finding: null,
           normalization: null,
-          supplements: { type: 'd', val: atPath?.getAttribute('d') || '' },
+          // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
           regulation: { type: 'd', val: atPath?.getAttribute('d') || '' },
+          supplements: { type: 'd', val: atPath?.getAttribute('d') || '' },
           interventions: { type: 'd', val: atPath?.getAttribute('d') || '' }
         }
       })
@@ -86,8 +88,9 @@ export const liquifyCurves = (ftSvg, dtSvg, atMeiDom, tools) => {
           states: {
             finding: null,
             normalization: null,
-            supplements: { type: 'd', val: atPath?.getAttribute('d') || '' },
+            // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
             regulation: { type: 'd', val: atPath?.getAttribute('d') || '' },
+            supplements: { type: 'd', val: atPath?.getAttribute('d') || '' },
             interventions: { type: 'd', val: atPath?.getAttribute('d') || '' }
           }
         })
@@ -108,8 +111,9 @@ export const liquifyCurves = (ftSvg, dtSvg, atMeiDom, tools) => {
           states: {
             finding: { type: 'd', val: newD },
             normalization: { type: 'd', val: newD },
-            supplements: { type: 'd', val: atD },
+            // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
             regulation: { type: 'd', val: atD },
+            supplements: { type: 'd', val: atD },
             interventions: { type: 'd', val: atD }
           }
         })

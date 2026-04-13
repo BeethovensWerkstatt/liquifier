@@ -43,8 +43,9 @@ export const liquifyArtics = (ftSvg, dtSvg, atMeiDom, tools) => {
         states: {
           finding: null,
           normalization: null,
-          supplements: { type: 'translate', val: '0 0' },
+          // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
           regulation: { type: 'translate', val: '0 0' },
+          supplements: { type: 'translate', val: '0 0' },
           interventions: { type: 'translate', val: '0 0' }
         }
       })
@@ -89,8 +90,9 @@ export const liquifyArtics = (ftSvg, dtSvg, atMeiDom, tools) => {
         states: {
           finding: null,
           normalization: null,
-          supplements: { type: 'translate', val: '0 0' },
+          // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
           regulation: { type: 'translate', val: '0 0' },
+          supplements: { type: 'translate', val: '0 0' },
           interventions: { type: 'translate', val: '0 0' }
         }
       })
@@ -108,8 +110,9 @@ export const liquifyArtics = (ftSvg, dtSvg, atMeiDom, tools) => {
         states: {
           finding: null,
           normalization: null,
-          supplements: { type: 'translate', val: '0 0' },
+          // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
           regulation: { type: 'translate', val: '0 0' },
+          supplements: { type: 'translate', val: '0 0' },
           interventions: { type: 'translate', val: '0 0' }
         }
       })
@@ -129,8 +132,9 @@ export const liquifyArtics = (ftSvg, dtSvg, atMeiDom, tools) => {
         states: {
           finding: null,
           normalization: null,
-          supplements: { type: 'translate', val: '0 0' },
+          // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
           regulation: { type: 'translate', val: '0 0' },
+          supplements: { type: 'translate', val: '0 0' },
           interventions: { type: 'translate', val: '0 0' }
         }
       })
@@ -160,8 +164,9 @@ export const liquifyArtics = (ftSvg, dtSvg, atMeiDom, tools) => {
       states: {
         finding: { type: 'translate', val: `${translateX} ${translateY}` },
         normalization: { type: 'translate', val: `${translateX} ${translateY}` },
-        supplements: { type: 'translate', val: regSuppVal },
+        // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
         regulation: { type: 'translate', val: regSuppVal },
+        supplements: { type: 'translate', val: regSuppVal },
         interventions: { type: 'translate', val: atVal }
       }
     })

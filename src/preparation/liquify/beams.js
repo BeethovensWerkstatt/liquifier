@@ -461,8 +461,9 @@ export const liquifyBeams = (ftSvg, dtSvg, atMeiDom, tools) => {
         states: {
           finding: null,
           normalization: null,
-          supplements: { type: 'points', val: polygon.getAttribute('points') },
+          // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
           regulation: { type: 'points', val: polygon.getAttribute('points') },
+          supplements: { type: 'points', val: polygon.getAttribute('points') },
           interventions: { type: 'points', val: polygon.getAttribute('points') }
         }
       }))
@@ -499,8 +500,9 @@ export const liquifyBeams = (ftSvg, dtSvg, atMeiDom, tools) => {
           states: {
             finding: null,
             normalization: null,
-            supplements: { type: 'points', val: polygon.getAttribute('points') },
+            // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
             regulation: { type: 'points', val: polygon.getAttribute('points') },
+            supplements: { type: 'points', val: polygon.getAttribute('points') },
             interventions: { type: 'points', val: polygon.getAttribute('points') }
           }
         })
@@ -546,8 +548,9 @@ export const liquifyBeams = (ftSvg, dtSvg, atMeiDom, tools) => {
         states: {
           finding: { type: 'points', val: findingsPoints },
           normalization: { type: 'points', val: diplomaticPoints },
-          supplements: { type: 'points', val: atPoints },
+          // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
           regulation: { type: 'points', val: atPoints },
+          supplements: { type: 'points', val: atPoints },
           interventions: { type: 'points', val: atPoints }
         }
       })
@@ -562,8 +565,9 @@ export const liquifyBeams = (ftSvg, dtSvg, atMeiDom, tools) => {
         states: {
           finding: null,
           normalization: null,
-          supplements: { type: 'points', val: atSorted[i].element.getAttribute('points') },
+          // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
           regulation: { type: 'points', val: atSorted[i].element.getAttribute('points') },
+          supplements: { type: 'points', val: atSorted[i].element.getAttribute('points') },
           interventions: { type: 'points', val: atSorted[i].element.getAttribute('points') }
         }
       })
