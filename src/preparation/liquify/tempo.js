@@ -43,11 +43,11 @@ export function liquifyTempo (ftSvg, dtSvg, atMeiDom, tools) {
           id: atId,
           localName: 'tempo',
           states: {
-            findings: null,
-            diplomatic: null,
+            finding: null,
+            normalization: null,
             supplements: { type: 'translate', val: '0 0' },
-            conjectures: { type: 'translate', val: '0 0' },
-            annotated: { type: 'translate', val: '0 0' }
+            regulation: { type: 'translate', val: '0 0' },
+            interventions: { type: 'translate', val: '0 0' }
           }
         })
         return
@@ -93,11 +93,11 @@ export function liquifyTempo (ftSvg, dtSvg, atMeiDom, tools) {
           id: atId,
           localName: 'tempo',
           states: {
-            findings: null,
-            diplomatic: null,
+            finding: null,
+            normalization: null,
             supplements: { type: 'translate', val: '0 0' },
-            conjectures: { type: 'translate', val: '0 0' },
-            annotated: { type: 'translate', val: '0 0' }
+            regulation: { type: 'translate', val: '0 0' },
+            interventions: { type: 'translate', val: '0 0' }
           }
         })
         return
@@ -169,25 +169,25 @@ export function liquifyTempo (ftSvg, dtSvg, atMeiDom, tools) {
             id: `${atId}-text-common-${index}`,
             localName: 'tempo-text-common',
             states: {
-              findings: { type: 'opacity', val: '1' },
-              diplomatic: { type: 'opacity', val: '1' },
+              finding: { type: 'opacity', val: '1' },
+              normalization: { type: 'opacity', val: '1' },
               supplements: { type: 'opacity', val: '1' },
-              conjectures: { type: 'opacity', val: '1' },
-              annotated: { type: 'opacity', val: '1' }
+              regulation: { type: 'opacity', val: '1' },
+              interventions: { type: 'opacity', val: '1' }
             }
           })
         } else if (segment.type === 'delete') {
-          // DT-only text: visible at findings/diplomatic, hidden and doesn't occupy space from supplements
+          // DT-only text: visible at finding/normalization, hidden and doesn't occupy space from supplements
           setAnimation({
             element: segmentTspan,
             id: `${atId}-text-delete-${index}`,
             localName: 'tempo-text-delete',
             states: {
-              findings: { type: 'opacity', val: '1' },
-              diplomatic: { type: 'opacity', val: '1' },
+              finding: { type: 'opacity', val: '1' },
+              normalization: { type: 'opacity', val: '1' },
               supplements: { type: 'opacity', val: '0' },
-              conjectures: { type: 'opacity', val: '0' },
-              annotated: { type: 'opacity', val: '0' }
+              regulation: { type: 'opacity', val: '0' },
+              interventions: { type: 'opacity', val: '0' }
             }
           })
           // Make it not occupy space when hidden
@@ -196,15 +196,15 @@ export function liquifyTempo (ftSvg, dtSvg, atMeiDom, tools) {
             id: `${atId}-text-delete-display-${index}`,
             localName: 'tempo-text-delete-display',
             states: {
-              findings: { type: 'display', val: 'inline' },
-              diplomatic: { type: 'display', val: 'inline' },
+              finding: { type: 'display', val: 'inline' },
+              normalization: { type: 'display', val: 'inline' },
               supplements: { type: 'display', val: 'none' },
-              conjectures: { type: 'display', val: 'none' },
-              annotated: { type: 'display', val: 'none' }
+              regulation: { type: 'display', val: 'none' },
+              interventions: { type: 'display', val: 'none' }
             }
           })
         } else if (segment.type === 'insert') {
-          // AT-only text: hidden at findings/diplomatic, fades in at supplements
+          // AT-only text: hidden at finding/normalization, fades in at supplements
           // Add "supplied" class for CSS styling
           segmentTspan.classList.add('supplied')
 
@@ -213,11 +213,11 @@ export function liquifyTempo (ftSvg, dtSvg, atMeiDom, tools) {
             id: `${atId}-text-insert-${index}`,
             localName: 'tempo-text-insert',
             states: {
-              findings: { type: 'opacity', val: '0' },
-              diplomatic: { type: 'opacity', val: '0' },
+              finding: { type: 'opacity', val: '0' },
+              normalization: { type: 'opacity', val: '0' },
               supplements: { type: 'opacity', val: '1' },
-              conjectures: { type: 'opacity', val: '1' },
-              annotated: { type: 'opacity', val: '1' }
+              regulation: { type: 'opacity', val: '1' },
+              interventions: { type: 'opacity', val: '1' }
             }
           })
           // Make it not occupy space when hidden
@@ -226,11 +226,11 @@ export function liquifyTempo (ftSvg, dtSvg, atMeiDom, tools) {
             id: `${atId}-text-insert-display-${index}`,
             localName: 'tempo-text-insert-display',
             states: {
-              findings: { type: 'display', val: 'none' },
-              diplomatic: { type: 'display', val: 'none' },
+              finding: { type: 'display', val: 'none' },
+              normalization: { type: 'display', val: 'none' },
               supplements: { type: 'display', val: 'inline' },
-              conjectures: { type: 'display', val: 'inline' },
-              annotated: { type: 'display', val: 'inline' }
+              regulation: { type: 'display', val: 'inline' },
+              interventions: { type: 'display', val: 'inline' }
             }
           })
         }
@@ -242,11 +242,11 @@ export function liquifyTempo (ftSvg, dtSvg, atMeiDom, tools) {
         id: atId,
         localName: 'tempo',
         states: {
-          findings: { type: 'translate', val: `${translateX} ${translateY}` },
-          diplomatic: { type: 'translate', val: `${translateX} ${translateY}` },
+          finding: { type: 'translate', val: `${translateX} ${translateY}` },
+          normalization: { type: 'translate', val: `${translateX} ${translateY}` },
           supplements: { type: 'translate', val: '0 0' },
-          conjectures: { type: 'translate', val: '0 0' },
-          annotated: { type: 'translate', val: '0 0' }
+          regulation: { type: 'translate', val: '0 0' },
+          interventions: { type: 'translate', val: '0 0' }
         }
       })
 

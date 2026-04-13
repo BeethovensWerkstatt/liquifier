@@ -203,7 +203,7 @@ const pointsEqual = (p1, p2, tolerance = 0.1) => {
 /**
  * Calculate normalized beam polygons for the diplomatic state
  *
- * The diplomatic state normalizes beams by:
+ * The normalization state normalizes beams by:
  * 1. Finding which notes' stems attach to the beam (from MEI)
  * 2. Calculating beam endpoints from first and last note stem endpoints
  * 3. Positioning shorter beam lines to attach to the correct notes
@@ -257,7 +257,7 @@ const calculateDiplomaticBeams = (ftSvg, atMeiDom, beamId, atPolygons, logger) =
   const lastNoteStemDir = beamNotes[beamNotes.length - 1].getAttribute('stem.dir')
 
   // Parse stem path to get endpoint for a specific state
-  // Frame indices: 0=findings, 1=diplomatic, 2=supplements-pos, 3=supplements-opacity, 4=conjectures, 5=annotated
+  // Frame indices: 0=finding, 1=normalization, 2=readingOrder, 3=regulation, 4=supplements, 5=interventions
   const getStemEndpoint = (stemPath, stemDir, frameIndex) => {
     const animates = stemPath.querySelectorAll('animate[attributeName="d"]')
 
@@ -341,11 +341,11 @@ const calculateDiplomaticBeams = (ftSvg, atMeiDom, beamId, atPolygons, logger) =
     return { x: x2, y: y2 }
   }
 
-  // Get stem endpoints for diplomatic state (frame 1) only
+  // Get stem endpoints for normalization state (frame 1) only
   const firstStemEndDiplomatic = getStemEndpoint(firstStem, firstNoteStemDir, 1)
   const lastStemEndDiplomatic = getStemEndpoint(lastStem, lastNoteStemDir, 1)
 
-  // Get note positions for diplomatic state (frame 1) only
+  // Get note positions for normalization state (frame 1) only
   // Note: We only need the X offset from the transform animation
   const firstNotePosDiplomatic = getNotePosition(firstNoteGroup, 1)
   const lastNotePosDiplomatic = getNotePosition(lastNoteGroup, 1)
@@ -379,7 +379,7 @@ const calculateDiplomaticBeams = (ftSvg, atMeiDom, beamId, atPolygons, logger) =
   // Determine beam direction (down stems = beams above notes, up stems = beams below)
   const beamDirection = firstNoteStemDir === 'down' ? 1 : -1
 
-  // Generate polygons for diplomatic state only (findings uses original DT-transformed position)
+  // Generate polygons for normalization state only (finding uses original DT-transformed position)
   const diplomaticPolygons = []
 
   atPolygons.forEach((polygon, index) => {
@@ -459,11 +459,11 @@ export const liquifyBeams = (ftSvg, dtSvg, atMeiDom, tools) => {
         id: `${atId}-polygon`,
         localName: 'beam-polygon',
         states: {
-          findings: null,
-          diplomatic: null,
+          finding: null,
+          normalization: null,
           supplements: { type: 'points', val: polygon.getAttribute('points') },
-          conjectures: { type: 'points', val: polygon.getAttribute('points') },
-          annotated: { type: 'points', val: polygon.getAttribute('points') }
+          regulation: { type: 'points', val: polygon.getAttribute('points') },
+          interventions: { type: 'points', val: polygon.getAttribute('points') }
         }
       }))
       return
@@ -473,7 +473,7 @@ export const liquifyBeams = (ftSvg, dtSvg, atMeiDom, tools) => {
     const atPolygons = beam.querySelectorAll('polygon')
     if (atPolygons.length === 0) return
 
-    // Calculate normalized beams for findings and diplomatic states
+    // Calculate normalized beams for finding and normalization states
     const atSorted = sortPolygonsByPosition(Array.from(atPolygons))
     const normalizedBeams = calculateDiplomaticBeams(ftSvg, atMeiDom, atId, atSorted.map(p => p.element), logger)
 
@@ -497,11 +497,11 @@ export const liquifyBeams = (ftSvg, dtSvg, atMeiDom, tools) => {
           id: `${atId}-polygon`,
           localName: 'beam-polygon',
           states: {
-            findings: null,
-            diplomatic: null,
+            finding: null,
+            normalization: null,
             supplements: { type: 'points', val: polygon.getAttribute('points') },
-            conjectures: { type: 'points', val: polygon.getAttribute('points') },
-            annotated: { type: 'points', val: polygon.getAttribute('points') }
+            regulation: { type: 'points', val: polygon.getAttribute('points') },
+            interventions: { type: 'points', val: polygon.getAttribute('points') }
           }
         })
       })
@@ -531,10 +531,10 @@ export const liquifyBeams = (ftSvg, dtSvg, atMeiDom, tools) => {
       const atPoints = atPolygon.getAttribute('points')
       const dtPoints = dtPolygon.getAttribute('points')
 
-      // Convert polygon points using getNewPos for findings state (original DT-transformed position)
+      // Convert polygon points using getNewPos for finding state (original DT-transformed position)
       const findingsPoints = convertPolygonPoints(atPoints, dtPoints, getNewPos)
 
-      // Use normalized beam points for diplomatic state (aligned with normalized stems)
+      // Use normalized beam points for normalization state (aligned with normalized stems)
       const diplomaticPoints = normalizedBeams?.diplomaticPolygons?.[i] || findingsPoints
 
       logger.debug(`[Beam Animation] AT ID: ${atId}, DT ID: ${dtSorted[i].dtId}, line ${i} (AT y~${Math.round(atSorted[i].avgY)}, DT y~${Math.round(dtSorted[i].avgY)})`)
@@ -544,11 +544,11 @@ export const liquifyBeams = (ftSvg, dtSvg, atMeiDom, tools) => {
         id: `${atId}-polygon-${i}`,
         localName: 'beam-polygon',
         states: {
-          findings: { type: 'points', val: findingsPoints },
-          diplomatic: { type: 'points', val: diplomaticPoints },
+          finding: { type: 'points', val: findingsPoints },
+          normalization: { type: 'points', val: diplomaticPoints },
           supplements: { type: 'points', val: atPoints },
-          conjectures: { type: 'points', val: atPoints },
-          annotated: { type: 'points', val: atPoints }
+          regulation: { type: 'points', val: atPoints },
+          interventions: { type: 'points', val: atPoints }
         }
       })
     }
@@ -560,11 +560,11 @@ export const liquifyBeams = (ftSvg, dtSvg, atMeiDom, tools) => {
         id: `${atId}-polygon-${i}`,
         localName: 'beam-polygon',
         states: {
-          findings: null,
-          diplomatic: null,
+          finding: null,
+          normalization: null,
           supplements: { type: 'points', val: atSorted[i].element.getAttribute('points') },
-          conjectures: { type: 'points', val: atSorted[i].element.getAttribute('points') },
-          annotated: { type: 'points', val: atSorted[i].element.getAttribute('points') }
+          regulation: { type: 'points', val: atSorted[i].element.getAttribute('points') },
+          interventions: { type: 'points', val: atSorted[i].element.getAttribute('points') }
         }
       })
     }

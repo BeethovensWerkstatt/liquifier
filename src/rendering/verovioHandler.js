@@ -14,21 +14,24 @@ const verovioOptions = {
   svgAdditionalAttribute: ['staff@rotate', 'staff@height', 'score@viewBox', 'sb@rotate', 'chord@stem.dir']
 }
 
-export const renderContinuousAt = (dom, verovio, target, pageDimensions) => {
+export const renderContinuousAt = (dom, verovio, target, pageDimensions, extraOptions = {}) => {
   const domString = new XMLSerializer().serializeToString(dom)
 
-  verovioOptions.pageHeight = pageDimensions.height * verovioPixelDensity
-  verovioOptions.pageWidth = pageDimensions.width * verovioPixelDensity
-
-  if (target === 'annotated') {
-    verovioOptions.breaks = 'none'
-    verovioOptions.pageMarginTop = 300
-    verovioOptions.pageMarginRight = 500
-    verovioOptions.pageMarginBottom = 300
-    verovioOptions.pageMarginLeft = 100
+  const options = {
+    ...verovioOptions,
+    pageHeight: pageDimensions.height * verovioPixelDensity,
+    pageWidth: pageDimensions.width * verovioPixelDensity
   }
 
-  verovio.setOptions(verovioOptions)
+  if (target === 'annotated') {
+    options.breaks = 'none'
+    options.pageMarginTop = 300
+    options.pageMarginRight = 500
+    options.pageMarginBottom = 300
+    options.pageMarginLeft = 100
+  }
+
+  verovio.setOptions({ ...options, ...extraOptions })
 
   const svgString = verovio.renderData(domString, {})
 

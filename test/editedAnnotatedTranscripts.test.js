@@ -111,3 +111,212 @@ test('prepareEditedAtDom updates MEI header metadata for editedAt output', () =>
   assert.match(lastChange.getAttribute('isodate'), /^\d{4}-\d{2}-\d{2}$/)
   assert.equal(lastChange.querySelector('changeDesc > p > ptr').getAttribute('target'), '#bw_liquifier')
 })
+
+test('prepareEditedAtDom encodes pitch mismatches as choice/orig/reg', () => {
+  const atXml = `
+  <mei xmlns="http://www.music-encoding.org/ns/mei">
+    <music>
+      <body>
+        <mdiv>
+          <score>
+            <scoreDef>
+              <staffGrp>
+                <staffDef n="1" clef.shape="G" clef.line="2"/>
+              </staffGrp>
+            </scoreDef>
+            <section>
+              <measure xml:id="m1">
+                <staff n="1" xml:id="s1">
+                  <layer xml:id="l1">
+                    <note xml:id="a1" pname="e" oct="4" corresp="../diplomaticTranscripts/SRC_p001_wz01_dt.xml#d1"/>
+                  </layer>
+                </staff>
+              </measure>
+            </section>
+          </score>
+        </mdiv>
+      </body>
+    </music>
+  </mei>`
+
+  const dtXml = `
+  <mei xmlns="http://www.music-encoding.org/ns/mei">
+    <music>
+      <body>
+        <mdiv>
+          <score>
+            <scoreDef>
+              <staffGrp>
+                <staffDef n="1" clef.shape="G" clef.line="2"/>
+              </staffGrp>
+            </scoreDef>
+            <section>
+              <measure xml:id="m1">
+                <staff n="1" xml:id="ds1">
+                  <layer xml:id="dl1">
+                    <note xml:id="d1" loc="-2"/>
+                  </layer>
+                </staff>
+              </measure>
+            </section>
+          </score>
+        </mdiv>
+      </body>
+    </music>
+  </mei>`
+
+  const atDom = parser.parseFromString(atXml, 'text/xml')
+  const dtDom = parser.parseFromString(dtXml, 'text/xml')
+
+  const edited = prepareEditedAtDom(atDom, dtDom)
+
+  const choice = edited.querySelector('choice')
+  assert.ok(choice)
+
+  const origNote = edited.querySelector('choice > orig > note')
+  const regNote = edited.querySelector('choice > reg[resp="#bw"] > note')
+
+  assert.ok(origNote)
+  assert.ok(regNote)
+  assert.equal(regNote.getAttribute('xml:id'), 'a1')
+  assert.equal(origNote.getAttribute('pname'), 'c')
+  assert.equal(origNote.getAttribute('oct'), '4')
+  assert.equal(origNote.hasAttribute('loc'), false)
+})
+
+test('prepareEditedAtDom uses last preceding AT clef when deriving AT loc', () => {
+  const atXml = `
+  <mei xmlns="http://www.music-encoding.org/ns/mei">
+    <music>
+      <body>
+        <mdiv>
+          <score>
+            <scoreDef>
+              <staffGrp>
+                <staffDef n="1" clef.shape="G" clef.line="2"/>
+              </staffGrp>
+            </scoreDef>
+            <section>
+              <measure xml:id="m1">
+                <staff n="1" xml:id="s1">
+                  <layer xml:id="l1">
+                    <clef xml:id="c1" shape="F" line="4"/>
+                    <note xml:id="a1" pname="c" oct="4" corresp="../diplomaticTranscripts/SRC_p001_wz01_dt.xml#d1"/>
+                    <clef xml:id="c2" shape="G" line="2"/>
+                  </layer>
+                </staff>
+              </measure>
+            </section>
+          </score>
+        </mdiv>
+      </body>
+    </music>
+  </mei>`
+
+  const dtXml = `
+  <mei xmlns="http://www.music-encoding.org/ns/mei">
+    <music>
+      <body>
+        <mdiv>
+          <score>
+            <section>
+              <measure xml:id="m1">
+                <staff n="1" xml:id="ds1">
+                  <layer xml:id="dl1">
+                    <note xml:id="d1" loc="10"/>
+                  </layer>
+                </staff>
+              </measure>
+            </section>
+          </score>
+        </mdiv>
+      </body>
+    </music>
+  </mei>`
+
+  const atDom = parser.parseFromString(atXml, 'text/xml')
+  const dtDom = parser.parseFromString(dtXml, 'text/xml')
+
+  const edited = prepareEditedAtDom(atDom, dtDom)
+  const choice = edited.querySelector('choice')
+
+  assert.equal(choice, null)
+  const note = edited.querySelector('note[xml\\:id="a1"]')
+  assert.ok(note)
+  assert.equal(note.parentElement.localName, 'layer')
+})
+
+test('prepareEditedAtDom warns and uses first diplomatic corresp token', () => {
+  const atXml = `
+  <mei xmlns="http://www.music-encoding.org/ns/mei">
+    <music>
+      <body>
+        <mdiv>
+          <score>
+            <scoreDef>
+              <staffGrp>
+                <staffDef n="1" clef.shape="G" clef.line="2"/>
+              </staffGrp>
+            </scoreDef>
+            <section>
+              <measure xml:id="m1">
+                <staff n="1" xml:id="s1">
+                  <layer xml:id="l1">
+                    <note xml:id="a1" pname="e" oct="4" corresp="../diplomaticTranscripts/SRC_p001_wz01_dt.xml#d1 ../diplomaticTranscripts/SRC_p001_wz01_dt.xml#d2"/>
+                  </layer>
+                </staff>
+              </measure>
+            </section>
+          </score>
+        </mdiv>
+      </body>
+    </music>
+  </mei>`
+
+  const dtXml = `
+  <mei xmlns="http://www.music-encoding.org/ns/mei">
+    <music>
+      <body>
+        <mdiv>
+          <score>
+            <scoreDef>
+              <staffGrp>
+                <staffDef n="1" clef.shape="G" clef.line="2"/>
+              </staffGrp>
+            </scoreDef>
+            <section>
+              <measure xml:id="m1">
+                <staff n="1" xml:id="ds1">
+                  <layer xml:id="dl1">
+                    <note xml:id="d1" loc="-2"/>
+                    <note xml:id="d2" loc="0"/>
+                  </layer>
+                </staff>
+              </measure>
+            </section>
+          </score>
+        </mdiv>
+      </body>
+    </music>
+  </mei>`
+
+  const atDom = parser.parseFromString(atXml, 'text/xml')
+  const dtDom = parser.parseFromString(dtXml, 'text/xml')
+
+  const originalWarn = console.warn
+  const warnings = []
+  console.warn = (...args) => {
+    warnings.push(args.join(' '))
+  }
+
+  try {
+    const edited = prepareEditedAtDom(atDom, dtDom)
+    const origNote = edited.querySelector('choice > orig > note')
+    assert.equal(origNote.getAttribute('pname'), 'c')
+    assert.equal(origNote.getAttribute('oct'), '4')
+    assert.equal(origNote.hasAttribute('loc'), false)
+    assert.ok(warnings.some(msg => msg.includes('Multiple DT correspondences found for note a1')))
+  } finally {
+    console.warn = originalWarn
+  }
+})

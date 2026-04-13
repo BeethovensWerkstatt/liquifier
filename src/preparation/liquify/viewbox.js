@@ -62,7 +62,7 @@ export const adjustViewBoxForContent = (svg, tools) => {
     if (!values) return
 
     // Split animation values (semicolon-separated states)
-    // States order: findings, diplomatic, supplements-pos, supplements-opacity, conjectures, annotated
+    // States order: finding, normalization, readingOrder, regulation, supplements, interventions
     const states = values.split(';')
 
     // Check all states to find maximum bounds

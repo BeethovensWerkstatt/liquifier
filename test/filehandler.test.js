@@ -49,6 +49,10 @@ test('getFilesObject returns expected page-based output paths', () => {
     path.join(outputDir, 'sources/SRC_01/fluidTranscripts/p005/SRC_01_p005_wz06_ft.svg')
   )
   assert.equal(
+    triple.fsSvgPath,
+    path.join(outputDir, 'sources/SRC_01/fluidSystems/p005/SRC_01_p005_wz06_fs.svg')
+  )
+  assert.equal(
     triple.ftHtmlPath,
     path.join(outputDir, 'sources/SRC_01/fluidHTML/p005/SRC_01_p005_wz06_ft.html')
   )
@@ -69,6 +73,32 @@ test('getFilesObject returns undefined when related files are missing', () => {
 
   const triple = getFilesObject(relDt, inputDir, outputDir)
   assert.equal(triple, undefined)
+
+  fs.rmSync(tmpRoot, { recursive: true, force: true })
+})
+
+test('getFilesObject resolves annotated transcript symlink targets', () => {
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'liquifier-test-'))
+  const inputDir = path.join(tmpRoot, 'in')
+  const outputDir = path.join(tmpRoot, 'out')
+
+  const relDt = 'sources/SRC_03/diplomaticTranscripts/SRC_03_p007_wz01_dt.xml'
+  const relSymlink = 'sources/SRC_03/annotatedTranscripts/SRC_03_p007_wz01_symlink.xml'
+  const relAtTarget = 'sources/SRC_03/annotatedTranscripts/SRC_03_p006_wz01_at.xml'
+  const relSource = 'sources/SRC_03/SRC_03.xml'
+
+  write(path.join(inputDir, relDt))
+  write(path.join(inputDir, relAtTarget))
+  write(path.join(inputDir, relSource))
+
+  write(
+    path.join(inputDir, relSymlink),
+    `<?xml version="1.0" encoding="UTF-8"?>\n<relation xmlns="http://www.music-encoding.org/ns/mei" rel="symlink" target="../annotatedTranscripts/SRC_03_p006_wz01_at.xml"/>`
+  )
+
+  const triple = getFilesObject(relDt, inputDir, outputDir)
+  assert.ok(triple)
+  assert.equal(triple.atFullPath, path.join(inputDir, relAtTarget))
 
   fs.rmSync(tmpRoot, { recursive: true, force: true })
 })

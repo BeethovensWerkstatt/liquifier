@@ -104,7 +104,7 @@ The liquifier script can be run with the following command line arguments:
 - `--hours <number>`: specifies the number of hours to look back for modified files (default `24`)
 - `--since <date>`: specifies a date to look back for modified files (supersedes `--hours`)
 - `--full`: generates full fluid transcriptions instead of only the changes (supersedes `--hours` and `--since`)
-- `--types`: comma separated list of transcription types (`at`,`dt`,`ft`,`editedAt` | *default all*)
+- `--types`: comma separated list of transcription types (`at`,`dt`,`ft`,`editedAt`,`fluidSystems` | *default all*)
   - compatibility note: legacy `eat` is accepted and normalized to `editedAt`
 - `--media`: comma separated list of files to create (`svg`,`midi`,`html` | *default all*)
 - `--input-dir` (or `-i`): specifies the base directory for input files (default `./`)
@@ -163,6 +163,9 @@ cache/sources/D-BNba_MH_60_Engelmann/
 ├── fluidTranscripts/
 │   └── p005/
 │       └── D-BNba_MH_60_Engelmann_p005_wz06_ft.svg
+├── fluidSystems/
+│   └── p005/
+│       └── D-BNba_MH_60_Engelmann_p005_wz06_fs.svg
 ├── editedAT/
 │   └── p005/
 │       └── D-BNba_MH_60_Engelmann_p005_wz06_eat.xml
@@ -218,6 +221,7 @@ All output files follow consistent naming conventions:
 | Diplomatic Transcript (Full) | `{source}_{page}_{wz}_dt.svg` | `D-BNba_MH_60_Engelmann_p005_wz06_dt.svg` |
 | Diplomatic System | `{source}_{page}_{wz}_sys{systemId}_dt.svg` | `D-BNba_MH_60_Engelmann_p005_wz06_syss289fb17d-10e3-4b27-9b64-8d2d6a560c1d_dt.svg` |
 | Fluid Transcript | `{source}_{page}_{wz}_ft.svg` | `D-BNba_MH_60_Engelmann_p005_wz06_ft.svg` |
+| Fluid Systems | `{source}_{page}_{wz}_fs.svg` | `D-BNba_MH_60_Engelmann_p005_wz06_fs.svg` |
 | Edited AT (MEI) | `{source}_{page}_{wz}_eat.xml` | `D-BNba_MH_60_Engelmann_p005_wz06_eat.xml` |
 | Fluid HTML | `{source}_{page}_{wz}_ft.html` | `D-BNba_MH_60_Engelmann_p005_wz06_ft.html` |
 
@@ -226,6 +230,19 @@ Where:
 - `{page}`: Three-digit page number (e.g., `p005`)
 - `{wz}`: Writing zone identifier (e.g., `wz06`)
 - `{systemId}`: MEI system element ID (e.g., `s289fb17d-10e3-4b27-9b64-8d2d6a560c1d`)
+
+### Fluid Animation Phases
+
+Fluid animation output uses one canonical six-phase sequence:
+
+1. `finding`
+2. `normalization`
+3. `readingOrder`
+4. `regulation`
+5. `supplements`
+6. `interventions`
+
+Detailed semantics and implementation rules are documented in [docs/fluid-animation-phases.md](docs/fluid-animation-phases.md).
 
 ### Edited Annotated Transcript Semantics
 

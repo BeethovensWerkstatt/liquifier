@@ -1,4 +1,4 @@
-import { prepareAtDomForRendering } from '../preparation/annotatedTranscripts.js'
+import { addSbIndicators, prepareAtDomForRendering } from '../preparation/annotatedTranscripts.js'
 import { prepareEditedAtDom } from '../preparation/editedAnnotatedTranscripts.js'
 import { prepareDtForThulemeier } from '../preparation/mei.js'
 import { serializeXmlCanonical } from '../utils/xml.js'
@@ -9,6 +9,566 @@ import { generateFluidTranscription } from '../preparation/fluidTranscripts.js'
 import { JSDOM } from 'jsdom'
 import path from 'path'
 import fs from 'fs'
+
+const FLUID_SYSTEMS_DESC_ID = 'bw-fs-overlay-metadata'
+const SVG_NS = 'http://www.w3.org/2000/svg'
+const READING_ORDER_BLOCK_GAP = 80
+// Canonical phase sequence for fluid animations; see docs/fluid-animation-phases.md.
+export const FLUID_SYSTEMS_STATE_SEQUENCE = [
+  'finding',
+  'normalization',
+  'readingOrder',
+  'regulation',
+  'supplements',
+  'interventions'
+]
+
+function getSvgViewBoxSize (svgElement) {
+  const viewBox = svgElement.getAttribute('viewBox')
+  if (viewBox) {
+    const [x, y, width, height] = viewBox.split(/\s+/).map(Number)
+    if ([x, y, width, height].every(Number.isFinite)) {
+      return { x, y, width, height }
+    }
+  }
+
+  const widthAttr = parseFloat(svgElement.getAttribute('width') || '0')
+  const heightAttr = parseFloat(svgElement.getAttribute('height') || '0')
+  return {
+    x: 0,
+    y: 0,
+    width: Number.isFinite(widthAttr) ? widthAttr : 0,
+    height: Number.isFinite(heightAttr) ? heightAttr : 0
+  }
+}
+
+function parseViewBox (viewBoxAttr) {
+  if (!viewBoxAttr) return null
+  const [x, y, width, height] = viewBoxAttr.split(/\s+/).map(Number)
+  if ([x, y, width, height].every(Number.isFinite)) {
+    return { x, y, width, height }
+  }
+  return null
+}
+
+function parseTranslatePoint (transformAttr) {
+  if (!transformAttr) return null
+
+  const match = transformAttr.match(/translate\(\s*([\d.-]+)\s*,\s*([\d.-]+)\s*\)/)
+  if (!match) return null
+
+  const x = parseFloat(match[1])
+  const y = parseFloat(match[2])
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null
+
+  return { x, y }
+}
+
+function collectChoicePositionMap (svgElement) {
+  const positions = new Map()
+  if (!svgElement) return positions
+
+  const addPositions = (selector, pointSelector) => {
+    svgElement.querySelectorAll(selector).forEach(element => {
+      const id = element.getAttribute('data-id')
+      if (!id || positions.has(id)) return
+
+      const pointElement = element.querySelector(pointSelector)
+      const point = parseTranslatePoint(pointElement?.getAttribute('transform'))
+      if (!point) return
+
+      positions.set(id, point)
+    })
+  }
+
+  addPositions('g.note:not(.bounding-box)[data-id]', '.notehead > use')
+  addPositions('g.accid:not(.bounding-box)[data-id], g.keyAccid:not(.bounding-box)[data-id]', 'use')
+  addPositions('g.artic:not(.bounding-box)[data-id]', 'use')
+
+  return positions
+}
+
+function buildChoiceRegToOrigIdMap (editedAtDom) {
+  const regToOrig = new Map()
+  if (!editedAtDom) return regToOrig
+
+  const pairByLocalNameAndCorresp = (origNodes, regNodes) => {
+    const usedOrigIds = new Set()
+
+    regNodes.forEach(regNode => {
+      const regId = regNode.getAttribute('xml:id')
+      if (!regId || regToOrig.has(regId)) return
+
+      const regLocalName = regNode.localName
+      const regCorresp = regNode.getAttribute('corresp') || ''
+
+      const candidate = origNodes.find(origNode => {
+        const origId = origNode.getAttribute('xml:id')
+        if (!origId || usedOrigIds.has(origId)) return false
+        if (origNode.localName !== regLocalName) return false
+        const origCorresp = origNode.getAttribute('corresp') || ''
+        return regCorresp.length > 0 && origCorresp === regCorresp
+      })
+
+      if (candidate) {
+        const origId = candidate.getAttribute('xml:id')
+        regToOrig.set(regId, origId)
+        usedOrigIds.add(origId)
+      }
+    })
+
+    regNodes.forEach(regNode => {
+      const regId = regNode.getAttribute('xml:id')
+      if (!regId || regToOrig.has(regId)) return
+
+      const regLocalName = regNode.localName
+      const candidate = origNodes.find(origNode => {
+        const origId = origNode.getAttribute('xml:id')
+        if (!origId || usedOrigIds.has(origId)) return false
+        return origNode.localName === regLocalName
+      })
+
+      if (!candidate) return
+      const origId = candidate.getAttribute('xml:id')
+      regToOrig.set(regId, origId)
+      usedOrigIds.add(origId)
+    })
+  }
+
+  const findDirectChild = (parent, localName) => {
+    const children = Array.from(parent.childNodes || [])
+    return children.find(node => node.nodeType === 1 && node.localName === localName) || null
+  }
+
+  editedAtDom.querySelectorAll('choice').forEach(choiceNode => {
+    const origNode = findDirectChild(choiceNode, 'orig')
+    const regNode = findDirectChild(choiceNode, 'reg')
+    if (!origNode || !regNode) return
+
+    const origElements = Array.from(origNode.querySelectorAll('[xml\\:id]'))
+    const regElements = Array.from(regNode.querySelectorAll('[xml\\:id]'))
+    if (origElements.length === 0 || regElements.length === 0) return
+
+    pairByLocalNameAndCorresp(origElements, regElements)
+  })
+
+  return regToOrig
+}
+
+function extractChoiceVerticalOffsets (regAtSvg, origAtSvg, editedAtDom) {
+  const regSvgElement = regAtSvg?.documentElement || regAtSvg
+  const origSvgElement = origAtSvg?.documentElement || origAtSvg
+  if (!regSvgElement || !origSvgElement) return new Map()
+
+  const regPositions = collectChoicePositionMap(regSvgElement)
+  const origPositions = collectChoicePositionMap(origSvgElement)
+  const regToOrig = buildChoiceRegToOrigIdMap(editedAtDom)
+
+  const offsets = new Map()
+  regPositions.forEach((regPos, id) => {
+    const mappedOrigId = regToOrig.get(id) || id
+    const origPos = origPositions.get(mappedOrigId)
+    if (!origPos) return
+
+    const diffY = Math.round((origPos.y - regPos.y) * 1000) / 1000
+    if (Math.abs(diffY) < 0.001) return
+    offsets.set(id, diffY)
+  })
+
+  return offsets
+}
+
+function anchorFluidSystemsToAtLeft (fluidSvgDocument) {
+  const rootSvg = fluidSvgDocument.documentElement || fluidSvgDocument
+  const displaySvg = rootSvg.querySelector('svg.definition-scale') || rootSvg
+  const viewBox = parseViewBox(displaySvg.getAttribute('viewBox'))
+  if (!viewBox) return null
+
+  const atFrame = displaySvg.querySelector('g.page-margin') || displaySvg
+  const atRange = extractNodeXRange(atFrame)
+  if (!atRange) return null
+
+  const currentRight = viewBox.x + viewBox.width
+  const newX = Math.floor(atRange.min)
+  const newWidth = Math.max(1, Math.ceil(currentRight - newX))
+
+  displaySvg.setAttribute('viewBox', `${newX} ${viewBox.y} ${newWidth} ${viewBox.height}`)
+  return { newX, newWidth }
+}
+
+function buildReadingOrderBlockMap (atDom) {
+  const measureBlockMap = new Map()
+  if (!atDom) return measureBlockMap
+
+  let blockIndex = 0
+  let sawMeasure = false
+  let startNewBlock = false
+
+  const sections = atDom.querySelectorAll('section')
+  sections.forEach(section => {
+    Array.from(section.children).forEach(node => {
+      if (node.localName === 'sb') {
+        startNewBlock = sawMeasure
+        return
+      }
+
+      if (node.localName !== 'measure') return
+
+      if (startNewBlock) {
+        blockIndex += 1
+        startNewBlock = false
+      }
+
+      const measureId = node.getAttribute('xml:id')
+      if (measureId) {
+        measureBlockMap.set(measureId, blockIndex)
+      }
+      sawMeasure = true
+    })
+  })
+
+  return measureBlockMap
+}
+
+function getFirstDiplomaticCorrespId (value = '') {
+  if (!value) return null
+
+  const tokens = value.trim().split(/\s+/)
+  const diplomaticToken = tokens.find(token => {
+    if (!token.includes('#')) return false
+    const [filePart] = token.split('#')
+    return filePart.includes('/diplomaticTranscripts/') || filePart.endsWith('_dt.xml') || filePart === ''
+  })
+
+  if (!diplomaticToken || !diplomaticToken.includes('#')) return null
+  const [, id] = diplomaticToken.split('#')
+  return id || null
+}
+
+function buildAtToDtMeasureMap (atDom) {
+  const map = new Map()
+  if (!atDom) return map
+
+  const measures = atDom.querySelectorAll('measure[corresp]')
+  measures.forEach(measure => {
+    const atId = measure.getAttribute('xml:id')
+    if (!atId) return
+
+    const dtId = getFirstDiplomaticCorrespId(measure.getAttribute('corresp'))
+    if (!dtId) return
+
+    map.set(atId, dtId)
+  })
+
+  return map
+}
+
+function absorbX (range, x) {
+  if (!Number.isFinite(x)) return
+  range.min = Math.min(range.min, x)
+  range.max = Math.max(range.max, x)
+}
+
+function parseTranslateXValues (transformAttr) {
+  if (!transformAttr) return []
+
+  const values = []
+  const regex = /translate\(\s*([\d.-]+)(?:[\s,]+([\d.-]+))?\s*\)/g
+  let match
+
+  while ((match = regex.exec(transformAttr)) !== null) {
+    const tx = parseFloat(match[1])
+    if (Number.isFinite(tx)) values.push(tx)
+  }
+
+  return values
+}
+
+function extractNodeXRange (node) {
+  const range = { min: Infinity, max: -Infinity }
+  const nodes = [node, ...node.querySelectorAll('*')]
+
+  nodes.forEach(current => {
+    parseTranslateXValues(current.getAttribute('transform')).forEach(tx => absorbX(range, tx))
+
+    const x = parseFloat(current.getAttribute('x'))
+    const width = parseFloat(current.getAttribute('width'))
+    const x1 = parseFloat(current.getAttribute('x1'))
+    const x2 = parseFloat(current.getAttribute('x2'))
+    const cx = parseFloat(current.getAttribute('cx'))
+
+    absorbX(range, x)
+    absorbX(range, x1)
+    absorbX(range, x2)
+    absorbX(range, cx)
+    if (Number.isFinite(x) && Number.isFinite(width)) {
+      absorbX(range, x + width)
+    }
+
+    const d = current.getAttribute('d')
+    if (d) {
+      const coordRegex = /([\d.-]+)[,\s]+([\d.-]+)/g
+      let coordMatch
+      while ((coordMatch = coordRegex.exec(d)) !== null) {
+        absorbX(range, parseFloat(coordMatch[1]))
+      }
+    }
+  })
+
+  if (!Number.isFinite(range.min) || !Number.isFinite(range.max) || range.max <= range.min) {
+    return null
+  }
+
+  return range
+}
+
+function computeBlockLayout (blockRanges) {
+  const sorted = Array.from(blockRanges.entries()).sort((a, b) => a[0] - b[0])
+  if (sorted.length === 0) return new Map()
+
+  const overallMin = Math.min(...sorted.map(([, range]) => range.min))
+  const overallMax = Math.max(...sorted.map(([, range]) => range.max))
+  const originalCenter = (overallMin + overallMax) / 2
+
+  const widths = sorted.map(([, range]) => Math.max(1, range.max - range.min))
+  const totalWidth = widths.reduce((acc, width) => acc + width, 0) + Math.max(0, sorted.length - 1) * READING_ORDER_BLOCK_GAP
+  let currentLeft = originalCenter - (totalWidth / 2)
+
+  const offsets = new Map()
+  sorted.forEach(([blockIndex, range], i) => {
+    const width = widths[i]
+    const originalBlockCenter = (range.min + range.max) / 2
+    const targetCenter = currentLeft + (width / 2)
+    offsets.set(blockIndex, Math.round(targetCenter - originalBlockCenter))
+    currentLeft += width + READING_ORDER_BLOCK_GAP
+  })
+
+  return offsets
+}
+
+function buildBlockRangesFromDt (dtSvgElement, atDom, measureBlockMap) {
+  const blockRanges = new Map()
+  if (!dtSvgElement || !atDom || measureBlockMap.size === 0) return blockRanges
+
+  const atToDtMeasureMap = buildAtToDtMeasureMap(atDom)
+  measureBlockMap.forEach((blockIndex, atMeasureId) => {
+    const dtMeasureId = atToDtMeasureMap.get(atMeasureId)
+    if (!dtMeasureId) return
+
+    const dtMeasure = dtSvgElement.querySelector(`g.measure:not(.bounding-box)[data-id="${dtMeasureId}"]`)
+    if (!dtMeasure) return
+
+    const range = extractNodeXRange(dtMeasure)
+    if (!range) return
+
+    if (!blockRanges.has(blockIndex)) {
+      blockRanges.set(blockIndex, { min: range.min, max: range.max })
+      return
+    }
+
+    const existing = blockRanges.get(blockIndex)
+    existing.min = Math.min(existing.min, range.min)
+    existing.max = Math.max(existing.max, range.max)
+  })
+
+  return blockRanges
+}
+
+function applyReadingOrderStageTransform (svgElement, atDom, dtSvgElement) {
+  const measureBlockMap = buildReadingOrderBlockMap(atDom)
+  if (measureBlockMap.size === 0) {
+    return { adjustedCount: 0, adjustedMeasureIds: [], geometrySource: 'none' }
+  }
+
+  const measureNodes = Array.from(svgElement.querySelectorAll('g.measure:not(.bounding-box)[data-id]'))
+  const blockRanges = buildBlockRangesFromDt(dtSvgElement, atDom, measureBlockMap)
+  const hasDtRanges = blockRanges.size > 0
+  let geometrySource = hasDtRanges ? 'dt' : 'ft'
+
+  if (blockRanges.size === 0) {
+    geometrySource = 'ft'
+  }
+
+  measureNodes.forEach(node => {
+    const measureId = node.getAttribute('data-id')
+    const blockIndex = measureBlockMap.get(measureId)
+    if (!Number.isFinite(blockIndex)) return
+
+    // If DT geometry exists for this block, keep DT extents authoritative.
+    if (hasDtRanges && blockRanges.has(blockIndex)) return
+
+    const range = extractNodeXRange(node)
+    if (!range) return
+
+    if (!blockRanges.has(blockIndex)) {
+      blockRanges.set(blockIndex, { min: range.min, max: range.max })
+      return
+    }
+
+    const existing = blockRanges.get(blockIndex)
+    existing.min = Math.min(existing.min, range.min)
+    existing.max = Math.max(existing.max, range.max)
+  })
+
+  if (blockRanges.size === 0) {
+    return { adjustedCount: 0, adjustedMeasureIds: [], geometrySource }
+  }
+
+  const blockOffsets = computeBlockLayout(blockRanges)
+  const adjustedMeasureIds = []
+
+  measureNodes.forEach(node => {
+    const measureId = node.getAttribute('data-id')
+    const blockIndex = measureBlockMap.get(measureId)
+    if (!Number.isFinite(blockIndex)) return
+
+    const blockOffsetX = blockOffsets.get(blockIndex) || 0
+    if (blockOffsetX === 0) return
+
+    const anim = svgElement.ownerDocument.createElementNS(SVG_NS, 'animateTransform')
+    anim.setAttribute('attributeName', 'transform')
+    anim.setAttribute('attributeType', 'XML')
+    anim.setAttribute('type', 'translate')
+    anim.setAttribute('values', `0 0;0 0;${blockOffsetX} 0;0 0;0 0;0 0`)
+    anim.setAttribute('dur', '5s')
+    anim.setAttribute('repeatCount', 'indefinite')
+    node.appendChild(anim)
+
+    const existingClass = node.getAttribute('class') || ''
+    node.setAttribute('class', `${existingClass} bw-fs-reading-order-shift`.trim())
+    node.setAttribute('data-bw-reading-order-offset-x', String(blockOffsetX))
+    adjustedMeasureIds.push(measureId)
+  })
+
+  return { adjustedCount: adjustedMeasureIds.length, adjustedMeasureIds, geometrySource }
+}
+
+export function applyFluidSystemsOutputMetadata (svgElement, { triple, systemId, systemIds, atDom, dtSvgElement }) {
+  const classList = (svgElement.getAttribute('class') || '').split(/\s+/).filter(Boolean)
+
+  FLUID_SYSTEMS_STATE_SEQUENCE.forEach(state => {
+    const marker = `bw-fs-state-${state}`
+    if (!classList.includes(marker)) {
+      classList.push(marker)
+    }
+  })
+
+  svgElement.setAttribute('class', classList.join(' '))
+  svgElement.setAttribute('data-bw-fs-states', FLUID_SYSTEMS_STATE_SEQUENCE.join(','))
+
+  const readingOrder = applyReadingOrderStageTransform(svgElement, atDom, dtSvgElement)
+
+  const vb = getSvgViewBoxSize(svgElement)
+  const metadata = {
+    currentPageId: triple.page,
+    overlayOffsetX: 0,
+    overlayOffsetY: 0,
+    overlayWidth: vb.width,
+    overlayHeight: vb.height,
+    svgUnits: 'viewBox',
+    dtSystemsUsed: Array.isArray(systemIds) ? systemIds : (systemId ? [systemId] : []),
+    readingOrderAdjustedMeasures: readingOrder.adjustedMeasureIds,
+    readingOrderAdjustedCount: readingOrder.adjustedCount,
+    readingOrderGeometrySource: readingOrder.geometrySource,
+    atLeftAnchored: true
+  }
+
+  const doc = svgElement.ownerDocument
+  let desc = svgElement.querySelector(`desc#${FLUID_SYSTEMS_DESC_ID}`)
+  if (!desc) {
+    desc = doc.createElementNS('http://www.w3.org/2000/svg', 'desc')
+    desc.setAttribute('id', FLUID_SYSTEMS_DESC_ID)
+    svgElement.insertBefore(desc, svgElement.firstChild)
+  }
+  desc.textContent = JSON.stringify(metadata)
+
+  return svgElement
+}
+
+function renderFluidSystemsLike ({ data, triple, recreate, logger, sourceDir, sourceSuffix, targetDir, targetSuffix, outputDate, postProcessSvg, generationOptions = {} }) {
+  const { atDate, dtDate, atSvgPath } = triple
+
+  if (!shouldRender(recreate, [atDate, dtDate], outputDate)) {
+    return { skipped: true }
+  }
+
+  const dom = new JSDOM()
+  const parser = new dom.window.DOMParser()
+  const serializer = new dom.window.XMLSerializer()
+
+  const atSvgDir = path.dirname(atSvgPath)
+  const baseFilename = path.basename(atSvgPath).replace('_at.svg', '')
+
+  const files = fs.readdirSync(atSvgDir)
+  const atSystemFiles = files.filter(f =>
+    f.startsWith(baseFilename) &&
+    f.includes('_sys') &&
+    f.endsWith('_at.svg')
+  )
+
+  if (atSystemFiles.length === 0) {
+    return { skipped: false, successCount: 0, errorCount: 0, noSystemFiles: true }
+  }
+
+  let successCount = 0
+  let errorCount = 0
+
+  atSystemFiles.forEach(atSystemFile => {
+    try {
+      const systemIdMatch = atSystemFile.match(/_sys([^_]+)_at\.svg$/)
+      if (!systemIdMatch) {
+        logger.warn(`Could not extract system ID from ${atSystemFile}`)
+        return
+      }
+
+      const atSystemPath = path.join(atSvgDir, atSystemFile)
+      const dtSystemPath = atSystemPath
+        .replace('/annotatedTranscripts/', sourceDir)
+        .replace('_at.svg', sourceSuffix)
+      const targetSystemPath = atSystemPath
+        .replace('/annotatedTranscripts/', targetDir)
+        .replace('_at.svg', targetSuffix)
+
+      if (!fs.existsSync(dtSystemPath)) {
+        logger.warn(`DT system file not found: ${dtSystemPath}`)
+        errorCount++
+        return
+      }
+
+      const atSystemSvgString = fs.readFileSync(atSystemPath, 'utf8')
+      const dtSystemSvgString = fs.readFileSync(dtSystemPath, 'utf8')
+
+      const atSystemSvg = parser.parseFromString(atSystemSvgString, 'image/svg+xml')
+      const dtSystemSvg = parser.parseFromString(dtSystemSvgString, 'image/svg+xml')
+
+      const fluidSvg = generateFluidTranscription(dtSystemSvg, atSystemSvg, data.atDom, logger, generationOptions)
+
+      if (postProcessSvg) {
+        postProcessSvg(fluidSvg, {
+          triple,
+          systemId: systemIdMatch[1],
+          atDom: data.atDom,
+          dtSvgElement: dtSystemSvg.documentElement || dtSystemSvg
+        })
+      }
+
+      const fluidSvgString = serializer.serializeToString(fluidSvg)
+
+      const targetDirPath = path.dirname(targetSystemPath)
+      if (!fs.existsSync(targetDirPath)) {
+        fs.mkdirSync(targetDirPath, { recursive: true })
+      }
+
+      writeData(fluidSvgString, targetSystemPath)
+      successCount++
+    } catch (err) {
+      logger.error(`Error processing system: ${err.message}`)
+      errorCount++
+    }
+  })
+
+  return { skipped: false, successCount, errorCount, noSystemFiles: false }
+}
 
 /**
  * Check if a file should be rendered based on recreate flag or date comparison
@@ -36,7 +596,7 @@ export async function renderEditedAnnotatedTranscript ({ data, triple, recreate,
   if (shouldRender(recreate, [atDate], editedAtDate)) {
     logger.info('Rendering Edited Annotated Transcript for ' + editedAtPath + ' ...')
 
-    const editedAtDom = prepareEditedAtDom(data.atDom)
+    const editedAtDom = prepareEditedAtDom(data.atDom, data.dtDom)
     const editedAtString = serializeXmlCanonical(editedAtDom)
 
     await writeData(editedAtString, editedAtPath)
@@ -62,7 +622,8 @@ export async function renderAnnotatedTranscriptSvg ({ data, triple, verovio, pag
 
   if (shouldRender(recreate, [atDate], atSvgDate)) {
     logger.info('Rendering Annotated Transcript for ' + atSvgPath + ' ...')
-    const atOutDom = prepareAtDomForRendering(data.atDom, data.dtDom, pageDimensions)
+    const atWithSbIndicators = addSbIndicators(null, data.atDom.cloneNode(true))
+    const atOutDom = prepareAtDomForRendering(atWithSbIndicators, data.dtDom, pageDimensions)
 
     // Render full continuous AT
     const atSvgString = renderContinuousAt(atOutDom, verovio, 'annotated', pageDimensions)
@@ -112,7 +673,8 @@ export function renderAnnotatedTranscriptMidi ({ data, triple, verovio, pageDime
 
   if (shouldRender(recreate, [atDate], atMidDate)) {
     logger.info('Rendering Annotated MIDI for ' + atMidPath + ' ...')
-    const atOutDom = prepareAtDomForRendering(data.atDom, data.dtDom, pageDimensions)
+    const atWithSbIndicators = addSbIndicators(null, data.atDom.cloneNode(true))
+    const atOutDom = prepareAtDomForRendering(atWithSbIndicators, data.dtDom, pageDimensions)
     const atMidBuffer = renderMidi(atOutDom, verovio)
     writeData(atMidBuffer, atMidPath)
   } else {
@@ -220,99 +782,114 @@ export async function renderDiplomaticTranscriptSvg ({ data, triple, verovio, pa
  * @param {Object} params.logger - Logger instance
  */
 export function renderFluidTranscriptSvg ({ data, triple, verovio, pageDimensions, recreate, logger }) {
-  const { atDate, dtDate, ftSvgPath, ftSvgDate, atSvgPath } = triple
+  const { atDate, dtDate, ftSvgPath, ftSvgDate } = triple
 
   if (shouldRender(recreate, [atDate, dtDate], ftSvgDate)) {
     logger.info('Rendering Fluid Transcripts for system pairs...')
 
     try {
-      const dom = new JSDOM()
-      const parser = new dom.window.DOMParser()
-      const serializer = new dom.window.XMLSerializer()
+      const result = renderFluidSystemsLike({
+        data,
+        triple,
+        recreate,
+        logger,
+        sourceDir: '/diplomaticTranscripts/',
+        sourceSuffix: '_dt.svg',
+        targetDir: '/fluidTranscripts/',
+        targetSuffix: '_ft.svg',
+        outputDate: ftSvgDate,
+        generationOptions: { stateModel: 'fluidTranscript' }
+      })
 
-      // Find system SVG files
-      const atSvgDir = path.dirname(atSvgPath)
-      const baseFilename = path.basename(atSvgPath).replace('_at.svg', '')
+      if (result.skipped) {
+        logger.info('Skipping Fluid Transcript for ' + ftSvgPath)
+        return
+      }
 
-      // Find all AT system files in the directory
-      const files = fs.readdirSync(atSvgDir)
-      const atSystemFiles = files.filter(f =>
-        f.startsWith(baseFilename) &&
-        f.includes('_sys') &&
-        f.endsWith('_at.svg')
-      )
-
-      if (atSystemFiles.length === 0) {
+      if (result.noSystemFiles) {
         logger.warn('No AT system files found for fluid transcription generation')
         return
       }
 
-      logger.info(`Found ${atSystemFiles.length} system pairs to process`)
-
-      let successCount = 0
-      let errorCount = 0
-
-      // Process each system
-      atSystemFiles.forEach(atSystemFile => {
-        try {
-          // Extract system ID from filename
-          const systemIdMatch = atSystemFile.match(/_sys([^_]+)_at\.svg$/)
-          if (!systemIdMatch) {
-            logger.warn(`Could not extract system ID from ${atSystemFile}`)
-            return
-          }
-          const systemId = systemIdMatch[1]
-
-          // Build corresponding DT and FT paths
-          const atSystemPath = path.join(atSvgDir, atSystemFile)
-          const dtSystemPath = atSystemPath
-            .replace('/annotatedTranscripts/', '/diplomaticTranscripts/')
-            .replace('_at.svg', '_dt.svg')
-          const ftSystemPath = atSystemPath
-            .replace('/annotatedTranscripts/', '/fluidTranscripts/')
-            .replace('_at.svg', '_ft.svg')
-
-          // Check if DT system file exists
-          if (!fs.existsSync(dtSystemPath)) {
-            logger.warn(`DT system file not found: ${dtSystemPath}`)
-            errorCount++
-            return
-          }
-
-          // Read SVG files
-          const atSystemSvgString = fs.readFileSync(atSystemPath, 'utf8')
-          const dtSystemSvgString = fs.readFileSync(dtSystemPath, 'utf8')
-
-          const atSystemSvg = parser.parseFromString(atSystemSvgString, 'image/svg+xml')
-          const dtSystemSvg = parser.parseFromString(dtSystemSvgString, 'image/svg+xml')
-
-          // Generate fluid transcription
-          const ftSvg = generateFluidTranscription(dtSystemSvg, atSystemSvg, data.atDom, logger) // data.dtDom?
-
-          // Serialize and save
-          const ftSvgString = serializer.serializeToString(ftSvg)
-
-          // Create directory if it doesn't exist
-          const ftDir = path.dirname(ftSystemPath)
-          if (!fs.existsSync(ftDir)) {
-            fs.mkdirSync(ftDir, { recursive: true })
-          }
-
-          writeData(ftSvgString, ftSystemPath)
-          logger.debug(`  Generated FT for system ${systemId}`)
-          successCount++
-        } catch (err) {
-          logger.error(`Error processing system: ${err.message}`)
-          errorCount++
-        }
-      })
-
-      logger.info(`Fluid Transcript generation complete: ${successCount} succeeded, ${errorCount} failed`)
+      logger.info(`Fluid Transcript generation complete: ${result.successCount} succeeded, ${result.errorCount} failed`)
     } catch (err) {
       logger.error(`Error rendering fluid transcripts: ${err.message}`)
     }
   } else {
     logger.info('Skipping Fluid Transcript for ' + ftSvgPath)
+  }
+}
+
+/**
+ * Render Fluid Systems SVG
+ * @param {Object} params - Rendering parameters
+ * @param {Object} params.data - Source data (atDom, dtDom, sourceDom)
+ * @param {Object} params.triple - File paths and dates
+ * @param {boolean} params.recreate - Force recreation flag
+ * @param {Object} params.logger - Logger instance
+ */
+export async function renderFluidSystemsSvg ({ data, triple, verovio, pageDimensions, recreate, logger }) {
+  const { atDate, dtDate, fsSvgPath, fsSvgDate, dtSvgPath } = triple
+
+  if (!shouldRender(recreate, [atDate, dtDate], fsSvgDate)) {
+    logger.info('Skipping Fluid Systems for ' + fsSvgPath)
+    return
+  }
+
+  logger.info('Rendering Fluid Systems for system pairs...')
+
+  try {
+    if (!fs.existsSync(dtSvgPath)) {
+      logger.warn(`Missing DT SVG for fluid systems generation (${dtSvgPath})`)
+      return
+    }
+
+    const dom = new JSDOM()
+    const parser = new dom.window.DOMParser()
+    const serializer = new dom.window.XMLSerializer()
+
+    const dtSvg = parser.parseFromString(fs.readFileSync(dtSvgPath, 'utf8'), 'image/svg+xml')
+
+    const editedAtDom = prepareEditedAtDom(data.atDom, data.dtDom)
+    const editedAtWithSbIndicators = addSbIndicators(null, editedAtDom.cloneNode(true))
+    const editedRenderDom = prepareAtDomForRendering(editedAtWithSbIndicators, data.dtDom, pageDimensions)
+    const regAtSvgString = renderContinuousAt(editedRenderDom, verovio, 'annotated', pageDimensions, {
+      choiceXPathQuery: ['./reg']
+    })
+    const origAtSvgString = renderContinuousAt(editedRenderDom, verovio, 'annotated', pageDimensions, {
+      choiceXPathQuery: ['./orig']
+    })
+    const regAtSvg = parser.parseFromString(regAtSvgString, 'image/svg+xml')
+    const origAtSvg = parser.parseFromString(origAtSvgString, 'image/svg+xml')
+    const choiceVerticalOffsets = extractChoiceVerticalOffsets(regAtSvg, origAtSvg, editedAtDom)
+
+    const atWithSbIndicators = addSbIndicators(null, data.atDom.cloneNode(true))
+    const renderDom = prepareAtDomForRendering(atWithSbIndicators, data.dtDom, pageDimensions)
+    const atSvgString = renderContinuousAt(renderDom, verovio, 'annotated', pageDimensions)
+    const atSvg = parser.parseFromString(atSvgString, 'image/svg+xml')
+
+    const fluidSvg = generateFluidTranscription(dtSvg, atSvg, data.atDom, logger, {
+      stateModel: 'fluidSystems',
+      choiceVerticalOffsets
+    })
+    anchorFluidSystemsToAtLeft(fluidSvg)
+
+    const systemIds = Array.from(data.dtDom.querySelectorAll('draft > system, draft > bw\\:system'))
+      .map(system => system.getAttribute('xml:id'))
+      .filter(Boolean)
+
+    applyFluidSystemsOutputMetadata(fluidSvg, {
+      triple,
+      systemIds,
+      atDom: data.atDom,
+      dtSvgElement: dtSvg.documentElement || dtSvg
+    })
+
+    const fluidSvgString = serializer.serializeToString(fluidSvg)
+    await writeData(fluidSvgString, fsSvgPath)
+    logger.info('Fluid Systems generation complete: 1 succeeded, 0 failed')
+  } catch (err) {
+    logger.error(`Error rendering fluid systems: ${err.message}`)
   }
 }
 

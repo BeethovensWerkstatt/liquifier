@@ -36,6 +36,23 @@ function insertPageFolder (outputPath, page) {
   return path.join(dir, page, file)
 }
 
+function resolveAtSymlinkTarget (symlinkPath) {
+  try {
+    if (!fs.existsSync(symlinkPath)) return null
+
+    const xml = fs.readFileSync(symlinkPath, 'utf8')
+    const doc = new DOMParser().parseFromString(xml, 'text/xml')
+    const relation = doc.querySelector('relation[rel="symlink"]')
+    const target = relation?.getAttribute('target')
+    if (!target) return null
+
+    const resolved = path.resolve(path.dirname(symlinkPath), target)
+    return fs.existsSync(resolved) ? resolved : null
+  } catch {
+    return null
+  }
+}
+
 /**
  * collect files from <code>git show --name-only --pretty="format:--- %H %cI" <i>COMMIT</></code>
  * @param {string[]} lines
@@ -180,8 +197,11 @@ export function getFilesObject (file, inputDir = './', outputDir = './cache') {
 
   // file is a diplomatic transcript, now check for other types
   const atFile = relativeFile.replace('diplomaticTranscripts', 'annotatedTranscripts').replace('_dt.xml', '_at.xml')
-  const atFileFull = dtFile.replace('diplomaticTranscripts', 'annotatedTranscripts').replace('_dt.xml', '_at.xml')
-  const atFileExists = fs.existsSync(atFileFull)
+  const atFileCandidateFull = dtFile.replace('diplomaticTranscripts', 'annotatedTranscripts').replace('_dt.xml', '_at.xml')
+  const atSymlinkCandidateFull = dtFile.replace('diplomaticTranscripts', 'annotatedTranscripts').replace('_dt.xml', '_symlink.xml')
+  const resolvedAtFromSymlink = resolveAtSymlinkTarget(atSymlinkCandidateFull)
+  const atFileFull = fs.existsSync(atFileCandidateFull) ? atFileCandidateFull : resolvedAtFromSymlink
+  const atFileExists = !!atFileFull
 
   const regex = /_p\d+_wz\d+_dt/
   const sourceFile = relativeFile.replace('/diplomaticTranscripts/', '/').replace(regex, '')
@@ -192,7 +212,12 @@ export function getFilesObject (file, inputDir = './', outputDir = './cache') {
   if (!dtFileExists || !atFileExists || !sourceFileExists) {
     console.warn(`[getFilesObject] Missing files for: ${file}`)
     if (!dtFileExists) console.warn(`  - DT file not found: ${dtFile}`)
-    if (!atFileExists) console.warn(`  - AT file not found: ${atFileFull}`)
+    if (!atFileExists) {
+      console.warn(`  - AT file not found: ${atFileCandidateFull}`)
+      if (fs.existsSync(atSymlinkCandidateFull)) {
+        console.warn(`  - AT symlink exists but target is missing/invalid: ${atSymlinkCandidateFull}`)
+      }
+    }
     if (!sourceFileExists) console.warn(`  - Source file not found: ${sourceFileFull}`)
     return undefined
   }
@@ -253,6 +278,13 @@ export function getFilesObject (file, inputDir = './', outputDir = './cache') {
       },
       get ftSvgDate () {
         return gitFileDate(this.ftSvgPath)
+      },
+      get fsSvgPath () {
+        const basePath = path.join(outputDir, this.at.replace('_at.xml', '_fs.svg').replace('/annotatedTranscripts/', '/fluidSystems/'))
+        return insertPageFolder(basePath, this.page)
+      },
+      get fsSvgDate () {
+        return gitFileDate(this.fsSvgPath)
       },
       get ftHtmlPath () {
         const basePath = this.ftSvgPath.replace('.svg', '.html').replace('/fluidTranscripts/', '/fluidHTML/')

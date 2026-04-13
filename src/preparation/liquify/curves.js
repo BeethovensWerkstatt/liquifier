@@ -24,11 +24,11 @@ export const liquifyCurves = (ftSvg, dtSvg, atMeiDom, tools) => {
         id: atId,
         localName: 'curve',
         states: {
-          findings: null,
-          diplomatic: null,
+          finding: null,
+          normalization: null,
           supplements: { type: 'd', val: atPath?.getAttribute('d') || '' },
-          conjectures: { type: 'd', val: atPath?.getAttribute('d') || '' },
-          annotated: { type: 'd', val: atPath?.getAttribute('d') || '' }
+          regulation: { type: 'd', val: atPath?.getAttribute('d') || '' },
+          interventions: { type: 'd', val: atPath?.getAttribute('d') || '' }
         }
       })
       return
@@ -47,11 +47,11 @@ export const liquifyCurves = (ftSvg, dtSvg, atMeiDom, tools) => {
         id: atId,
         localName: 'curve',
         states: {
-          findings: null,
-          diplomatic: null,
+          finding: null,
+          normalization: null,
           supplements: { type: 'd', val: atPath?.getAttribute('d') || '' },
-          conjectures: { type: 'd', val: atPath?.getAttribute('d') || '' },
-          annotated: { type: 'd', val: atPath?.getAttribute('d') || '' }
+          regulation: { type: 'd', val: atPath?.getAttribute('d') || '' },
+          interventions: { type: 'd', val: atPath?.getAttribute('d') || '' }
         }
       })
       return
@@ -84,11 +84,11 @@ export const liquifyCurves = (ftSvg, dtSvg, atMeiDom, tools) => {
           id: `${atId}-${index}`,
           localName: 'curve',
           states: {
-            findings: null,
-            diplomatic: null,
+            finding: null,
+            normalization: null,
             supplements: { type: 'd', val: atPath?.getAttribute('d') || '' },
-            conjectures: { type: 'd', val: atPath?.getAttribute('d') || '' },
-            annotated: { type: 'd', val: atPath?.getAttribute('d') || '' }
+            regulation: { type: 'd', val: atPath?.getAttribute('d') || '' },
+            interventions: { type: 'd', val: atPath?.getAttribute('d') || '' }
           }
         })
         return
@@ -106,11 +106,11 @@ export const liquifyCurves = (ftSvg, dtSvg, atMeiDom, tools) => {
           id: `${atId}-path-${index}`,
           localName: 'curve-path',
           states: {
-            findings: { type: 'd', val: newD },
-            diplomatic: { type: 'd', val: newD },
+            finding: { type: 'd', val: newD },
+            normalization: { type: 'd', val: newD },
             supplements: { type: 'd', val: atD },
-            conjectures: { type: 'd', val: atD },
-            annotated: { type: 'd', val: atD }
+            regulation: { type: 'd', val: atD },
+            interventions: { type: 'd', val: atD }
           }
         })
       }

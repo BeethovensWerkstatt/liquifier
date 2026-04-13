@@ -11,8 +11,8 @@ import { computeTextDiff } from '../../utils/textDiff.js'
  * Case 1: AT has symbol (use element), DT has text
  *   Creates cross-fade animation from DT text to AT symbol.
  *   Animation sequence:
- *   - findings: DT text at DT position (DT opacity: 1, AT opacity: 0)
- *   - diplomatic: Cross-fade (DT opacity: 0, AT opacity: 1) at DT position
+ *   - finding: DT text at DT position (DT opacity: 1, AT opacity: 0)
+ *   - normalization: Cross-fade (DT opacity: 0, AT opacity: 1) at DT position
  *   - supplements: AT symbol at AT position (DT opacity: 0, AT opacity: 1)
  *
  * Case 2: AT has text, DT has text
@@ -48,18 +48,18 @@ export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
 
       if (!dtIds || dtIds.length === 0) {
       // AT element has no DT correspondence - it's editorial
-      // Fade in from diplomatic onward
+      // Fade in from normalization onward
         logger.debug(`[liquifyDynams] No DT correspondence for dynam ${atId}, fading in (editorial)`)
         setAnimation({
           element: atDynam,
           id: atId,
           localName: 'dynam',
           states: {
-            findings: null,
-            diplomatic: null,
+            finding: null,
+            normalization: null,
             supplements: { type: 'translate', val: '0 0' },
-            conjectures: { type: 'translate', val: '0 0' },
-            annotated: { type: 'translate', val: '0 0' }
+            regulation: { type: 'translate', val: '0 0' },
+            interventions: { type: 'translate', val: '0 0' }
           }
         })
         return
@@ -123,11 +123,11 @@ export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
           id: atId,
           localName: 'dynam',
           states: {
-            findings: null,
-            diplomatic: null,
+            finding: null,
+            normalization: null,
             supplements: { type: 'translate', val: '0 0' },
-            conjectures: { type: 'translate', val: '0 0' },
-            annotated: { type: 'translate', val: '0 0' }
+            regulation: { type: 'translate', val: '0 0' },
+            interventions: { type: 'translate', val: '0 0' }
           }
         })
         return
@@ -142,11 +142,11 @@ export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
           id: atId,
           localName: 'dynam',
           states: {
-            findings: null,
-            diplomatic: null,
+            finding: null,
+            normalization: null,
             supplements: { type: 'translate', val: '0 0' },
-            conjectures: { type: 'translate', val: '0 0' },
-            annotated: { type: 'translate', val: '0 0' }
+            regulation: { type: 'translate', val: '0 0' },
+            interventions: { type: 'translate', val: '0 0' }
           }
         })
         return
@@ -163,11 +163,11 @@ export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
           id: atId,
           localName: 'dynam',
           states: {
-            findings: null,
-            diplomatic: null,
+            finding: null,
+            normalization: null,
             supplements: { type: 'translate', val: '0 0' },
-            conjectures: { type: 'translate', val: '0 0' },
-            annotated: { type: 'translate', val: '0 0' }
+            regulation: { type: 'translate', val: '0 0' },
+            interventions: { type: 'translate', val: '0 0' }
           }
         })
         return
@@ -203,39 +203,39 @@ export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
           id: atId,
           localName: 'dynam',
           states: {
-            findings: { type: 'translate', val: `${translateX} ${translateY}` },
-            diplomatic: { type: 'translate', val: `${translateX} ${translateY}` },
+            finding: { type: 'translate', val: `${translateX} ${translateY}` },
+            normalization: { type: 'translate', val: `${translateX} ${translateY}` },
             supplements: { type: 'translate', val: '0 0' },
-            conjectures: { type: 'translate', val: '0 0' },
-            annotated: { type: 'translate', val: '0 0' }
+            regulation: { type: 'translate', val: '0 0' },
+            interventions: { type: 'translate', val: '0 0' }
           }
         })
 
-        // Animate DT text: visible at findings and diplomatic, fades out between diplomatic and supplements
+        // Animate DT text: visible at finding and normalization, fades out between normalization and supplements
         setAnimation({
           element: dtTextClone,
           id: `${atId}-dt`,
           localName: 'dynam-dt-text',
           states: {
-            findings: { type: 'opacity', val: '1' },
-            diplomatic: { type: 'opacity', val: '1' },
+            finding: { type: 'opacity', val: '1' },
+            normalization: { type: 'opacity', val: '1' },
             supplements: { type: 'opacity', val: '0' },
-            conjectures: { type: 'opacity', val: '0' },
-            annotated: { type: 'opacity', val: '0' }
+            regulation: { type: 'opacity', val: '0' },
+            interventions: { type: 'opacity', val: '0' }
           }
         })
 
-        // Animate AT symbol: hidden at findings and diplomatic, fades in between diplomatic and supplements
+        // Animate AT symbol: hidden at finding and normalization, fades in between normalization and supplements
         setAnimation({
           element: atElement,
           id: `${atId}-at`,
           localName: 'dynam-at-symbol',
           states: {
-            findings: { type: 'opacity', val: '0' },
-            diplomatic: { type: 'opacity', val: '0' },
+            finding: { type: 'opacity', val: '0' },
+            normalization: { type: 'opacity', val: '0' },
             supplements: { type: 'opacity', val: '1' },
-            conjectures: { type: 'opacity', val: '1' },
-            annotated: { type: 'opacity', val: '1' }
+            regulation: { type: 'opacity', val: '1' },
+            interventions: { type: 'opacity', val: '1' }
           }
         })
 
@@ -300,25 +300,25 @@ export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
               id: `${atId}-text-common-${index}`,
               localName: 'dynam-text-common',
               states: {
-                findings: { type: 'opacity', val: '1' },
-                diplomatic: { type: 'opacity', val: '1' },
+                finding: { type: 'opacity', val: '1' },
+                normalization: { type: 'opacity', val: '1' },
                 supplements: { type: 'opacity', val: '1' },
-                conjectures: { type: 'opacity', val: '1' },
-                annotated: { type: 'opacity', val: '1' }
+                regulation: { type: 'opacity', val: '1' },
+                interventions: { type: 'opacity', val: '1' }
               }
             })
           } else if (segment.type === 'delete') {
-          // DT-only text: visible at findings/diplomatic, hidden and doesn't occupy space from supplements
+          // DT-only text: visible at finding/normalization, hidden and doesn't occupy space from supplements
             setAnimation({
               element: segmentTspan,
               id: `${atId}-text-delete-${index}`,
               localName: 'dynam-text-delete',
               states: {
-                findings: { type: 'opacity', val: '1' },
-                diplomatic: { type: 'opacity', val: '1' },
+                finding: { type: 'opacity', val: '1' },
+                normalization: { type: 'opacity', val: '1' },
                 supplements: { type: 'opacity', val: '0' },
-                conjectures: { type: 'opacity', val: '0' },
-                annotated: { type: 'opacity', val: '0' }
+                regulation: { type: 'opacity', val: '0' },
+                interventions: { type: 'opacity', val: '0' }
               }
             })
             // Make it not occupy space when hidden
@@ -327,15 +327,15 @@ export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
               id: `${atId}-text-delete-display-${index}`,
               localName: 'dynam-text-delete-display',
               states: {
-                findings: { type: 'display', val: 'inline' },
-                diplomatic: { type: 'display', val: 'inline' },
+                finding: { type: 'display', val: 'inline' },
+                normalization: { type: 'display', val: 'inline' },
                 supplements: { type: 'display', val: 'none' },
-                conjectures: { type: 'display', val: 'none' },
-                annotated: { type: 'display', val: 'none' }
+                regulation: { type: 'display', val: 'none' },
+                interventions: { type: 'display', val: 'none' }
               }
             })
           } else if (segment.type === 'insert') {
-          // AT-only text: hidden at findings/diplomatic, fades in at supplements
+          // AT-only text: hidden at finding/normalization, fades in at supplements
           // Add "supplied" class for CSS styling
             segmentTspan.classList.add('supplied')
 
@@ -344,11 +344,11 @@ export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
               id: `${atId}-text-insert-${index}`,
               localName: 'dynam-text-insert',
               states: {
-                findings: { type: 'opacity', val: '0' },
-                diplomatic: { type: 'opacity', val: '0' },
+                finding: { type: 'opacity', val: '0' },
+                normalization: { type: 'opacity', val: '0' },
                 supplements: { type: 'opacity', val: '1' },
-                conjectures: { type: 'opacity', val: '1' },
-                annotated: { type: 'opacity', val: '1' }
+                regulation: { type: 'opacity', val: '1' },
+                interventions: { type: 'opacity', val: '1' }
               }
             })
             // Make it not occupy space when hidden
@@ -357,11 +357,11 @@ export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
               id: `${atId}-text-insert-display-${index}`,
               localName: 'dynam-text-insert-display',
               states: {
-                findings: { type: 'display', val: 'none' },
-                diplomatic: { type: 'display', val: 'none' },
+                finding: { type: 'display', val: 'none' },
+                normalization: { type: 'display', val: 'none' },
                 supplements: { type: 'display', val: 'inline' },
-                conjectures: { type: 'display', val: 'inline' },
-                annotated: { type: 'display', val: 'inline' }
+                regulation: { type: 'display', val: 'inline' },
+                interventions: { type: 'display', val: 'inline' }
               }
             })
           }
@@ -373,11 +373,11 @@ export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
           id: atId,
           localName: 'dynam',
           states: {
-            findings: { type: 'translate', val: `${translateX} ${translateY}` },
-            diplomatic: { type: 'translate', val: `${translateX} ${translateY}` },
+            finding: { type: 'translate', val: `${translateX} ${translateY}` },
+            normalization: { type: 'translate', val: `${translateX} ${translateY}` },
             supplements: { type: 'translate', val: '0 0' },
-            conjectures: { type: 'translate', val: '0 0' },
-            annotated: { type: 'translate', val: '0 0' }
+            regulation: { type: 'translate', val: '0 0' },
+            interventions: { type: 'translate', val: '0 0' }
           }
         })
 

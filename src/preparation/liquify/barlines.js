@@ -91,11 +91,11 @@ export const liquifyBarlines = (ftSvg, dtSvg, atMeiDom, tools) => {
           id: `${atId}-barline`,
           localName: 'barline',
           states: {
-            findings: null,
-            diplomatic: null,
+            finding: null,
+            normalization: null,
             supplements: { type: 'd', val: barLine.getAttribute('d') },
-            conjectures: { type: 'd', val: barLine.getAttribute('d') },
-            annotated: { type: 'd', val: barLine.getAttribute('d') }
+            regulation: { type: 'd', val: barLine.getAttribute('d') },
+            interventions: { type: 'd', val: barLine.getAttribute('d') }
           }
         })
       )
@@ -115,11 +115,11 @@ export const liquifyBarlines = (ftSvg, dtSvg, atMeiDom, tools) => {
           id: `${atId}-barline`,
           localName: 'barline',
           states: {
-            findings: null,
-            diplomatic: null,
+            finding: null,
+            normalization: null,
             supplements: { type: 'd', val: barLine.getAttribute('d') },
-            conjectures: { type: 'd', val: barLine.getAttribute('d') },
-            annotated: { type: 'd', val: barLine.getAttribute('d') }
+            regulation: { type: 'd', val: barLine.getAttribute('d') },
+            interventions: { type: 'd', val: barLine.getAttribute('d') }
           }
         })
       )
@@ -152,11 +152,11 @@ export const liquifyBarlines = (ftSvg, dtSvg, atMeiDom, tools) => {
           id: `${atId}-barline-${index}`,
           localName: 'barline',
           states: {
-            findings: null,
-            diplomatic: null,
+            finding: null,
+            normalization: null,
             supplements: { type: 'd', val: currentBarLine.getAttribute('d') },
-            conjectures: { type: 'd', val: currentBarLine.getAttribute('d') },
-            annotated: { type: 'd', val: currentBarLine.getAttribute('d') }
+            regulation: { type: 'd', val: currentBarLine.getAttribute('d') },
+            interventions: { type: 'd', val: currentBarLine.getAttribute('d') }
           }
         })
         return
@@ -184,11 +184,11 @@ export const liquifyBarlines = (ftSvg, dtSvg, atMeiDom, tools) => {
         id: `${atId}-barline-${index}`,
         localName: 'barline',
         states: {
-          findings: { type: 'd', val: dtVal },
-          diplomatic: { type: 'd', val: dtVal },
+          finding: { type: 'd', val: dtVal },
+          normalization: { type: 'd', val: dtVal },
           supplements: { type: 'd', val: atVal },
-          conjectures: { type: 'd', val: atVal },
-          annotated: { type: 'd', val: atVal }
+          regulation: { type: 'd', val: atVal },
+          interventions: { type: 'd', val: atVal }
         }
       })
     })

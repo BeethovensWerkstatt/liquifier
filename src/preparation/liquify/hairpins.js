@@ -103,11 +103,11 @@ function handleEditorialHairpin (atHairpinGroup, setAnimation) {
     id: atHairpinGroup.getAttribute('data-id'),
     localName: 'hairpin',
     states: {
-      findings: null,
-      diplomatic: null,
+      finding: null,
+      normalization: null,
       supplements: { type: 'display', val: 'inline' },
-      conjectures: { type: 'display', val: 'inline' },
-      annotated: { type: 'display', val: 'inline' }
+      regulation: { type: 'display', val: 'inline' },
+      interventions: { type: 'display', val: 'inline' }
     }
   })
 }
@@ -356,7 +356,7 @@ function animateHairpinLeg (polyline, atPoints, dtPoints, id, getNewPos, setAnim
   const atPointsStr = atPoints.map(p => `${p.x},${p.y}`).join(' ')
   const findingsPointsStr = findingsPoints.map(p => `${p.x},${p.y}`).join(' ')
 
-  logger.debug(`[liquifyHairpins] Animating leg ${id}: AT ${atPointsStr} → findings ${findingsPointsStr}`)
+  logger.debug(`[liquifyHairpins] Animating leg ${id}: AT ${atPointsStr} -> finding ${findingsPointsStr}`)
 
   // Apply animation
   setAnimation({
@@ -364,11 +364,11 @@ function animateHairpinLeg (polyline, atPoints, dtPoints, id, getNewPos, setAnim
     id,
     localName: 'hairpin-leg',
     states: {
-      findings: { type: 'points', val: findingsPointsStr },
-      diplomatic: { type: 'points', val: findingsPointsStr },
+      finding: { type: 'points', val: findingsPointsStr },
+      normalization: { type: 'points', val: findingsPointsStr },
       supplements: { type: 'points', val: atPointsStr },
-      conjectures: { type: 'points', val: atPointsStr },
-      annotated: { type: 'points', val: atPointsStr }
+      regulation: { type: 'points', val: atPointsStr },
+      interventions: { type: 'points', val: atPointsStr }
     }
   })
 }

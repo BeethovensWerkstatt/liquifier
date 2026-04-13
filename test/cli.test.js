@@ -11,7 +11,7 @@ test('parseCliArguments uses defaults when no args are provided', () => {
 
   assert.equal(parsed.quiet, false)
   assert.equal(parsed.verbose, false)
-  assert.deepEqual(parsed.types, ['at', 'dt', 'ft', 'editedAt'])
+  assert.deepEqual(parsed.types, ['at', 'dt', 'ft', 'editedAt', 'fluidSystems'])
   assert.deepEqual(parsed.media, ['svg', 'midi', 'html'])
   assert.equal(parsed.inputDir, './')
   assert.equal(parsed.outputDir, './cache')

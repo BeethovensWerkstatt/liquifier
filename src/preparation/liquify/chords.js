@@ -44,11 +44,11 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
           id: atId,
           localName: 'chord',
           states: {
-            findings: null,
-            diplomatic: null,
+            finding: null,
+            normalization: null,
             supplements: { type: 'translate', val: '0 0' },
-            conjectures: { type: 'translate', val: '0 0' },
-            annotated: { type: 'translate', val: '0 0' }
+            regulation: { type: 'translate', val: '0 0' },
+            interventions: { type: 'translate', val: '0 0' }
           }
         })
         return
@@ -124,11 +124,11 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
             id: `${atHead.id}-notehead`,
             localName: 'notehead',
             states: {
-              findings: { type: 'translate', val: dtVal },
-              diplomatic: { type: 'translate', val: dtVal },
+              finding: { type: 'translate', val: dtVal },
+              normalization: { type: 'translate', val: dtVal },
               supplements: { type: 'translate', val: atVal },
-              conjectures: { type: 'translate', val: atVal },
-              annotated: { type: 'translate', val: atVal }
+              regulation: { type: 'translate', val: atVal },
+              interventions: { type: 'translate', val: atVal }
             }
           })
         }
@@ -162,11 +162,11 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
               id: ledgerId,
               localName: 'ledgerLine',
               states: {
-                findings: { type: 'translate', val: dtVal },
-                diplomatic: { type: 'translate', val: dtVal },
+                finding: { type: 'translate', val: dtVal },
+                normalization: { type: 'translate', val: dtVal },
                 supplements: { type: 'translate', val: atVal },
-                conjectures: { type: 'translate', val: atVal },
-                annotated: { type: 'translate', val: atVal }
+                regulation: { type: 'translate', val: atVal },
+                interventions: { type: 'translate', val: atVal }
               }
             })
           }
@@ -220,11 +220,11 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
               id: `${atId}-stem`,
               localName: 'stem',
               states: {
-                findings: { type: 'translate', val: atNotesPositions[0].dtVal },
-                diplomatic: { type: 'translate', val: atNotesPositions[0].dtVal },
+                finding: { type: 'translate', val: atNotesPositions[0].dtVal },
+                normalization: { type: 'translate', val: atNotesPositions[0].dtVal },
                 supplements: { type: 'translate', val: atNotesPositions[0].atVal },
-                conjectures: { type: 'translate', val: atNotesPositions[0].atVal },
-                annotated: { type: 'translate', val: atNotesPositions[0].atVal }
+                regulation: { type: 'translate', val: atNotesPositions[0].atVal },
+                interventions: { type: 'translate', val: atNotesPositions[0].atVal }
               }
             })
           } else {
@@ -239,11 +239,11 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
               id: `${atId}-stem`,
               localName: 'stem',
               states: {
-                findings: { type: 'translate', val: atNotesPositions[0].dtVal },
-                diplomatic: { type: 'translate', val: atNotesPositions[0].dtVal },
+                finding: { type: 'translate', val: atNotesPositions[0].dtVal },
+                normalization: { type: 'translate', val: atNotesPositions[0].dtVal },
                 supplements: { type: 'translate', val: atNotesPositions[0].atVal },
-                conjectures: { type: 'translate', val: atNotesPositions[0].atVal },
-                annotated: { type: 'translate', val: atNotesPositions[0].atVal }
+                regulation: { type: 'translate', val: atNotesPositions[0].atVal },
+                interventions: { type: 'translate', val: atNotesPositions[0].atVal }
               }
             })
           }
@@ -261,11 +261,11 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
               id: `${atId}-stem`,
               localName: 'stem',
               states: {
-                findings: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].dtVal },
-                diplomatic: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].dtVal },
+                finding: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].dtVal },
+                normalization: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].dtVal },
                 supplements: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].atVal },
-                conjectures: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].atVal },
-                annotated: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].atVal }
+                regulation: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].atVal },
+                interventions: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].atVal }
               }
             })
           } else {
@@ -280,11 +280,11 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
               id: `${atId}-stem`,
               localName: 'stem',
               states: {
-                findings: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].dtVal },
-                diplomatic: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].dtVal },
+                finding: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].dtVal },
+                normalization: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].dtVal },
                 supplements: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].atVal },
-                conjectures: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].atVal },
-                annotated: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].atVal }
+                regulation: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].atVal },
+                interventions: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].atVal }
               }
             })
           }
@@ -295,18 +295,18 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
           id: `${atId}-stem-d`,
           localName: 'stem',
           states: {
-            findings: { type: 'd', val: findingsD },
-            diplomatic: { type: 'd', val: diplomaticD },
+            finding: { type: 'd', val: findingsD },
+            normalization: { type: 'd', val: diplomaticD },
             supplements: { type: 'd', val: atD },
-            conjectures: { type: 'd', val: atD },
-            annotated: { type: 'd', val: atD }
+            regulation: { type: 'd', val: atD },
+            interventions: { type: 'd', val: atD }
           }
         })
 
         // Animate the flag if present
         const flag = chord.querySelector('.flag')
         if (flag) {
-          // Calculate the difference in stem end Y position for findings and diplomatic
+          // Calculate the difference in stem end Y position for finding and normalization
           const originalStemEndY = stemDir === 'up' ? Math.min(atY1, atY2) : Math.max(atY1, atY2)
           const findingsDiff = findingsStemEndY - originalStemEndY
           const diplomaticDiff = diplomaticStemEndY - originalStemEndY
@@ -321,11 +321,11 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
             id: `${atId}-flag`,
             localName: 'flag',
             states: {
-              findings: { type: 'translate', val: findingsFlagVal },
-              diplomatic: { type: 'translate', val: diplomaticFlagVal },
+              finding: { type: 'translate', val: findingsFlagVal },
+              normalization: { type: 'translate', val: diplomaticFlagVal },
               supplements: { type: 'translate', val: stemVals[0] },
-              conjectures: { type: 'translate', val: stemVals[0] },
-              annotated: { type: 'translate', val: stemVals[0] }
+              regulation: { type: 'translate', val: stemVals[0] },
+              interventions: { type: 'translate', val: stemVals[0] }
             }
           })
         }

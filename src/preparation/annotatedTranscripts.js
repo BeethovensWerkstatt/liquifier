@@ -212,6 +212,8 @@ export function resolveSbIndicators (svgDom, atDom, getters) {
  * @param {*} atDom
  */
 export function addSbIndicators (svgDom, atDom) {
+  const doc = atDom.ownerDocument || atDom
+
   atDom.querySelectorAll('annot[class="#bw_writingZoneBegin"]').forEach((annot) => {
     annot.setAttribute('type', '#bw_writingZoneBegin')
   })
@@ -233,7 +235,7 @@ export function addSbIndicators (svgDom, atDom) {
     if (i > 0) {
       const measure = getMeasure(sb)
       if (measure) {
-        const dir = document.createElementNS('http://www.music-encoding.org/ns/mei', 'dir')
+        const dir = doc.createElementNS('http://www.music-encoding.org/ns/mei', 'dir')
         const pb = sb.previousElementSibling.localName === 'pb'
         dir.innerHTML = pb ? '⫪' : '⊤'
         dir.setAttribute('staff', 1)

@@ -64,7 +64,7 @@ export function liquifyDirs (ftSvg, dtSvg, atMeiDom, tools) {
     if (!dtIds || dtIds.length === 0) {
       logger.debug(`[liquifyDirs] AT dir ${atId} has no DT correspondence (editorial), fade in from supplements`)
 
-      // Handle editorial dirs: fade in from supplements (hidden in findings/diplomatic)
+      // Handle editorial dirs: fade in from supplements (hidden in finding/normalization)
       const atDirGroup = ftSvg.querySelector(`g[data-id="${atId}"][data-class="dir"]`)
       if (!atDirGroup) {
         logger.warn(`[liquifyDirs] Could not find editorial AT dir group x${atId} in FT SVG`)
@@ -94,11 +94,11 @@ export function liquifyDirs (ftSvg, dtSvg, atMeiDom, tools) {
           id: `${atId}_editorial_${index}`,
           localName: 'tspan',
           states: {
-            findings: { type: 'opacity', val: '0' },
-            diplomatic: { type: 'opacity', val: '0' },
+            finding: { type: 'opacity', val: '0' },
+            normalization: { type: 'opacity', val: '0' },
             supplements: { type: 'opacity', val: '1' },
-            conjectures: { type: 'opacity', val: '1' },
-            annotated: { type: 'opacity', val: '1' }
+            regulation: { type: 'opacity', val: '1' },
+            interventions: { type: 'opacity', val: '1' }
           }
         })
 
@@ -108,11 +108,11 @@ export function liquifyDirs (ftSvg, dtSvg, atMeiDom, tools) {
           id: `${atId}_editorial_${index}_display`,
           localName: 'tspan',
           states: {
-            findings: { type: 'display', val: 'none' },
-            diplomatic: { type: 'display', val: 'none' },
+            finding: { type: 'display', val: 'none' },
+            normalization: { type: 'display', val: 'none' },
             supplements: { type: 'display', val: 'inline' },
-            conjectures: { type: 'display', val: 'inline' },
-            annotated: { type: 'display', val: 'inline' }
+            regulation: { type: 'display', val: 'inline' },
+            interventions: { type: 'display', val: 'inline' }
           }
         })
       })
@@ -285,25 +285,25 @@ function animateLineByLine (atDirGroup, dtLines, atLines, getNewPos, setAnimatio
           id: `${atId}_line${i}_seg${index}`,
           localName: 'tspan',
           states: {
-            findings: { type: 'opacity', val: '1' },
-            diplomatic: { type: 'opacity', val: '1' },
+            finding: { type: 'opacity', val: '1' },
+            normalization: { type: 'opacity', val: '1' },
             supplements: { type: 'opacity', val: '1' },
-            conjectures: { type: 'opacity', val: '1' },
-            annotated: { type: 'opacity', val: '1' }
+            regulation: { type: 'opacity', val: '1' },
+            interventions: { type: 'opacity', val: '1' }
           }
         })
       } else if (segment.type === 'delete') {
-        // Deleted text: visible in findings/diplomatic, fade out, then hide
+        // Deleted text: visible in finding/normalization, fade out, then hide
         setAnimation({
           element: segmentTspan,
           id: `${atId}_line${i}_seg${index}`,
           localName: 'tspan',
           states: {
-            findings: { type: 'opacity', val: '1' },
-            diplomatic: { type: 'opacity', val: '1' },
+            finding: { type: 'opacity', val: '1' },
+            normalization: { type: 'opacity', val: '1' },
             supplements: { type: 'opacity', val: '0' },
-            conjectures: { type: 'opacity', val: '0' },
-            annotated: { type: 'opacity', val: '0' }
+            regulation: { type: 'opacity', val: '0' },
+            interventions: { type: 'opacity', val: '0' }
           }
         })
         setAnimation({
@@ -311,26 +311,26 @@ function animateLineByLine (atDirGroup, dtLines, atLines, getNewPos, setAnimatio
           id: `${atId}_line${i}_seg${index}_display`,
           localName: 'tspan',
           states: {
-            findings: { type: 'display', val: 'inline' },
-            diplomatic: { type: 'display', val: 'inline' },
+            finding: { type: 'display', val: 'inline' },
+            normalization: { type: 'display', val: 'inline' },
             supplements: { type: 'display', val: 'none' },
-            conjectures: { type: 'display', val: 'none' },
-            annotated: { type: 'display', val: 'none' }
+            regulation: { type: 'display', val: 'none' },
+            interventions: { type: 'display', val: 'none' }
           }
         })
       } else if (segment.type === 'insert') {
-        // Inserted text: hidden in findings/diplomatic, fade in at supplements
+        // Inserted text: hidden in finding/normalization, fade in at supplements
         segmentTspan.classList.add('supplied')
         setAnimation({
           element: segmentTspan,
           id: `${atId}_line${i}_seg${index}`,
           localName: 'tspan',
           states: {
-            findings: { type: 'opacity', val: '0' },
-            diplomatic: { type: 'opacity', val: '0' },
+            finding: { type: 'opacity', val: '0' },
+            normalization: { type: 'opacity', val: '0' },
             supplements: { type: 'opacity', val: '1' },
-            conjectures: { type: 'opacity', val: '1' },
-            annotated: { type: 'opacity', val: '1' }
+            regulation: { type: 'opacity', val: '1' },
+            interventions: { type: 'opacity', val: '1' }
           }
         })
         setAnimation({
@@ -338,11 +338,11 @@ function animateLineByLine (atDirGroup, dtLines, atLines, getNewPos, setAnimatio
           id: `${atId}_line${i}_seg${index}_display`,
           localName: 'tspan',
           states: {
-            findings: { type: 'display', val: 'none' },
-            diplomatic: { type: 'display', val: 'none' },
+            finding: { type: 'display', val: 'none' },
+            normalization: { type: 'display', val: 'none' },
             supplements: { type: 'display', val: 'inline' },
-            conjectures: { type: 'display', val: 'inline' },
-            annotated: { type: 'display', val: 'inline' }
+            regulation: { type: 'display', val: 'inline' },
+            interventions: { type: 'display', val: 'inline' }
           }
         })
       }
@@ -368,11 +368,11 @@ function animateLineByLine (atDirGroup, dtLines, atLines, getNewPos, setAnimatio
       id: atId,
       localName: 'dir',
       states: {
-        findings: { type: 'translate', val: `${translateX} ${translateY}` },
-        diplomatic: { type: 'translate', val: `${translateX} ${translateY}` },
+        finding: { type: 'translate', val: `${translateX} ${translateY}` },
+        normalization: { type: 'translate', val: `${translateX} ${translateY}` },
         supplements: { type: 'translate', val: '0 0' },
-        conjectures: { type: 'translate', val: '0 0' },
-        annotated: { type: 'translate', val: '0 0' }
+        regulation: { type: 'translate', val: '0 0' },
+        interventions: { type: 'translate', val: '0 0' }
       }
     })
   }
@@ -392,8 +392,8 @@ function animateLineByLine (atDirGroup, dtLines, atLines, getNewPos, setAnimatio
  * 5. Calculate sequential x-offsets for proper AT positioning (since font is proportional)
  *
  * POSITIONING CHALLENGE:
- * - In findings/diplomatic states: Each segment translates to its DT position independently
- * - In supplements/conjectures/annotated: Segments converge to AT, forming continuous text
+ * - In finding/normalization states: Each segment translates to its DT position independently
+ * - In regulation/supplements/interventions: Segments converge to AT, forming continuous text
  * - Problem: Font is proportional (not monospaced), so character widths vary significantly
  * - Solution: Use average character width (~162 units for 405px font) with extra spacing (~12%)
  *   This creates slightly uneven gaps but ensures readability without complex width calculations
@@ -502,7 +502,7 @@ function animateMultiCorrespondence (atDirGroup, dtDirData, atLine, getNewPos, s
   //
   // Each segment gets its own <g> with:
   // 1. A <text> element positioned at the correct x-offset for sequential rendering in AT
-  // 2. An <animateTransform> that moves the entire group to its DT position in findings/diplomatic
+  // 2. An <animateTransform> that moves the entire group to its DT position in finding/normalization
 
   // Remove the original text element and replace with groups for each segment
   atDirGroup.removeChild(atTextElement)
@@ -578,25 +578,25 @@ function animateMultiCorrespondence (atDirGroup, dtDirData, atLine, getNewPos, s
           id: `${atId}_seg${globalSegIndex}`,
           localName: 'tspan',
           states: {
-            findings: { type: 'opacity', val: '1' },
-            diplomatic: { type: 'opacity', val: '1' },
+            finding: { type: 'opacity', val: '1' },
+            normalization: { type: 'opacity', val: '1' },
             supplements: { type: 'opacity', val: '1' },
-            conjectures: { type: 'opacity', val: '1' },
-            annotated: { type: 'opacity', val: '1' }
+            regulation: { type: 'opacity', val: '1' },
+            interventions: { type: 'opacity', val: '1' }
           }
         })
       } else if (diffSeg.type === 'delete') {
-        // Deleted text: visible in findings/diplomatic, then fade out
+        // Deleted text: visible in finding/normalization, then fade out
         setAnimation({
           element: textTspan,
           id: `${atId}_seg${globalSegIndex}`,
           localName: 'tspan',
           states: {
-            findings: { type: 'opacity', val: '1' },
-            diplomatic: { type: 'opacity', val: '1' },
+            finding: { type: 'opacity', val: '1' },
+            normalization: { type: 'opacity', val: '1' },
             supplements: { type: 'opacity', val: '0' },
-            conjectures: { type: 'opacity', val: '0' },
-            annotated: { type: 'opacity', val: '0' }
+            regulation: { type: 'opacity', val: '0' },
+            interventions: { type: 'opacity', val: '0' }
           }
         })
         setAnimation({
@@ -604,26 +604,26 @@ function animateMultiCorrespondence (atDirGroup, dtDirData, atLine, getNewPos, s
           id: `${atId}_seg${globalSegIndex}_display`,
           localName: 'tspan',
           states: {
-            findings: { type: 'display', val: 'inline' },
-            diplomatic: { type: 'display', val: 'inline' },
+            finding: { type: 'display', val: 'inline' },
+            normalization: { type: 'display', val: 'inline' },
             supplements: { type: 'display', val: 'none' },
-            conjectures: { type: 'display', val: 'none' },
-            annotated: { type: 'display', val: 'none' }
+            regulation: { type: 'display', val: 'none' },
+            interventions: { type: 'display', val: 'none' }
           }
         })
       } else if (diffSeg.type === 'insert') {
-        // Inserted text: hidden in findings/diplomatic, fade in at supplements
+        // Inserted text: hidden in finding/normalization, fade in at supplements
         textTspan.classList.add('supplied')
         setAnimation({
           element: textTspan,
           id: `${atId}_seg${globalSegIndex}`,
           localName: 'tspan',
           states: {
-            findings: { type: 'opacity', val: '0' },
-            diplomatic: { type: 'opacity', val: '0' },
+            finding: { type: 'opacity', val: '0' },
+            normalization: { type: 'opacity', val: '0' },
             supplements: { type: 'opacity', val: '1' },
-            conjectures: { type: 'opacity', val: '1' },
-            annotated: { type: 'opacity', val: '1' }
+            regulation: { type: 'opacity', val: '1' },
+            interventions: { type: 'opacity', val: '1' }
           }
         })
         setAnimation({
@@ -631,11 +631,11 @@ function animateMultiCorrespondence (atDirGroup, dtDirData, atLine, getNewPos, s
           id: `${atId}_seg${globalSegIndex}_display`,
           localName: 'tspan',
           states: {
-            findings: { type: 'display', val: 'none' },
-            diplomatic: { type: 'display', val: 'none' },
+            finding: { type: 'display', val: 'none' },
+            normalization: { type: 'display', val: 'none' },
             supplements: { type: 'display', val: 'inline' },
-            conjectures: { type: 'display', val: 'inline' },
-            annotated: { type: 'display', val: 'inline' }
+            regulation: { type: 'display', val: 'inline' },
+            interventions: { type: 'display', val: 'inline' }
           }
         })
       }
@@ -654,11 +654,11 @@ function animateMultiCorrespondence (atDirGroup, dtDirData, atLine, getNewPos, s
         id: `${atId}_group${segIndex}`,
         localName: 'g',
         states: {
-          findings: { type: 'translate', val: `${translateX} ${translateY}` },
-          diplomatic: { type: 'translate', val: `${translateX} ${translateY}` },
+          finding: { type: 'translate', val: `${translateX} ${translateY}` },
+          normalization: { type: 'translate', val: `${translateX} ${translateY}` },
           supplements: { type: 'translate', val: '0 0' },
-          conjectures: { type: 'translate', val: '0 0' },
-          annotated: { type: 'translate', val: '0 0' }
+          regulation: { type: 'translate', val: '0 0' },
+          interventions: { type: 'translate', val: '0 0' }
         }
       })
     }
@@ -717,11 +717,11 @@ function animateFullText (atDirGroup, dtText, atText, dtPos, atPos, getNewPos, s
         id: `${atId}_seg${index}`,
         localName: 'tspan',
         states: {
-          findings: { type: 'opacity', val: '1' },
-          diplomatic: { type: 'opacity', val: '1' },
+          finding: { type: 'opacity', val: '1' },
+          normalization: { type: 'opacity', val: '1' },
           supplements: { type: 'opacity', val: '1' },
-          conjectures: { type: 'opacity', val: '1' },
-          annotated: { type: 'opacity', val: '1' }
+          regulation: { type: 'opacity', val: '1' },
+          interventions: { type: 'opacity', val: '1' }
         }
       })
     } else if (segment.type === 'delete') {
@@ -730,11 +730,11 @@ function animateFullText (atDirGroup, dtText, atText, dtPos, atPos, getNewPos, s
         id: `${atId}_seg${index}`,
         localName: 'tspan',
         states: {
-          findings: { type: 'opacity', val: '1' },
-          diplomatic: { type: 'opacity', val: '1' },
+          finding: { type: 'opacity', val: '1' },
+          normalization: { type: 'opacity', val: '1' },
           supplements: { type: 'opacity', val: '0' },
-          conjectures: { type: 'opacity', val: '0' },
-          annotated: { type: 'opacity', val: '0' }
+          regulation: { type: 'opacity', val: '0' },
+          interventions: { type: 'opacity', val: '0' }
         }
       })
       setAnimation({
@@ -742,11 +742,11 @@ function animateFullText (atDirGroup, dtText, atText, dtPos, atPos, getNewPos, s
         id: `${atId}_seg${index}_display`,
         localName: 'tspan',
         states: {
-          findings: { type: 'display', val: 'inline' },
-          diplomatic: { type: 'display', val: 'inline' },
+          finding: { type: 'display', val: 'inline' },
+          normalization: { type: 'display', val: 'inline' },
           supplements: { type: 'display', val: 'none' },
-          conjectures: { type: 'display', val: 'none' },
-          annotated: { type: 'display', val: 'none' }
+          regulation: { type: 'display', val: 'none' },
+          interventions: { type: 'display', val: 'none' }
         }
       })
     } else if (segment.type === 'insert') {
@@ -756,11 +756,11 @@ function animateFullText (atDirGroup, dtText, atText, dtPos, atPos, getNewPos, s
         id: `${atId}_seg${index}`,
         localName: 'tspan',
         states: {
-          findings: { type: 'opacity', val: '0' },
-          diplomatic: { type: 'opacity', val: '0' },
+          finding: { type: 'opacity', val: '0' },
+          normalization: { type: 'opacity', val: '0' },
           supplements: { type: 'opacity', val: '1' },
-          conjectures: { type: 'opacity', val: '1' },
-          annotated: { type: 'opacity', val: '1' }
+          regulation: { type: 'opacity', val: '1' },
+          interventions: { type: 'opacity', val: '1' }
         }
       })
       setAnimation({
@@ -768,11 +768,11 @@ function animateFullText (atDirGroup, dtText, atText, dtPos, atPos, getNewPos, s
         id: `${atId}_seg${index}_display`,
         localName: 'tspan',
         states: {
-          findings: { type: 'display', val: 'none' },
-          diplomatic: { type: 'display', val: 'none' },
+          finding: { type: 'display', val: 'none' },
+          normalization: { type: 'display', val: 'none' },
           supplements: { type: 'display', val: 'inline' },
-          conjectures: { type: 'display', val: 'inline' },
-          annotated: { type: 'display', val: 'inline' }
+          regulation: { type: 'display', val: 'inline' },
+          interventions: { type: 'display', val: 'inline' }
         }
       })
     }
@@ -795,11 +795,11 @@ function animateFullText (atDirGroup, dtText, atText, dtPos, atPos, getNewPos, s
       id: atId,
       localName: 'dir',
       states: {
-        findings: { type: 'translate', val: `${diffX} ${diffY}` },
-        diplomatic: { type: 'translate', val: `${diffX} ${diffY}` },
+        finding: { type: 'translate', val: `${diffX} ${diffY}` },
+        normalization: { type: 'translate', val: `${diffX} ${diffY}` },
         supplements: { type: 'translate', val: '0 0' },
-        conjectures: { type: 'translate', val: '0 0' },
-        annotated: { type: 'translate', val: '0 0' }
+        regulation: { type: 'translate', val: '0 0' },
+        interventions: { type: 'translate', val: '0 0' }
       }
     })
   }

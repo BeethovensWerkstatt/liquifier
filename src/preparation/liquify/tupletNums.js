@@ -36,19 +36,19 @@ export const liquifyTupletNums = (ftSvg, dtSvg, atMeiDom, tools) => {
     }
 
     // Tuplet numbers are editorial supplements, so they:
-    // - Don't exist in findings/diplomatic (hidden with opacity: 0)
+    // - Don't exist in finding/normalization (hidden with opacity: 0)
     // - Fade in during supplements phase
-    // - Remain visible in conjectures and annotated
+    // - Remain visible in regulation, supplements, and interventions
     setAnimation({
       element: tupletNum,
       id: tupletId,
       localName: 'tupletNum',
       states: {
-        findings: null,
-        diplomatic: null,
+        finding: null,
+        normalization: null,
         supplements: { type: 'translate', val: '0 0' },
-        conjectures: { type: 'translate', val: '0 0' },
-        annotated: { type: 'translate', val: '0 0' }
+        regulation: { type: 'translate', val: '0 0' },
+        interventions: { type: 'translate', val: '0 0' }
       }
     })
   })

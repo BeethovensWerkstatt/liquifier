@@ -25,6 +25,37 @@ const duration = '5s'
 const repeatCount = 'indefinite'
 const reverseAnimations = false
 
+function buildAtMeasureBlockMap (atMeiDom) {
+  const map = new Map()
+  if (!atMeiDom) return map
+
+  let blockIndex = 0
+  let sawMeasure = false
+  let startNewBlock = false
+
+  atMeiDom.querySelectorAll('section').forEach(section => {
+    Array.from(section.children).forEach(node => {
+      if (node.localName === 'sb') {
+        startNewBlock = sawMeasure
+        return
+      }
+
+      if (node.localName !== 'measure') return
+
+      if (startNewBlock) {
+        blockIndex += 1
+        startNewBlock = false
+      }
+
+      const measureId = node.getAttribute('xml:id')
+      if (measureId) map.set(measureId, blockIndex)
+      sawMeasure = true
+    })
+  })
+
+  return map
+}
+
 /**
  * Calculate the center of DT system based on rastrum bounding boxes
  * Takes into account rotation and the visible viewBox area
@@ -86,7 +117,11 @@ const calculateDtSystemCenter = (svg) => {
  */
 const calculateAtSystemCenter = (svg) => {
   // Get horizontal center from viewBox or width
-  const staffLines = svg.querySelectorAll('g.staff:not(.bounding-box) > path')
+  let staffLines = svg.querySelectorAll('g.staff:not(.bounding-box) > path')
+  if (staffLines.length === 0) {
+    staffLines = svg.querySelectorAll('path.rastrum')
+  }
+
   let top = Infinity
   let bottom = -Infinity
   let left = Infinity
@@ -105,6 +140,15 @@ const calculateAtSystemCenter = (svg) => {
       right = Math.max(right, x2)
     }
   })
+
+  if (!Number.isFinite(top) || !Number.isFinite(bottom) || !Number.isFinite(left)) {
+    const viewBox = (svg.getAttribute('viewBox') || '0 0 0 0').split(' ').map(Number)
+    const [, y, , height] = viewBox
+    return {
+      x: 0,
+      y: Number.isFinite(y) && Number.isFinite(height) ? y + (height / 2) : 0
+    }
+  }
 
   const xCenter = left // left + ((right - left) / 2)
   const yCenter = top + ((bottom - top) / 2)
@@ -129,17 +173,31 @@ export const calculateScaleFactor = (dtSystemSvg, atSystemSvg) => {
     avgDtStaffHeight += parseFloat(rastrum.getAttribute('height')) || 0
   })
   avgDtStaffHeight /= dtRastrums.length || 1
+  const safeDtStaffHeight = Number.isFinite(avgDtStaffHeight) && avgDtStaffHeight > 0 ? avgDtStaffHeight : 1
 
   // Get the AT staff height
-  const firstStaffLines = [...atSystemSvg.querySelector('g.staff:not(.bounding-box)').children].filter(child => child.nodeName.toLowerCase() === 'path')
+  const firstStaff = atSystemSvg.querySelector('g.staff:not(.bounding-box)')
+  if (!firstStaff) return 1
+
+  const firstStaffLines = [...firstStaff.children].filter(child => child.nodeName.toLowerCase() === 'path')
   const atStaffLineYs = firstStaffLines.map(path => {
     const d = path.getAttribute('d')
     return parseFloat(d.split(' ')[1])
-  })
-  const atStaffHeight = Math.abs(atStaffLineYs[4] - atStaffLineYs[0])
+  }).filter(Number.isFinite)
+
+  let atStaffHeight = 0
+  if (atStaffLineYs.length >= 2) {
+    const minY = Math.min(...atStaffLineYs)
+    const maxY = Math.max(...atStaffLineYs)
+    atStaffHeight = Math.abs(maxY - minY)
+  }
+
+  if (!Number.isFinite(atStaffHeight) || atStaffHeight <= 0) {
+    atStaffHeight = safeDtStaffHeight
+  }
 
   // Scale factor to transform DT to match AT
-  return atStaffHeight / avgDtStaffHeight
+  return atStaffHeight / safeDtStaffHeight
 }
 
 /**
@@ -180,7 +238,7 @@ const extractCorrespMappings = (atMeiDom) => {
  * @param {Object} logger - Logger instance for info/debug/warn/error messages
  * @returns {Object} Fluid transcription SVG DOM
  */
-export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, logger) => {
+export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, logger, options = {}) => {
   // Handle both document and element inputs
   const dtSvgElement = dtSystemSvg.documentElement || dtSystemSvg
   const atSvgElement = atSystemSvg.documentElement || atSystemSvg
@@ -197,7 +255,7 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, l
   // Clone AT SVG as the base for fluid transcription
   const ftSvg = atSvgElement.cloneNode(true)
 
-  adjustAtStaffLines(ftSvg)
+  adjustAtStaffLines(ftSvg, atMeiDom)
   adjustDtStaffLines(dtSvgElement)
 
   // helper function that will get the translation between two points
@@ -262,9 +320,32 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, l
     return newD
   }
 
-  animateStaffLines(ftSvg, dtSvgElement, convertD, setAnimation, logger)
+  const stateModel = options.stateModel || 'fluidTranscript'
+  const choiceVerticalOffsets = options.choiceVerticalOffsets instanceof Map
+    ? options.choiceVerticalOffsets
+    : new Map()
 
-  const tools = { getNewPos, convertD, scaleFactor, correspMappings, setAnimation, logger }
+  const getChoiceVerticalOffset = (elementId) => {
+    if (stateModel !== 'fluidSystems') return 0
+    if (!elementId) return 0
+    const offset = choiceVerticalOffsets.get(elementId)
+    return Number.isFinite(offset) ? offset : 0
+  }
+
+  const setAnimationForMode = createAnimationSetter(stateModel)
+
+  animateStaffLines(ftSvg, dtSvgElement, convertD, setAnimationForMode, logger)
+
+  const tools = {
+    getNewPos,
+    convertD,
+    scaleFactor,
+    correspMappings,
+    stateModel,
+    getChoiceVerticalOffset,
+    setAnimation: setAnimationForMode,
+    logger
+  }
 
   liquifyMusic(ftSvg, dtSvgElement, atMeiDom, tools)
 
@@ -278,42 +359,78 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, l
  * Adjust AT staff lines to have only one continuous path per line across all measures
  * @param {Object} svg - AT SVG DOM
  */
-const adjustAtStaffLines = (svg) => {
-  const staffLines = svg.querySelectorAll('g.staff:not(.bounding-box) > path')
+const adjustAtStaffLines = (svg, atMeiDom) => {
+  const measureBlockMap = buildAtMeasureBlockMap(atMeiDom)
+  const systemGroups = svg.querySelectorAll('g.system:not(.bounding-box)')
 
-  let left = Infinity
-  let right = -Infinity
+  systemGroups.forEach(system => {
+    const measures = Array.from(system.querySelectorAll('g.measure:not(.bounding-box)'))
+    if (measures.length === 0) return
 
-  // get left/right extent of staff lines
-  staffLines.forEach(path => {
-    const d = path.getAttribute('d')
-    const match = d.match(/M\s*([\d.-]+)\s+([\d.-]+)\s+L\s*([\d.-]+)\s+([\d.-]+)/)
-    if (match) {
-      left = Math.min(left, parseFloat(match[1]))
-      right = Math.max(right, parseFloat(match[3]))
-    }
-  })
+    const blockToMeasures = new Map()
+    measures.forEach((measure, idx) => {
+      const measureId = measure.getAttribute('data-id')
+      const block = measureBlockMap.has(measureId) ? measureBlockMap.get(measureId) : idx
+      if (!blockToMeasures.has(block)) blockToMeasures.set(block, [])
+      blockToMeasures.get(block).push(measure)
+    })
 
-  svg.querySelectorAll('.measure:not(.bounding-box)').forEach((measure, i) => {
-    const staffLinesInMeasure = measure.querySelectorAll('g.staff:not(.bounding-box) > path')
-    if (i === 0) {
-      // First measure: extend lines to the right
-      staffLinesInMeasure.forEach(path => {
-        const d = path.getAttribute('d')
+    // Remove any previously generated system-level rastrum lines for idempotency.
+    system.querySelectorAll(':scope > g.bw-system-rastrum').forEach(group => group.remove())
+
+    const doc = system.ownerDocument || system
+    Array.from(blockToMeasures.entries()).sort((a, b) => a[0] - b[0]).forEach(([block, blockMeasures]) => {
+      let left = Infinity
+      let right = -Infinity
+
+      blockMeasures.forEach(measure => {
+        measure.querySelectorAll('g.staff:not(.bounding-box) > path').forEach(path => {
+          const d = path.getAttribute('d')
+          const match = d.match(/M\s*([\d.-]+)\s+([\d.-]+)\s+L\s*([\d.-]+)\s+([\d.-]+)/)
+          if (!match) return
+          left = Math.min(left, parseFloat(match[1]))
+          right = Math.max(right, parseFloat(match[3]))
+        })
+      })
+
+      if (!Number.isFinite(left) || !Number.isFinite(right)) return
+
+      const firstMeasure = blockMeasures[0]
+      const templateLines = firstMeasure
+        ? Array.from(firstMeasure.querySelectorAll('g.staff:not(.bounding-box) > path'))
+        : []
+
+      const systemRastrum = doc.createElementNS('http://www.w3.org/2000/svg', 'g')
+      systemRastrum.setAttribute('class', 'bw-system-rastrum')
+      systemRastrum.setAttribute('data-bw-block', String(block))
+
+      templateLines.forEach((template, idx) => {
+        const d = template.getAttribute('d')
         const match = d.match(/M\s*([\d.-]+)\s+([\d.-]+)\s+L\s*([\d.-]+)\s+([\d.-]+)/)
-        if (match) {
-          const y = parseFloat(match[2])
-          const newD = `M${left} ${y} L${right} ${y}`
-          path.setAttribute('d', newD)
-          path.classList.add('rastrum')
-        }
+        if (!match) return
+
+        const y = parseFloat(match[2])
+        const strokeWidth = template.getAttribute('stroke-width')
+        const stroke = template.getAttribute('stroke')
+
+        const line = doc.createElementNS('http://www.w3.org/2000/svg', 'path')
+        line.setAttribute('d', `M${left} ${y} L${right} ${y}`)
+        if (strokeWidth) line.setAttribute('stroke-width', strokeWidth)
+        if (stroke) line.setAttribute('stroke', stroke)
+        line.setAttribute('class', 'rastrum')
+        line.setAttribute('data-bw-block', String(block))
+        line.setAttribute('data-bw-line-index', String(idx))
+        systemRastrum.appendChild(line)
       })
-    } else {
-      // remove staff lines in other measures
-      staffLinesInMeasure.forEach(path => {
-        path.remove()
-      })
-    }
+
+      system.insertBefore(systemRastrum, system.firstChild)
+    })
+
+    measures.forEach((measure, i) => {
+      const staffLinesInMeasure = measure.querySelectorAll('g.staff:not(.bounding-box) > path')
+      // Remove measure-owned staff lines so staff rails are truly system-level.
+      staffLinesInMeasure.forEach(path => path.remove())
+    })
   })
 }
 
@@ -350,15 +467,31 @@ const adjustDtStaffLines = (svg) => {
  * @param {SVGElement} ftSvg - Fluid transcription SVG (cloned from AT)
  * @param {SVGElement} dtSvg - Diplomatic transcript SVG
  * @param {Function} convertD - Function to convert path d attribute: (atD, dtD) => newD
- * @param {Function} setAnimation - Function to create 5-state animations from descriptors
+ * @param {Function} setAnimation - Function to create six-phase animations from descriptors
  * @param {Object} logger - Logger instance
  */
 const animateStaffLines = (ftSvg, dtSvg, convertD, setAnimation, logger) => {
-  const ftStaffLines = ftSvg.querySelectorAll('path.rastrum')
-  const dtStaffLines = dtSvg.querySelectorAll('.rastrum:not(.bounding-box) > path')
+  const ftStaffLines = Array.from(ftSvg.querySelectorAll('path.rastrum'))
+  const dtStaffLines = Array.from(dtSvg.querySelectorAll('.rastrum:not(.bounding-box) > path'))
 
-  ftStaffLines.forEach((ftLine, i) => {
-    const dtLine = dtStaffLines[i]
+  if (ftStaffLines.length === 0 || dtStaffLines.length === 0) {
+    logger.warn('[animateStaffLines] Missing FT or DT staff lines; skipping staff-line animation')
+    return
+  }
+
+  const targetCount = Math.max(ftStaffLines.length, dtStaffLines.length)
+  const expandedFtLines = Array.from({ length: targetCount }).map((_, i) => {
+    const baseLine = ftStaffLines[i % ftStaffLines.length]
+    if (i < ftStaffLines.length) return baseLine
+
+    const clone = baseLine.cloneNode(true)
+    clone.setAttribute('data-bw-staff-clone', String(i))
+    baseLine.parentNode.appendChild(clone)
+    return clone
+  })
+
+  expandedFtLines.forEach((ftLine, i) => {
+    const dtLine = dtStaffLines[i % dtStaffLines.length]
 
     if (!dtLine) {
       logger.warn(`[animateStaffLines] No corresponding DT staff line for FT line ${i}`)
@@ -378,11 +511,12 @@ const animateStaffLines = (ftSvg, dtSvg, convertD, setAnimation, logger) => {
       id: `staff-line-${i}`,
       localName: 'staff-line',
       states: {
-        findings: { type: 'd', val: newD },
-        diplomatic: { type: 'd', val: newD },
+        finding: { type: 'd', val: newD },
+        normalization: { type: 'd', val: newD },
+        readingOrder: { type: 'd', val: newD },
+        regulation: { type: 'd', val: atD },
         supplements: { type: 'd', val: atD },
-        conjectures: { type: 'd', val: atD },
-        annotated: { type: 'd', val: atD }
+        interventions: { type: 'd', val: atD }
       }
     })
   })
@@ -482,20 +616,11 @@ const addTransform = (node, attribute, values = []) => {
 }
 
 /**
- * Set animation for an element based on a 5-state descriptor
+ * Set animation for an element based on the six-phase sequence:
+ * finding -> normalization -> readingOrder -> regulation -> supplements -> interventions.
  *
- * This is the central animation function that handles the five editorial states:
- * findings → diplomatic → supplements → conjectures → annotated
- *
- * The supplements phase is split into two sub-phases:
- * 1. Position animations complete (all elements move to final positions)
- * 2. Opacity animations complete (editorial additions fade in)
- *
- * This creates a 6-frame animation where movement happens before editorial content appears.
- *
- * The descriptor contains state definitions for each phase. Missing states are filled with defaults:
- * - diplomatic defaults to findings
- * - supplements and conjectures default to annotated
+ * This resolver is used for fluid transcript output. Missing states are filled with
+ * conservative defaults so each animated attribute always has six frames.
  *
  * Null states indicate the element doesn't exist in that phase and will be hidden (opacity: 0).
  *
@@ -504,11 +629,12 @@ const addTransform = (node, attribute, values = []) => {
  * @param {string} descriptor.id - The element's ID (for logging)
  * @param {string} descriptor.localName - The element's type (e.g., 'note', 'artic')
  * @param {Object} descriptor.states - State definitions for each phase
- * @param {Object} [descriptor.states.findings] - State in findings phase (original manuscript)
- * @param {Object} [descriptor.states.diplomatic] - State in diplomatic phase (defaults to findings)
- * @param {Object} [descriptor.states.supplements] - State in supplements phase (defaults to annotated)
- * @param {Object} [descriptor.states.conjectures] - State in conjectures phase (defaults to annotated)
- * @param {Object} [descriptor.states.annotated] - State in annotated phase (Verovio rendering)
+ * @param {Object} [descriptor.states.finding] - State in finding phase
+ * @param {Object} [descriptor.states.normalization] - State in normalization phase
+ * @param {Object} [descriptor.states.readingOrder] - State in readingOrder phase
+ * @param {Object} [descriptor.states.regulation] - State in regulation phase
+ * @param {Object} [descriptor.states.supplements] - State in supplements phase
+ * @param {Object} [descriptor.states.interventions] - State in interventions phase
  *
  * Each state object has:
  * @param {string} state.type - Animation type: 'translate', 'd', 'opacity', etc.
@@ -520,43 +646,30 @@ const addTransform = (node, attribute, values = []) => {
  *   id: 'note-123',
  *   localName: 'note',
  *   states: {
- *     findings: { type: 'translate', val: '0 0' },
- *     annotated: { type: 'translate', val: '100 50' }
+ *     finding: { type: 'translate', val: '0 0' },
+ *     interventions: { type: 'translate', val: '100 50' }
  *   }
  * }
  */
-const setAnimation = (descriptor) => {
+const setAnimationFluidTranscript = (descriptor) => {
   const { element, id, localName, states } = descriptor
 
-  // Fill in missing states with defaults
-  const findings = states.findings || null
-  const diplomatic = states.diplomatic || findings
-  const annotated = states.annotated || null
-  const supplements = states.supplements || annotated
-  const conjectures = states.conjectures || annotated
+  const finding = states.finding || null
+  const normalization = states.normalization || finding
+  const readingOrder = states.readingOrder || normalization
+  const regulation = states.regulation || states.supplements || states.interventions || normalization
+  const supplements = states.supplements || regulation
+  const interventions = states.interventions || supplements
 
-  const allStates = [findings, diplomatic, supplements, conjectures, annotated]
-
-  // Handle case where element doesn't exist in some states (null values)
-  // Check if we need to handle visibility/opacity animations
+  const allStates = [finding, normalization, readingOrder, regulation, supplements, interventions]
   const hasNullStates = allStates.some(state => state === null)
 
   if (hasNullStates) {
-    // Create 6-frame opacity animation: split supplements into position + opacity phases
-    // findings, diplomatic, supplements-position (still hidden), supplements-opacity (fade in), conjectures, annotated
-    const opacityValues = allStates.flatMap(state => {
-      if (state === supplements && state !== null) {
-        // Split supplements: first frame keeps opacity from previous state, second frame shows element
-        const prevState = diplomatic || findings
-        const prevOpacity = prevState === null ? '0' : '1'
-        return [prevOpacity, '1'] // [supplements-position (hidden/visible based on prev), supplements-opacity (visible)]
-      }
-      return [state === null ? '0' : '1']
-    })
+    const opacityValues = allStates.map(state => (state === null ? '0' : '1'))
+    element.setAttribute('opacity', opacityValues[0])
     addTransform(element, 'opacity', opacityValues)
 
-    // Apply visual styling for supplied elements
-    if (findings === null || diplomatic === null) {
+    if (finding === null || normalization === null) {
       element.setAttribute('fill', '#009900')
       element.setAttribute('stroke', '#009900')
       const existingClasses = element.getAttribute('class') || ''
@@ -564,67 +677,117 @@ const setAnimation = (descriptor) => {
     }
   }
 
-  // Get non-null states to determine animation type
   const validStates = allStates.filter(state => state !== null)
 
   if (validStates.length === 0) {
-    console.warn(`[setAnimation] No valid states for element ${id} (${localName})`)
+    console.warn(`[setAnimationFluidTranscript] No valid states for element ${id} (${localName})`)
     return
   }
 
-  // Determine animation type from first valid state
   const animationType = validStates[0].type
-
-  // Build 6-frame values array: duplicate supplements for position/opacity split
-  const values = allStates.flatMap(state => {
-    if (state === supplements) {
-      // Duplicate supplements value for both position and opacity phases
-      const val = state === null ? (animationType === 'translate' ? '0 0' : animationType === 'opacity' ? '0' : '') : state.val
-      return [val, val]
-    }
+  const values = allStates.map(state => {
     if (state === null) {
-      // For null states, use a neutral/hidden value
-      if (animationType === 'translate') return ['0 0']
-      if (animationType === 'opacity') return ['0']
-      return ['']
+      if (animationType === 'translate') return '0 0'
+      if (animationType === 'opacity') return '0'
+      return ''
     }
-    return [state.val]
+    return state.val
   })
 
-  // Apply the appropriate animation based on type
   if (animationType === 'translate') {
     addTransformTranslate(element, values)
   } else {
-    // For 'd', 'opacity', and other attributes
     addTransform(element, animationType, values)
   }
 }
 
-/**
- * Generate a fade-out animation for elements without DT correspondence
- * 
- * Creates an opacity animation that fades the element out, indicating it's a supplied/editorial
- * element that doesn't exist in the diplomatic transcript. Also applies visual styling (green color)
- * and adds a "supplied" class to mark the element.
- * 
- * This is used for AT elements that have no matching corresp in the DT, signaling to users
- * that these are editorial additions or interpretations.
- * 
- * @param {SVGElement} node - The SVG element to animate and mark as supplied
- */
-const generateHideAnimation = (node) => {
-    const hideAnim = appendNewElement(node, 'animate')
-    hideAnim.setAttribute('attributeName', 'opacity')
+export const resolveFluidSystemsStates = (states = {}) => {
+  const finding = states.finding || null
+  const normalization = states.normalization || finding
+  const readingOrder = states.readingOrder || normalization
 
-    const values = reverseAnimations ? '1;0;0;0;0;0;1' : '1;0;0;0;' // '1;0;1' : '1;0'
+  const rawRegulation = states.regulation || null
+  const rawSupplements = states.supplements || null
 
-    hideAnim.setAttribute('values', values)
-    hideAnim.setAttribute('dur', duration)
-    hideAnim.setAttribute('repeatCount', repeatCount)
+  // Supplied/editorial material: stay hidden through regulation, then reveal at supplements.
+  const isSuppliedLike = (finding === null || normalization === null) && rawSupplements !== null
 
-    node.setAttribute('fill', '#009900')
-    node.setAttribute('stroke', '#009900')
-    //node.setAttribute.add('data-supplied',1)
-    const existingClasses = node.getAttribute('class') || ''
-    node.setAttribute('class', `${existingClasses} supplied`.trim())
+  // Non-supplied material: internal system transition happens in regulation.
+  const regulation = isSuppliedLike
+    ? (rawRegulation || normalization)
+    : (rawRegulation || rawSupplements || normalization)
+
+  const supplements = rawSupplements || regulation
+
+  const interventions = states.interventions || supplements
+
+  return {
+    finding,
+    normalization,
+    readingOrder,
+    regulation,
+    supplements,
+    interventions
+  }
+}
+
+const setAnimationFluidSystems = (descriptor) => {
+  const { element, id, localName, states } = descriptor
+  const resolvedStates = resolveFluidSystemsStates(states)
+  const { finding, normalization, readingOrder, regulation, supplements, interventions } = resolvedStates
+
+  const allStates = [finding, normalization, readingOrder, regulation, supplements, interventions]
+  const hasNullStates = allStates.some(state => state === null)
+
+  if (hasNullStates) {
+    let opacityValues = allStates.map(state => (state === null ? '0' : '1'))
+
+    // Supplied/editorial material must remain hidden until supplements.
+    const isSuppliedLike = (finding === null || normalization === null) && supplements !== null
+    if (isSuppliedLike) {
+      opacityValues = ['0', '0', '0', '0', '1', interventions === null ? '0' : '1']
+    }
+
+    // Ensure the initial static frame already reflects the first animation state.
+    element.setAttribute('opacity', opacityValues[0])
+    addTransform(element, 'opacity', opacityValues)
+
+    if (finding === null || normalization === null) {
+      element.setAttribute('fill', '#009900')
+      element.setAttribute('stroke', '#009900')
+      const existingClasses = element.getAttribute('class') || ''
+      element.setAttribute('class', `${existingClasses} supplied`.trim())
+    }
+  }
+
+  const validStates = allStates.filter(state => state !== null)
+
+  if (validStates.length === 0) {
+    console.warn(`[setAnimationFluidSystems] No valid states for element ${id} (${localName})`)
+    return
+  }
+
+  const animationType = validStates[0].type
+  const values = allStates.map(state => {
+    if (state === null) {
+      if (animationType === 'translate') return '0 0'
+      if (animationType === 'opacity') return '0'
+      return ''
+    }
+    return state.val
+  })
+
+  if (animationType === 'translate') {
+    addTransformTranslate(element, values)
+  } else {
+    addTransform(element, animationType, values)
+  }
+}
+
+const createAnimationSetter = (stateModel) => {
+  if (stateModel === 'fluidSystems') {
+    return setAnimationFluidSystems
+  }
+
+  return setAnimationFluidTranscript
 }

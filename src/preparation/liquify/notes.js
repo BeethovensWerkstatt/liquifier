@@ -19,7 +19,7 @@
  * @param {Object} tools - Tools object containing helper functions and data
  */
 export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
-  const { scaleFactor, getNewPos, correspMappings, setAnimation } = tools
+  const { scaleFactor, getNewPos, correspMappings, setAnimation, stateModel, getChoiceVerticalOffset } = tools
 
   const notes = ftSvg.querySelectorAll('g.note:not(.bounding-box)')
   notes.forEach(note => {
@@ -45,11 +45,11 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
         id: atId,
         localName: 'note',
         states: {
-          findings: null,
-          diplomatic: null,
+          finding: null,
+          normalization: null,
           supplements: { type: 'translate', val: '0 0' },
-          conjectures: { type: 'translate', val: '0 0' },
-          annotated: { type: 'translate', val: '0 0' }
+          regulation: { type: 'translate', val: '0 0' },
+          interventions: { type: 'translate', val: '0 0' }
         }
       })
       return
@@ -63,11 +63,11 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
           id: atId,
           localName: 'note',
           states: {
-            findings: null,
-            diplomatic: null,
+            finding: null,
+            normalization: null,
             supplements: { type: 'translate', val: '0 0' },
-            conjectures: { type: 'translate', val: '0 0' },
-            annotated: { type: 'translate', val: '0 0' }
+            regulation: { type: 'translate', val: '0 0' },
+            interventions: { type: 'translate', val: '0 0' }
           }
         })
         return
@@ -81,17 +81,21 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
       const newHeadPos = getNewPos(atHead, dtHead)
       const atVal = '0 0'
       const dtVal = parseFloat(newHeadPos.x - atHead.x) + ' ' + parseFloat(newHeadPos.y - atHead.y)
+      const choiceYOffset = stateModel === 'fluidSystems' ? getChoiceVerticalOffset(atId) : 0
+      const regSuppVal = Number.isFinite(choiceYOffset) && choiceYOffset !== 0
+        ? `0 ${choiceYOffset}`
+        : atVal
 
       setAnimation({
         element: note,
         id: atId,
         localName: 'note',
         states: {
-          findings: { type: 'translate', val: dtVal },
-          diplomatic: { type: 'translate', val: dtVal },
-          supplements: { type: 'translate', val: atVal },
-          conjectures: { type: 'translate', val: atVal },
-          annotated: { type: 'translate', val: atVal }
+          finding: { type: 'translate', val: dtVal },
+          normalization: { type: 'translate', val: dtVal },
+          supplements: { type: 'translate', val: regSuppVal },
+          regulation: { type: 'translate', val: regSuppVal },
+          interventions: { type: 'translate', val: atVal }
         }
       })
 
@@ -107,11 +111,11 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
               id: ledgerId,
               localName: 'ledgerLine',
               states: {
-                findings: { type: 'translate', val: dtVal },
-                diplomatic: { type: 'translate', val: dtVal },
-                supplements: { type: 'translate', val: atVal },
-                conjectures: { type: 'translate', val: atVal },
-                annotated: { type: 'translate', val: atVal }
+                finding: { type: 'translate', val: dtVal },
+                normalization: { type: 'translate', val: dtVal },
+                supplements: { type: 'translate', val: regSuppVal },
+                regulation: { type: 'translate', val: regSuppVal },
+                interventions: { type: 'translate', val: atVal }
               }
             })
           }
@@ -206,11 +210,11 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
           id: `${atId}-stem`,
           localName: 'stem',
           states: {
-            findings: { type: 'd', val: findingsD },
-            diplomatic: { type: 'd', val: diplomaticD },
+            finding: { type: 'd', val: findingsD },
+            normalization: { type: 'd', val: diplomaticD },
             supplements: { type: 'd', val: atD },
-            conjectures: { type: 'd', val: atD },
-            annotated: { type: 'd', val: atD }
+            regulation: { type: 'd', val: atD },
+            interventions: { type: 'd', val: atD }
           }
         })
 
@@ -228,11 +232,11 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
             id: `${atId}-flag`,
             localName: 'flag',
             states: {
-              findings: { type: 'translate', val: `0 ${findingsDiff}` },
-              diplomatic: { type: 'translate', val: `0 ${diplomaticDiff}` },
+              finding: { type: 'translate', val: `0 ${findingsDiff}` },
+              normalization: { type: 'translate', val: `0 ${diplomaticDiff}` },
               supplements: { type: 'translate', val: '0 0' },
-              conjectures: { type: 'translate', val: '0 0' },
-              annotated: { type: 'translate', val: '0 0' }
+              regulation: { type: 'translate', val: '0 0' },
+              interventions: { type: 'translate', val: '0 0' }
             }
           })
         }

@@ -38,11 +38,11 @@ export function liquifyRests (ftSvg, dtSvg, atMeiDom, tools) {
         id: atId,
         localName: 'rest',
         states: {
-          findings: null,
-          diplomatic: null,
+          finding: null,
+          normalization: null,
           supplements: { type: 'translate', val: '0 0' },
-          conjectures: { type: 'translate', val: '0 0' },
-          annotated: { type: 'translate', val: '0 0' }
+          regulation: { type: 'translate', val: '0 0' },
+          interventions: { type: 'translate', val: '0 0' }
         }
       })
       return
@@ -67,11 +67,11 @@ export function liquifyRests (ftSvg, dtSvg, atMeiDom, tools) {
           id: atId,
           localName: 'rest',
           states: {
-            findings: null,
-            diplomatic: null,
+            finding: null,
+            normalization: null,
             supplements: { type: 'translate', val: '0 0' },
-            conjectures: { type: 'translate', val: '0 0' },
-            annotated: { type: 'translate', val: '0 0' }
+            regulation: { type: 'translate', val: '0 0' },
+            interventions: { type: 'translate', val: '0 0' }
           }
         })
         return
@@ -101,11 +101,11 @@ export function liquifyRests (ftSvg, dtSvg, atMeiDom, tools) {
         id: atId,
         localName: 'rest',
         states: {
-          findings: { type: 'translate', val: dtVal },
-          diplomatic: { type: 'translate', val: dtVal },
+          finding: { type: 'translate', val: dtVal },
+          normalization: { type: 'translate', val: dtVal },
           supplements: { type: 'translate', val: atVal },
-          conjectures: { type: 'translate', val: atVal },
-          annotated: { type: 'translate', val: atVal }
+          regulation: { type: 'translate', val: atVal },
+          interventions: { type: 'translate', val: atVal }
         }
       })
     })

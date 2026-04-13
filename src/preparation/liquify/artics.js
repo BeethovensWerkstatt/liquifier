@@ -15,7 +15,7 @@
  * @param {Object} tools - Tools object containing helper functions
  */
 export const liquifyArtics = (ftSvg, dtSvg, atMeiDom, tools) => {
-  const { getNewPos, correspMappings, setAnimation, logger } = tools
+  const { getNewPos, correspMappings, setAnimation, logger, stateModel, getChoiceVerticalOffset } = tools
 
   // Get all articulation groups from fluid transcription (excluding bounding boxes)
   const artics = ftSvg.querySelectorAll('g.artic:not(.bounding-box)')
@@ -41,11 +41,11 @@ export const liquifyArtics = (ftSvg, dtSvg, atMeiDom, tools) => {
         id: atId,
         localName: 'artic',
         states: {
-          findings: null,
-          diplomatic: null,
+          finding: null,
+          normalization: null,
           supplements: { type: 'translate', val: '0 0' },
-          conjectures: { type: 'translate', val: '0 0' },
-          annotated: { type: 'translate', val: '0 0' }
+          regulation: { type: 'translate', val: '0 0' },
+          interventions: { type: 'translate', val: '0 0' }
         }
       })
       return
@@ -87,11 +87,11 @@ export const liquifyArtics = (ftSvg, dtSvg, atMeiDom, tools) => {
         id: atId,
         localName: 'artic',
         states: {
-          findings: null,
-          diplomatic: null,
+          finding: null,
+          normalization: null,
           supplements: { type: 'translate', val: '0 0' },
-          conjectures: { type: 'translate', val: '0 0' },
-          annotated: { type: 'translate', val: '0 0' }
+          regulation: { type: 'translate', val: '0 0' },
+          interventions: { type: 'translate', val: '0 0' }
         }
       })
       return
@@ -106,11 +106,11 @@ export const liquifyArtics = (ftSvg, dtSvg, atMeiDom, tools) => {
         id: atId,
         localName: 'artic',
         states: {
-          findings: null,
-          diplomatic: null,
+          finding: null,
+          normalization: null,
           supplements: { type: 'translate', val: '0 0' },
-          conjectures: { type: 'translate', val: '0 0' },
-          annotated: { type: 'translate', val: '0 0' }
+          regulation: { type: 'translate', val: '0 0' },
+          interventions: { type: 'translate', val: '0 0' }
         }
       })
       return
@@ -127,11 +127,11 @@ export const liquifyArtics = (ftSvg, dtSvg, atMeiDom, tools) => {
         id: atId,
         localName: 'artic',
         states: {
-          findings: null,
-          diplomatic: null,
+          finding: null,
+          normalization: null,
           supplements: { type: 'translate', val: '0 0' },
-          conjectures: { type: 'translate', val: '0 0' },
-          annotated: { type: 'translate', val: '0 0' }
+          regulation: { type: 'translate', val: '0 0' },
+          interventions: { type: 'translate', val: '0 0' }
         }
       })
       return
@@ -147,16 +147,22 @@ export const liquifyArtics = (ftSvg, dtSvg, atMeiDom, tools) => {
     logger.debug(`[liquifyArtics] Animating artic ${atId}: AT(${atX}, ${atY}) -> DT(${dtX}, ${dtY}) -> newPos(${newPos.x}, ${newPos.y})`)
 
     // Add animation to the artic group
+    const atVal = '0 0'
+    const choiceYOffset = stateModel === 'fluidSystems' ? getChoiceVerticalOffset(atId) : 0
+    const regSuppVal = Number.isFinite(choiceYOffset) && choiceYOffset !== 0
+      ? `0 ${choiceYOffset}`
+      : atVal
+
     setAnimation({
       element: atArtic,
       id: atId,
       localName: 'artic',
       states: {
-        findings: { type: 'translate', val: `${translateX} ${translateY}` },
-        diplomatic: { type: 'translate', val: `${translateX} ${translateY}` },
-        supplements: { type: 'translate', val: '0 0' },
-        conjectures: { type: 'translate', val: '0 0' },
-        annotated: { type: 'translate', val: '0 0' }
+        finding: { type: 'translate', val: `${translateX} ${translateY}` },
+        normalization: { type: 'translate', val: `${translateX} ${translateY}` },
+        supplements: { type: 'translate', val: regSuppVal },
+        regulation: { type: 'translate', val: regSuppVal },
+        interventions: { type: 'translate', val: atVal }
       }
     })
   })
