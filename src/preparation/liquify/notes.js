@@ -16,7 +16,13 @@
  * @param {SVGElement} ftSvg - Fluid transcription SVG (cloned from AT)
  * @param {SVGElement} dtSvg - Diplomatic transcript SVG
  * @param {Document} atMeiDom - AT MEI DOM for accessing note metadata (stem.dir, etc.)
- * @param {Object} tools - Tools object containing helper functions and data
+ * @param {Object} tools - Animation helper bundle
+ * @param {number} tools.scaleFactor - DT-to-AT scale factor
+ * @param {Function} tools.getNewPos - Converts DT coordinates into FT coordinate space
+ * @param {Map<string, string[]>} tools.correspMappings - AT element id to DT ids mapping
+ * @param {Function} tools.setAnimation - Phase-aware animation descriptor writer
+ * @param {string} tools.stateModel - Active state model (fluidTranscript or fluidSystems)
+ * @param {Function} tools.getChoiceVerticalOffset - Returns fluidSystems vertical override per element id
  */
 export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
   const { scaleFactor, getNewPos, correspMappings, setAnimation, stateModel, getChoiceVerticalOffset } = tools
@@ -47,7 +53,7 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
         states: {
           finding: null,
           normalization: null,
-          // readingOrder: this will be automatically determined from normalization and supplements in fluidTranscripts.js, so skipped here for clarity
+          // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
           regulation: { type: 'translate', val: '0 0' },
           supplements: { type: 'translate', val: '0 0' },
           interventions: { type: 'translate', val: '0 0' }
@@ -66,7 +72,7 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
           states: {
             finding: null,
             normalization: null,
-            // readingOrder: this will be automatically determined from normalization and supplements in fluidTranscripts.js, so skipped here for clarity
+            // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
             regulation: { type: 'translate', val: '0 0' },
             supplements: { type: 'translate', val: '0 0' },
             interventions: { type: 'translate', val: '0 0' }
@@ -95,7 +101,7 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
         states: {
           finding: { type: 'translate', val: dtVal },
           normalization: { type: 'translate', val: dtVal },
-          // readingOrder: this will be automatically determined from normalization and supplements in fluidTranscripts.js, so skipped here for clarity
+          // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
           regulation: { type: 'translate', val: regSuppVal },
           supplements: { type: 'translate', val: regSuppVal },
           interventions: { type: 'translate', val: atVal }
@@ -116,7 +122,7 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
               states: {
                 finding: { type: 'translate', val: dtVal },
                 normalization: { type: 'translate', val: dtVal },
-                // readingOrder: this will be automatically determined from normalization and supplements in fluidTranscripts.js, so skipped here for clarity
+                // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
                 regulation: { type: 'translate', val: regSuppVal },
                 supplements: { type: 'translate', val: regSuppVal },
                 interventions: { type: 'translate', val: atVal }
@@ -216,7 +222,7 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
           states: {
             finding: { type: 'd', val: findingsD },
             normalization: { type: 'd', val: diplomaticD },
-            // readingOrder: this will be automatically determined from normalization and supplements in fluidTranscripts.js, so skipped here for clarity
+            // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
             regulation: { type: 'd', val: atD },
             supplements: { type: 'd', val: atD },
             interventions: { type: 'd', val: atD }
@@ -239,7 +245,7 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
             states: {
               finding: { type: 'translate', val: `0 ${findingsDiff}` },
               normalization: { type: 'translate', val: `0 ${diplomaticDiff}` },
-              // readingOrder: this will be automatically determined from normalization and supplements in fluidTranscripts.js, so skipped here for clarity
+              // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
               regulation: { type: 'translate', val: '0 0' },
               supplements: { type: 'translate', val: '0 0' },
               interventions: { type: 'translate', val: '0 0' }

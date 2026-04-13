@@ -12,17 +12,21 @@ import { computeTextDiff } from '../../utils/textDiff.js'
  *   Creates cross-fade animation from DT text to AT symbol.
  *   Animation sequence:
  *   - finding: DT text at DT position (DT opacity: 1, AT opacity: 0)
- *   - normalization: Cross-fade (DT opacity: 0, AT opacity: 1) at DT position
- *   - supplements: AT symbol at AT position (DT opacity: 0, AT opacity: 1)
+ *   - normalization: DT text and AT symbol coexist at DT position
+ *   - regulation: DT text hidden, AT symbol visible at AT position
  *
  * Case 2: AT has text, DT has text
- *   Textual variation - currently only animates position.
- *   Full textual variation handling to be implemented.
+ *   Textual variation with per-segment text diff (common/delete/insert spans)
+ *   and synchronized position animation.
  *
  * @param {Document} ftSvg - The fluid transcript SVG document
  * @param {Document} dtSvg - The diplomatic transcript SVG document
- * @param {Document} atMeiDom - The analytical transcript MEI DOM
- * @param {Object} tools - Tools object containing correspMappings and helpers
+ * @param {Document} atMeiDom - The annotated transcript MEI DOM
+ * @param {Object} tools - Animation helper bundle
+ * @param {Function} tools.getNewPos - Converts DT coordinates into FT coordinate space
+ * @param {Map<string, string[]>} tools.correspMappings - AT element id to DT ids mapping
+ * @param {Function} tools.setAnimation - Phase-aware animation descriptor writer
+ * @param {Object} tools.logger - Logger instance
  */
 export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
   const { getNewPos, correspMappings, setAnimation, logger } = tools

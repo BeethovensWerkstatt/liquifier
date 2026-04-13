@@ -6,12 +6,11 @@
  * @param {SVGElement} ftSvg - The fluid transcript SVG element
  * @param {SVGElement} dtSvg - The diplomatic transcript SVG element
  * @param {Document} atMeiDom - The annotated transcript MEI DOM (for corresp mapping)
- * @param {Object} tools - Utility functions and data
- * @param {Function} tools.getNewPos - Transforms coordinates from DT to AT system
- * @param {Function} tools.convertD - Transforms entire path d attributes
- * @param {number} tools.scaleFactor - Scale factor between AT and DT
- * @param {Map} tools.correspMappings - Maps AT IDs to DT IDs
- * @param {Function} tools.setAnimation - Creates 5-state animations from descriptors
+ * @param {Object} tools - Animation helper bundle
+ * @param {Function} tools.getNewPos - Converts DT coordinates into FT coordinate space
+ * @param {Map<string, string[]>} tools.correspMappings - AT element id to DT ids mapping
+ * @param {Function} tools.setAnimation - Phase-aware animation descriptor writer
+ * @param {Object} tools.logger - Logger instance
  *
  * @example
  * // Rest structure in AT:

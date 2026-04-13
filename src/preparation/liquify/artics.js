@@ -12,7 +12,13 @@
  * @param {SVGElement} ftSvg - Fluid transcription SVG (cloned from AT)
  * @param {SVGElement} dtSvg - Diplomatic transcript SVG
  * @param {Document} atMeiDom - AT MEI DOM for accessing element metadata
- * @param {Object} tools - Tools object containing helper functions
+ * @param {Object} tools - Animation helper bundle
+ * @param {Function} tools.getNewPos - Converts DT coordinates into FT coordinate space
+ * @param {Map<string, string[]>} tools.correspMappings - AT element id to DT ids mapping
+ * @param {Function} tools.setAnimation - Phase-aware animation descriptor writer
+ * @param {Object} tools.logger - Logger instance
+ * @param {string} tools.stateModel - Active state model (fluidTranscript or fluidSystems)
+ * @param {Function} tools.getChoiceVerticalOffset - Returns fluidSystems vertical override per element id
  */
 export const liquifyArtics = (ftSvg, dtSvg, atMeiDom, tools) => {
   const { getNewPos, correspMappings, setAnimation, logger, stateModel, getChoiceVerticalOffset } = tools

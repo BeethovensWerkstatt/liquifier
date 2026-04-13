@@ -13,7 +13,9 @@ import fs from 'fs'
 const FLUID_SYSTEMS_DESC_ID = 'bw-fs-overlay-metadata'
 const SVG_NS = 'http://www.w3.org/2000/svg'
 const READING_ORDER_BLOCK_GAP = 80
-// Canonical phase sequence for fluid animations; see docs/fluid-animation-phases.md.
+/**
+ * Canonical phase sequence used by fluidSystems overlays and animation metadata.
+ */
 export const FLUID_SYSTEMS_STATE_SEQUENCE = [
   'finding',
   'normalization',
@@ -443,6 +445,17 @@ function applyReadingOrderStageTransform (svgElement, atDom, dtSvgElement) {
   return { adjustedCount: adjustedMeasureIds.length, adjustedMeasureIds, geometrySource }
 }
 
+/**
+ * Stamp fluidSystems phase metadata and reading-order overlay metadata into output SVG.
+ * @param {SVGElement} svgElement - Fluid SVG root element
+ * @param {Object} params - Metadata source bundle
+ * @param {Object} params.triple - File tuple containing page metadata
+ * @param {string} [params.systemId] - Single DT system id (legacy single-system path)
+ * @param {string[]} [params.systemIds] - DT system ids used in the output
+ * @param {Document} [params.atDom] - AT MEI DOM used for reading-order grouping
+ * @param {SVGElement} [params.dtSvgElement] - DT SVG root for geometry extraction
+ * @returns {SVGElement} The same SVG element with updated metadata attributes/desc payload
+ */
 export function applyFluidSystemsOutputMetadata (svgElement, { triple, systemId, systemIds, atDom, dtSvgElement }) {
   const classList = (svgElement.getAttribute('class') || '').split(/\s+/).filter(Boolean)
 
@@ -825,6 +838,8 @@ export function renderFluidTranscriptSvg ({ data, triple, verovio, pageDimension
  * @param {Object} params - Rendering parameters
  * @param {Object} params.data - Source data (atDom, dtDom, sourceDom)
  * @param {Object} params.triple - File paths and dates
+ * @param {Object} params.verovio - Verovio toolkit instance
+ * @param {Object} params.pageDimensions - Page dimensions for rendering
  * @param {boolean} params.recreate - Force recreation flag
  * @param {Object} params.logger - Logger instance
  */
@@ -850,6 +865,7 @@ export async function renderFluidSystemsSvg ({ data, triple, verovio, pageDimens
 
     const dtSvg = parser.parseFromString(fs.readFileSync(dtSvgPath, 'utf8'), 'image/svg+xml')
 
+    // Derive per-element vertical offsets from editedAT choice rendering (reg vs orig).
     const editedAtDom = prepareEditedAtDom(data.atDom, data.dtDom)
     const editedAtWithSbIndicators = addSbIndicators(null, editedAtDom.cloneNode(true))
     const editedRenderDom = prepareAtDomForRendering(editedAtWithSbIndicators, data.dtDom, pageDimensions)
@@ -863,6 +879,7 @@ export async function renderFluidSystemsSvg ({ data, triple, verovio, pageDimens
     const origAtSvg = parser.parseFromString(origAtSvgString, 'image/svg+xml')
     const choiceVerticalOffsets = extractChoiceVerticalOffsets(regAtSvg, origAtSvg, editedAtDom)
 
+    // Keep the canonical AT render as the geometry base to avoid side effects in clef handling.
     const atWithSbIndicators = addSbIndicators(null, data.atDom.cloneNode(true))
     const renderDom = prepareAtDomForRendering(atWithSbIndicators, data.dtDom, pageDimensions)
     const atSvgString = renderContinuousAt(renderDom, verovio, 'annotated', pageDimensions)

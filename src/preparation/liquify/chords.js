@@ -17,7 +17,12 @@
  * @param {SVGElement} ftSvg - Fluid transcription SVG (cloned from AT)
  * @param {SVGElement} dtSvg - Diplomatic transcript SVG
  * @param {Document} atMeiDom - AT MEI DOM for accessing chord metadata (stem.dir, etc.)
- * @param {Object} tools - Tools object containing helper functions and data
+ * @param {Object} tools - Animation helper bundle
+ * @param {number} tools.scaleFactor - DT-to-AT scale factor
+ * @param {Function} tools.getNewPos - Converts DT coordinates into FT coordinate space
+ * @param {Map<string, string[]>} tools.correspMappings - AT element id to DT ids mapping
+ * @param {Function} tools.setAnimation - Phase-aware animation descriptor writer
+ * @param {Object} tools.logger - Logger instance
  */
 export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
   const { scaleFactor, getNewPos, correspMappings, setAnimation, logger } = tools

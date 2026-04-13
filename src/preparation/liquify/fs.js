@@ -1,41 +1,25 @@
 /**
- * Animate figured bass numbers (<f> elements) between AT and DT transcriptions
+ * Animate figured bass numbers (<f> elements) between AT and DT transcriptions.
  *
- * For each fi      logger.debug(`[F ${atId}] AT: (${atPos.x}, ${atPos.y}), DT: (${dtPos.x}, ${dtPos.y}), newPos: (${newPos.x}, ${newPos.y}), diff: (${diffX}, ${diffY})`)
-
-      // Apply animation to the parent text element
-      const atVal = '0 0'
-      const dtVal = `${diffX} ${diffY}`
-      setAnimation({
-        element: atText,
-        id: `${atId}-text`,
-        localName: 'f-text',
-        states: {
-          finding: { type: 'translate', val: dtVal },
-          normalization: { type: 'translate', val: dtVal },
-          // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
-          regulation: { type: 'translate', val: atVal },
-          supplements: { type: 'translate', val: atVal },
-          interventions: { type: 'translate', val: atVal }
-        }
-      })
-    })
-  })
-}s number in the AT (fluid transcription):
+ * For each figured bass number in the AT (fluid transcription):
  * - Animates the individual number position based on corresponding DT position
- * - Handles figured bass numbers without DT correspondence by fading them out
+ * - Keeps numbers without DT correspondence in place (no translation)
  *
  * Figured bass numbers (<f>) are individual digits or symbols within figured bass notation,
  * typically found in Baroque and Classical music to indicate harmony above a bass line.
  * They are wrapped in <tspan> elements within <text> elements.
  *
  * Note: In many cases, figured bass is editorial (not in the original manuscript),
- * so these elements will often fade out as they have no DT correspondence.
+ * so these elements often have no DT correspondence and remain in their AT position.
  *
  * @param {SVGElement} ftSvg - Fluid transcription SVG (cloned from AT)
  * @param {SVGElement} dtSvg - Diplomatic transcript SVG
  * @param {Document} atMeiDom - AT MEI DOM for accessing figured bass metadata
- * @param {Object} tools - Tools object containing helper functions and data
+ * @param {Object} tools - Animation helper bundle
+ * @param {Function} tools.getNewPos - Converts DT coordinates into FT coordinate space
+ * @param {Map<string, string[]>} tools.correspMappings - AT element id to DT ids mapping
+ * @param {Function} tools.setAnimation - Phase-aware animation descriptor writer
+ * @param {Object} tools.logger - Logger instance
  */
 export const liquifyFs = (ftSvg, dtSvg, atMeiDom, tools) => {
   const { getNewPos, correspMappings, setAnimation, logger } = tools
@@ -49,7 +33,7 @@ export const liquifyFs = (ftSvg, dtSvg, atMeiDom, tools) => {
 
     if (!dtIds || dtIds.length === 0) {
       logger.debug(`[Fs] No corresp for figured bass number ${atId}`)
-      // Fade out the parent text element to hide the entire figured bass number
+      // Keep the parent text at its AT position when no DT match exists
       const parentText = f.closest('text')
       if (parentText) {
         setAnimation({

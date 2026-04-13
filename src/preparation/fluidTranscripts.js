@@ -236,6 +236,9 @@ const extractCorrespMappings = (atMeiDom) => {
  * @param {Object} atSystemSvg - AT system SVG DOM (document or svg element)
  * @param {Document} atMeiDom - AT MEI DOM (for corresp mappings)
  * @param {Object} logger - Logger instance for info/debug/warn/error messages
+ * @param {Object} [options] - Generation options
+ * @param {string} [options.stateModel='fluidTranscript'] - Animation resolver model
+ * @param {Map<string, number>} [options.choiceVerticalOffsets] - Optional fluidSystems vertical offsets
  * @returns {Object} Fluid transcription SVG DOM
  */
 export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, logger, options = {}) => {
@@ -325,6 +328,7 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, l
     ? options.choiceVerticalOffsets
     : new Map()
 
+  // Expose a no-op getter outside fluidSystems so liquify modules can call one API.
   const getChoiceVerticalOffset = (elementId) => {
     if (stateModel !== 'fluidSystems') return 0
     if (!elementId) return 0
@@ -332,6 +336,7 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, l
     return Number.isFinite(offset) ? offset : 0
   }
 
+  // Build the state-model-specific writer once, then pass through all liquify modules.
   const setAnimationForMode = createAnimationSetter(stateModel)
 
   animateStaffLines(ftSvg, dtSvgElement, convertD, setAnimationForMode, logger)
@@ -530,14 +535,15 @@ const animateStaffLines = (ftSvg, dtSvg, convertD, setAnimation, logger) => {
  * @param {SVGElement} ftSvg - Fluid transcription SVG (cloned from AT)
  * @param {SVGElement} dtSvg - Diplomatic transcript SVG
  * @param {Document} atMeiDom - AT MEI DOM for accessing element metadata
- * @param {Object} tools - Tools object containing helper functions and data:
- *   - getNewPos: Function to calculate new position
- *   - convertD: Function to convert path d attribute
- *   - scaleFactor: Scale factor between DT and AT
- *   - correspMappings: Map of AT to DT element IDs
- *   - addTransform: Function to add animate element
- *   - addTransformTranslate: Function to add animateTransform element
- *   - generateHideAnimation: Function to generate fade-out animation
+ * @param {Object} tools - Shared animation helper bundle
+ * @param {Function} tools.getNewPos - Converts DT coordinates into FT coordinate space
+ * @param {Function} tools.convertD - Converts DT path data into FT coordinate space
+ * @param {number} tools.scaleFactor - DT-to-AT scale factor
+ * @param {Map<string, string[]>} tools.correspMappings - AT element id to DT ids mapping
+ * @param {string} tools.stateModel - Active state model (fluidTranscript or fluidSystems)
+ * @param {Function} tools.getChoiceVerticalOffset - Returns fluidSystems vertical override per element id
+ * @param {Function} tools.setAnimation - Phase-aware animation descriptor writer
+ * @param {Object} tools.logger - Logger instance
  */
 const liquifyMusic = (ftSvg, dtSvg, atMeiDom, tools) => {
   // events
@@ -701,6 +707,12 @@ const setAnimationFluidTranscript = (descriptor) => {
   }
 }
 
+/**
+ * Resolve a partial state descriptor into the canonical fluidSystems six-phase sequence.
+ * Missing phases are derived conservatively to preserve existing behavior.
+ * @param {Object} [states={}] - Partial animation state descriptor
+ * @returns {Object} Fully-resolved six-phase state descriptor
+ */
 export const resolveFluidSystemsStates = (states = {}) => {
   const finding = states.finding || null
   const normalization = states.normalization || finding
