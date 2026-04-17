@@ -1,4 +1,4 @@
-import { render } from 'thulemeier'
+import { render, version } from 'thulemeier'
 import { JSDOM } from 'jsdom'
 
 /**
@@ -107,5 +107,22 @@ export async function checkThulemeierAvailability () {
   } catch (error) {
     console.warn('Thulemeier is not available:', error.message)
     return false
+  }
+}
+
+/**
+ * Resolve the Thulemeier version string.
+ * @returns {Promise<string>} Thulemeier version string or 'unknown' when unavailable
+ */
+export async function getThulemeierVersion () {
+  try {
+    const resolved = version()
+    if (resolved && typeof resolved.then === 'function') {
+      return String(await resolved)
+    }
+    return String(resolved)
+  } catch (error) {
+    console.warn('Could not determine Thulemeier version:', error.message)
+    return 'unknown'
   }
 }

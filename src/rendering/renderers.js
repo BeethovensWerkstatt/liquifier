@@ -3,16 +3,19 @@ import { prepareEditedAtDom } from '../preparation/editedAnnotatedTranscripts.js
 import { prepareDtForThulemeier } from '../preparation/mei.js'
 import { serializeXmlCanonical } from '../utils/xml.js'
 import { renderContinuousAt, renderSystemBasedAt, renderMidi } from './verovioHandler.js'
-import { renderDiplomaticTranscript } from './thulemeierHandler.js'
+import { renderDiplomaticTranscript, getThulemeierVersion } from './thulemeierHandler.js'
 import { writeData } from '../filehandlers/filehandler.js'
 import { generateFluidTranscription } from '../preparation/fluidTranscripts.js'
 import { JSDOM } from 'jsdom'
 import path from 'path'
 import fs from 'fs'
+import { createRequire } from 'module'
 
 const FLUID_SYSTEMS_DESC_ID = 'bw-fs-overlay-metadata'
 const SVG_NS = 'http://www.w3.org/2000/svg'
 const READING_ORDER_BLOCK_GAP = 80
+const require = createRequire(import.meta.url)
+const { version: LIQUIFIER_VERSION } = require('../../package.json')
 /**
  * Canonical phase sequence used by fluidSystems overlays and animation metadata.
  */
@@ -445,8 +448,48 @@ function applyReadingOrderStageTransform (svgElement, atDom, dtSvgElement) {
   return { adjustedCount: adjustedMeasureIds.length, adjustedMeasureIds, geometrySource }
 }
 
+function extractVerovioVersionFromDescText (descText = '') {
+  const engravedMatch = descText.match(/Engraved by Verovio\s+(.+)$/i)
+  if (engravedMatch && engravedMatch[1]) {
+    return engravedMatch[1].trim()
+  }
+
+  const cachedMatch = descText.match(/Annotated Transcription rendered by Verovio\s+(.+?)\s+and Diplomatic Transcription/i)
+  if (cachedMatch && cachedMatch[1]) {
+    return cachedMatch[1].trim()
+  }
+
+  return null
+}
+
+function upsertFluidSystemsProvenanceDesc (svgElement, { liquifierVersion, thulemeierVersion }) {
+  const descNodes = Array.from(svgElement.querySelectorAll('desc'))
+  const nonMetadataDescNodes = descNodes.filter(desc => desc.getAttribute('id') !== FLUID_SYSTEMS_DESC_ID)
+
+  const preferredDesc = nonMetadataDescNodes.find(desc => {
+    const text = desc.textContent || ''
+    return text.includes('Engraved by Verovio') || text.includes('Annotated Transcription rendered by Verovio')
+  }) || nonMetadataDescNodes[0] || null
+
+  const verovioVersion = extractVerovioVersionFromDescText(preferredDesc?.textContent || '') || 'unknown'
+  const resolvedLiquifierVersion = liquifierVersion || LIQUIFIER_VERSION || 'unknown'
+  const resolvedThulemeierVersion = thulemeierVersion || 'unknown'
+
+  const text = `Cached Fluid Transcription rendered by Liquifier ${resolvedLiquifierVersion}, based on Annotated Transcription rendered by Verovio ${verovioVersion} and Diplomatic Transcription rendered by Thulemeier ${resolvedThulemeierVersion}.`
+
+  if (preferredDesc) {
+    preferredDesc.textContent = text
+    return preferredDesc
+  }
+
+  const desc = svgElement.ownerDocument.createElementNS(SVG_NS, 'desc')
+  desc.textContent = text
+  svgElement.insertBefore(desc, svgElement.firstChild)
+  return desc
+}
+
 /**
- * Stamp fluidSystems phase metadata and reading-order overlay metadata into output SVG.
+ * Stamp fluidSystems provenance and reading-order overlay metadata into output SVG.
  * @param {SVGElement} svgElement - Fluid SVG root element
  * @param {Object} params - Metadata source bundle
  * @param {Object} params.triple - File tuple containing page metadata
@@ -454,20 +497,25 @@ function applyReadingOrderStageTransform (svgElement, atDom, dtSvgElement) {
  * @param {string[]} [params.systemIds] - DT system ids used in the output
  * @param {Document} [params.atDom] - AT MEI DOM used for reading-order grouping
  * @param {SVGElement} [params.dtSvgElement] - DT SVG root for geometry extraction
+ * @param {string} [params.liquifierVersion] - Liquifier version string for provenance description
+ * @param {string} [params.thulemeierVersion] - Thulemeier version string for provenance description
  * @returns {SVGElement} The same SVG element with updated metadata attributes/desc payload
  */
-export function applyFluidSystemsOutputMetadata (svgElement, { triple, systemId, systemIds, atDom, dtSvgElement }) {
+export function applyFluidSystemsOutputMetadata (svgElement, { triple, systemId, systemIds, atDom, dtSvgElement, liquifierVersion, thulemeierVersion }) {
   const classList = (svgElement.getAttribute('class') || '').split(/\s+/).filter(Boolean)
+  const filteredClassList = classList.filter(className => !className.startsWith('bw-fs-state-'))
 
-  FLUID_SYSTEMS_STATE_SEQUENCE.forEach(state => {
-    const marker = `bw-fs-state-${state}`
-    if (!classList.includes(marker)) {
-      classList.push(marker)
-    }
+  if (filteredClassList.length > 0) {
+    svgElement.setAttribute('class', filteredClassList.join(' '))
+  } else {
+    svgElement.removeAttribute('class')
+  }
+  svgElement.removeAttribute('data-bw-fs-states')
+
+  upsertFluidSystemsProvenanceDesc(svgElement, {
+    liquifierVersion,
+    thulemeierVersion
   })
-
-  svgElement.setAttribute('class', classList.join(' '))
-  svgElement.setAttribute('data-bw-fs-states', FLUID_SYSTEMS_STATE_SEQUENCE.join(','))
 
   const readingOrder = applyReadingOrderStageTransform(svgElement, atDom, dtSvgElement)
 
@@ -890,6 +938,7 @@ export async function renderFluidSystemsSvg ({ data, triple, verovio, pageDimens
       choiceVerticalOffsets
     })
     anchorFluidSystemsToAtLeft(fluidSvg)
+    const thulemeierVersion = await getThulemeierVersion()
 
     const systemIds = Array.from(data.dtDom.querySelectorAll('draft > system, draft > bw\\:system'))
       .map(system => system.getAttribute('xml:id'))
@@ -899,7 +948,9 @@ export async function renderFluidSystemsSvg ({ data, triple, verovio, pageDimens
       triple,
       systemIds,
       atDom: data.atDom,
-      dtSvgElement: dtSvg.documentElement || dtSvg
+      dtSvgElement: dtSvg.documentElement || dtSvg,
+      liquifierVersion: LIQUIFIER_VERSION,
+      thulemeierVersion
     })
 
     const fluidSvgString = serializer.serializeToString(fluidSvg)

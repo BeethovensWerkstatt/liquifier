@@ -2,13 +2,16 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { JSDOM } from 'jsdom'
 
-import { applyFluidSystemsOutputMetadata, FLUID_SYSTEMS_STATE_SEQUENCE } from '../src/rendering/renderers.js'
+import { applyFluidSystemsOutputMetadata } from '../src/rendering/renderers.js'
 
 const parser = new (new JSDOM().window.DOMParser)()
 
-test('applyFluidSystemsOutputMetadata adds state markers and overlay metadata JSON', () => {
+test('applyFluidSystemsOutputMetadata updates provenance desc and overlay metadata JSON', () => {
   const svgDom = parser.parseFromString('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 400"></svg>', 'image/svg+xml')
   const svg = svgDom.documentElement
+  const provenanceDesc = svgDom.createElementNS('http://www.w3.org/2000/svg', 'desc')
+  provenanceDesc.textContent = 'Engraved by Verovio 5.6.0-85e7620'
+  svg.appendChild(provenanceDesc)
 
   const atDom = parser.parseFromString(`
     <mei xmlns="http://www.music-encoding.org/ns/mei">
@@ -71,15 +74,17 @@ test('applyFluidSystemsOutputMetadata adds state markers and overlay metadata JS
     triple: { page: 'p005' },
     systemId: 's123',
     atDom,
-    dtSvgElement: dtSvgDom.documentElement
+    dtSvgElement: dtSvgDom.documentElement,
+    liquifierVersion: '1.2.0',
+    thulemeierVersion: '1.0.0'
   })
 
-  const classes = (svg.getAttribute('class') || '').split(/\s+/)
-  FLUID_SYSTEMS_STATE_SEQUENCE.forEach(state => {
-    assert.ok(classes.includes(`bw-fs-state-${state}`))
-  })
-
-  assert.equal(svg.getAttribute('data-bw-fs-states'), FLUID_SYSTEMS_STATE_SEQUENCE.join(','))
+  assert.equal(svg.getAttribute('class'), null)
+  assert.equal(svg.getAttribute('data-bw-fs-states'), null)
+  assert.equal(
+    provenanceDesc.textContent,
+    'Cached Fluid Transcription rendered by Liquifier 1.2.0, based on Annotated Transcription rendered by Verovio 5.6.0-85e7620 and Diplomatic Transcription rendered by Thulemeier 1.0.0.'
+  )
 
   const desc = svg.querySelector('desc#bw-fs-overlay-metadata')
   assert.ok(desc)
@@ -108,14 +113,16 @@ test('applyFluidSystemsOutputMetadata adds state markers and overlay metadata JS
 
 test('applyFluidSystemsOutputMetadata updates existing metadata desc', () => {
   const svgDom = parser.parseFromString(
-    '<svg xmlns="http://www.w3.org/2000/svg" class="existing" width="900" height="300"><desc id="bw-fs-overlay-metadata">{"old":true}</desc></svg>',
+    '<svg xmlns="http://www.w3.org/2000/svg" class="existing bw-fs-state-finding" data-bw-fs-states="finding" width="900" height="300"><desc>Engraved by Verovio 5.5.0</desc><desc id="bw-fs-overlay-metadata">{"old":true}</desc></svg>',
     'image/svg+xml'
   )
   const svg = svgDom.documentElement
 
   applyFluidSystemsOutputMetadata(svg, {
     triple: { page: 'p010' },
-    systemId: null
+    systemId: null,
+    liquifierVersion: '1.2.0',
+    thulemeierVersion: '1.0.0'
   })
 
   const descNodes = svg.querySelectorAll('desc#bw-fs-overlay-metadata')
@@ -130,8 +137,15 @@ test('applyFluidSystemsOutputMetadata updates existing metadata desc', () => {
   assert.deepEqual(payload.readingOrderAdjustedMeasures, [])
   assert.equal(payload.readingOrderGeometrySource, 'none')
 
-  const classes = (svg.getAttribute('class') || '').split(/\s+/)
-  assert.ok(classes.includes('existing'))
+  assert.equal(svg.getAttribute('class'), 'existing')
+  assert.equal(svg.getAttribute('data-bw-fs-states'), null)
+
+  const provenanceDesc = Array.from(svg.querySelectorAll('desc')).find(desc => desc.getAttribute('id') !== 'bw-fs-overlay-metadata')
+  assert.ok(provenanceDesc)
+  assert.equal(
+    provenanceDesc.textContent,
+    'Cached Fluid Transcription rendered by Liquifier 1.2.0, based on Annotated Transcription rendered by Verovio 5.5.0 and Diplomatic Transcription rendered by Thulemeier 1.0.0.'
+  )
 })
 
 test('applyFluidSystemsOutputMetadata uses FT geometry fallback when DT mapping is unavailable', () => {
