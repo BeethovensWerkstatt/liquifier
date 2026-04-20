@@ -18,9 +18,6 @@ const CURRENT_PAGE_REGION_PADDING = 500
 const CURRENT_PAGE_REGION_TARGET_X = 1000
 const require = createRequire(import.meta.url)
 const { version: LIQUIFIER_VERSION } = require('../../package.json')
-/**
- * Canonical phase sequence used by fluidSystems overlays and animation metadata.
- */
 export const FLUID_SYSTEMS_STATE_SEQUENCE = [
   'finding',
   'normalization',
@@ -30,6 +27,12 @@ export const FLUID_SYSTEMS_STATE_SEQUENCE = [
   'interventions'
 ]
 
+/**
+ * Returns svg view box size from the current data context.
+ *
+ * @param {SVGElement|Document} svgElement - SVG document used by this function.
+ * @returns {Object} Resulting object.
+ */
 function getSvgViewBoxSize (svgElement) {
   const viewBox = svgElement.getAttribute('viewBox')
   if (viewBox) {
@@ -49,6 +52,12 @@ function getSvgViewBoxSize (svgElement) {
   }
 }
 
+/**
+ * Parses view box from serialized input values.
+ *
+ * @param {number} viewBoxAttr - Numeric input used by this function.
+ * @returns {Object} Resulting object.
+ */
 function parseViewBox (viewBoxAttr) {
   if (!viewBoxAttr) return null
   const [x, y, width, height] = viewBoxAttr.split(/\s+/).map(Number)
@@ -58,6 +67,12 @@ function parseViewBox (viewBoxAttr) {
   return null
 }
 
+/**
+ * Parses translate point from serialized input values.
+ *
+ * @param {Function} transformAttr - Callback invoked by this function.
+ * @returns {Object} Resulting object.
+ */
 function parseTranslatePoint (transformAttr) {
   if (!transformAttr) return null
 
@@ -71,10 +86,23 @@ function parseTranslatePoint (transformAttr) {
   return { x, y }
 }
 
+/**
+ * Collects choice position map.
+ *
+ * @param {SVGElement|Document} svgElement - SVG document used by this function.
+ * @returns {Element|null} Resulting object.
+ */
 function collectChoicePositionMap (svgElement) {
   const positions = new Map()
   if (!svgElement) return positions
 
+  /**
+   * Processes positions for this operation.
+   *
+   * @param {string} selector - CSS selector used to query target nodes.
+   * @param {string} pointSelector - Collection of values used by this function.
+   * @returns {void} No return value.
+   */
   const addPositions = (selector, pointSelector) => {
     svgElement.querySelectorAll(selector).forEach(element => {
       const id = element.getAttribute('data-id')
@@ -95,10 +123,23 @@ function collectChoicePositionMap (svgElement) {
   return positions
 }
 
+/**
+ * Builds choice reg to orig id map for subsequent processing steps.
+ *
+ * @param {Document} editedAtDom - DOM document used by this function.
+ * @returns {Element|null} Resulting object.
+ */
 function buildChoiceRegToOrigIdMap (editedAtDom) {
   const regToOrig = new Map()
   if (!editedAtDom) return regToOrig
 
+  /**
+   * Processes by local name and corresp for this operation.
+   *
+   * @param {Element} origNodes - Element processed by this function.
+   * @param {Element} regNodes - Element processed by this function.
+   * @returns {string} Resulting string.
+   */
   const pairByLocalNameAndCorresp = (origNodes, regNodes) => {
     const usedOrigIds = new Set()
 
@@ -142,6 +183,13 @@ function buildChoiceRegToOrigIdMap (editedAtDom) {
     })
   }
 
+  /**
+   * Finds direct child.
+   *
+   * @param {Element} parent - Element processed by this function.
+   * @param {string} localName - String input used by this function.
+   * @returns {Object} Resulting object.
+   */
   const findDirectChild = (parent, localName) => {
     const children = Array.from(parent.childNodes || [])
     return children.find(node => node.nodeType === 1 && node.localName === localName) || null
@@ -162,6 +210,14 @@ function buildChoiceRegToOrigIdMap (editedAtDom) {
   return regToOrig
 }
 
+/**
+ * Extracts choice vertical offsets from the provided data structures.
+ *
+ * @param {SVGElement|Document} regAtSvg - SVG document used by this function.
+ * @param {SVGElement|Document} origAtSvg - SVG document used by this function.
+ * @param {Document} editedAtDom - DOM document used by this function.
+ * @returns {Map<*, *>} Resulting mapping.
+ */
 function extractChoiceVerticalOffsets (regAtSvg, origAtSvg, editedAtDom) {
   const regSvgElement = regAtSvg?.documentElement || regAtSvg
   const origSvgElement = origAtSvg?.documentElement || origAtSvg
@@ -185,6 +241,12 @@ function extractChoiceVerticalOffsets (regAtSvg, origAtSvg, editedAtDom) {
   return offsets
 }
 
+/**
+ * Anchors fluid systems to AT left.
+ *
+ * @param {string} fluidSvgDocument - SVG document used by this function.
+ * @returns {Object} Resulting object.
+ */
 function anchorFluidSystemsToAtLeft (fluidSvgDocument) {
   const rootSvg = fluidSvgDocument.documentElement || fluidSvgDocument
   const displaySvg = rootSvg.querySelector('svg.definition-scale') || rootSvg
@@ -203,6 +265,12 @@ function anchorFluidSystemsToAtLeft (fluidSvgDocument) {
   return { newX, newWidth }
 }
 
+/**
+ * Builds reading order block map for subsequent processing steps.
+ *
+ * @param {Document} atDom - DOM document used by this function.
+ * @returns {Map<*, *>} Resulting mapping.
+ */
 function buildReadingOrderBlockMap (atDom) {
   const measureBlockMap = new Map()
   if (!atDom) return measureBlockMap
@@ -237,11 +305,23 @@ function buildReadingOrderBlockMap (atDom) {
   return measureBlockMap
 }
 
+/**
+ * Returns first diplomatic corresp id from the current data context.
+ *
+ * @param {string} value - String input used by this function.
+ * @returns {string} Resulting string.
+ */
 function getFirstDiplomaticCorrespId (value = '') {
   const diplomaticIds = getDiplomaticCorrespIds(value)
   return diplomaticIds[0] || null
 }
 
+/**
+ * Builds dt id set for subsequent processing steps.
+ *
+ * @param {Document} dtDom - DOM document used by this function.
+ * @returns {string} Resulting string.
+ */
 function buildDtIdSet (dtDom) {
   const dtIds = new Set()
   if (!dtDom) return dtIds
@@ -254,6 +334,13 @@ function buildDtIdSet (dtDom) {
   return dtIds
 }
 
+/**
+ * Builds mapped at id set for subsequent processing steps.
+ *
+ * @param {Document} atDom - DOM document used by this function.
+ * @param {string} dtIds - Identifier for the target element.
+ * @returns {string} Resulting string.
+ */
 function buildMappedAtIdSet (atDom, dtIds) {
   const atIds = new Set()
   if (!atDom || !dtIds || dtIds.size === 0) return atIds
@@ -271,6 +358,12 @@ function buildMappedAtIdSet (atDom, dtIds) {
   return atIds
 }
 
+/**
+ * Maps annotated diplomatic corresp ids data to diplomatic transcription output.
+ *
+ * @param {string} value - String input used by this function.
+ * @returns {Array<*>} Resulting list.
+ */
 function getDiplomaticCorrespIds (value = '') {
   if (!value) return []
 
@@ -288,6 +381,12 @@ function getDiplomaticCorrespIds (value = '') {
   return ids
 }
 
+/**
+ * Builds at to dt measure map for subsequent processing steps.
+ *
+ * @param {Document} atDom - DOM document used by this function.
+ * @returns {Map<*, *>} Resulting mapping.
+ */
 function buildAtToDtMeasureMap (atDom) {
   const map = new Map()
   if (!atDom) return map
@@ -306,12 +405,25 @@ function buildAtToDtMeasureMap (atDom) {
   return map
 }
 
+/**
+ * Processes x for this operation.
+ *
+ * @param {{min: number, max: number}} range - Numeric range with minimum and maximum values.
+ * @param {number} x - Numeric input used by this function.
+ * @returns {void} No return value.
+ */
 function absorbX (range, x) {
   if (!Number.isFinite(x)) return
   range.min = Math.min(range.min, x)
   range.max = Math.max(range.max, x)
 }
 
+/**
+ * Parses translate xvalues from serialized input values.
+ *
+ * @param {Function} transformAttr - Callback invoked by this function.
+ * @returns {Array<*>} Resulting list.
+ */
 function parseTranslateXValues (transformAttr) {
   if (!transformAttr) return []
 
@@ -327,6 +439,13 @@ function parseTranslateXValues (transformAttr) {
   return values
 }
 
+/**
+ * Returns animation value for phase from the current data context.
+ *
+ * @param {Element} animationElement - Element processed by this function.
+ * @param {number} phaseIndex - Zero-based phase index.
+ * @returns {Object} Resulting object.
+ */
 function getAnimationValueForPhase (animationElement, phaseIndex) {
   if (!animationElement) return null
 
@@ -337,6 +456,12 @@ function getAnimationValueForPhase (animationElement, phaseIndex) {
   return values[index]
 }
 
+/**
+ * Parses translate xfrom animation value from serialized input values.
+ *
+ * @param {string} value - String input used by this function.
+ * @returns {number} Resulting numeric value.
+ */
 function parseTranslateXFromAnimationValue (value) {
   if (!value) return 0
 
@@ -347,6 +472,12 @@ function parseTranslateXFromAnimationValue (value) {
   return Number.isFinite(x) ? x : 0
 }
 
+/**
+ * Parses notehead base x from serialized input values.
+ *
+ * @param {Element} noteElement - Element processed by this function.
+ * @returns {number} Resulting numeric value.
+ */
 function parseNoteheadBaseX (noteElement) {
   const noteheadUse = noteElement.querySelector('.notehead > use')
   if (!noteheadUse) return null
@@ -358,6 +489,13 @@ function parseNoteheadBaseX (noteElement) {
   return Number.isFinite(x) ? x : null
 }
 
+/**
+ * Returns whether element visible AT phase.
+ *
+ * @param {Element} element - Element processed by this function.
+ * @param {number} phaseIndex - Zero-based phase index.
+ * @returns {boolean} Whether the condition is satisfied.
+ */
 function isElementVisibleAtPhase (element, phaseIndex) {
   const opacityAnimation = element.querySelector(':scope > animate[attributeName="opacity"]')
   const opacityValue = getAnimationValueForPhase(opacityAnimation, phaseIndex)
@@ -365,6 +503,12 @@ function isElementVisibleAtPhase (element, phaseIndex) {
   return opacityValue !== '0'
 }
 
+/**
+ * Extracts node xrange from the provided data structures.
+ *
+ * @param {Element} node - Element processed by this function.
+ * @returns {number} Resulting numeric value.
+ */
 function extractNodeXRange (node) {
   const range = { min: Infinity, max: -Infinity }
   const nodes = [node, ...node.querySelectorAll('*')]
@@ -403,6 +547,14 @@ function extractNodeXRange (node) {
   return range
 }
 
+/**
+ * Computes mapped note phase region from the provided inputs.
+ *
+ * @param {SVGElement|Document} svgElement - SVG document used by this function.
+ * @param {string} mappedAtIds - Identifier for the target element.
+ * @param {number} phaseIndex - Zero-based phase index.
+ * @returns {Object} Resulting object.
+ */
 function computeMappedNotePhaseRegion (svgElement, mappedAtIds, phaseIndex) {
   if (!svgElement || !mappedAtIds || mappedAtIds.size === 0) return null
 
@@ -444,6 +596,14 @@ function computeMappedNotePhaseRegion (svgElement, mappedAtIds, phaseIndex) {
   }
 }
 
+/**
+ * Computes current page region from the provided inputs.
+ *
+ * @param {SVGElement|Document} svgElement - SVG document used by this function.
+ * @param {Document} atDom - DOM document used by this function.
+ * @param {Document} dtDom - DOM document used by this function.
+ * @returns {Object} Resulting object.
+ */
 function computeCurrentPageRegion (svgElement, atDom, dtDom) {
   if (!svgElement || !atDom || !dtDom) return null
 
@@ -510,6 +670,13 @@ function computeCurrentPageRegion (svgElement, atDom, dtDom) {
   }
 }
 
+/**
+ * Processes current page region to visible left for this operation.
+ *
+ * @param {SVGElement|Document} svgElement - SVG document used by this function.
+ * @param {Object} currentPageRegion - Input object used by this function.
+ * @returns {Object} Resulting object.
+ */
 function alignCurrentPageRegionToVisibleLeft (svgElement, currentPageRegion) {
   if (!svgElement || !currentPageRegion) return null
 
@@ -533,6 +700,12 @@ function alignCurrentPageRegionToVisibleLeft (svgElement, currentPageRegion) {
   }
 }
 
+/**
+ * Computes block layout from the provided inputs.
+ *
+ * @param {Map<number, {min: number, max: number}>} blockRanges - Block extents used for reading-order layout alignment.
+ * @returns {Map<*, *>} Resulting mapping.
+ */
 function computeBlockLayout (blockRanges) {
   const sorted = Array.from(blockRanges.entries()).sort((a, b) => a[0] - b[0])
   if (sorted.length === 0) return new Map()
@@ -557,6 +730,14 @@ function computeBlockLayout (blockRanges) {
   return offsets
 }
 
+/**
+ * Builds block ranges from dt for subsequent processing steps.
+ *
+ * @param {SVGElement|Document} dtSvgElement - SVG document used by this function.
+ * @param {Document} atDom - DOM document used by this function.
+ * @param {Map<string, number>} measureBlockMap - Mapping used to resolve related values.
+ * @returns {Element|null} Resulting object.
+ */
 function buildBlockRangesFromDt (dtSvgElement, atDom, measureBlockMap) {
   const blockRanges = new Map()
   if (!dtSvgElement || !atDom || measureBlockMap.size === 0) return blockRanges
@@ -585,6 +766,14 @@ function buildBlockRangesFromDt (dtSvgElement, atDom, measureBlockMap) {
   return blockRanges
 }
 
+/**
+ * Applies reading order stage transform.
+ *
+ * @param {SVGElement|Document} svgElement - SVG document used by this function.
+ * @param {Document} atDom - DOM document used by this function.
+ * @param {SVGElement|Document} dtSvgElement - SVG document used by this function.
+ * @returns {Object} Resulting object.
+ */
 function applyReadingOrderStageTransform (svgElement, atDom, dtSvgElement) {
   const measureBlockMap = buildReadingOrderBlockMap(atDom)
   if (measureBlockMap.size === 0) {
@@ -654,6 +843,12 @@ function applyReadingOrderStageTransform (svgElement, atDom, dtSvgElement) {
   return { adjustedCount: adjustedMeasureIds.length, adjustedMeasureIds, geometrySource }
 }
 
+/**
+ * Extracts verovio version from desc text from the provided data structures.
+ *
+ * @param {string} descText - String input used by this function.
+ * @returns {string} Resulting string.
+ */
 function extractVerovioVersionFromDescText (descText = '') {
   const engravedMatch = descText.match(/Engraved by Verovio\s+(.+)$/i)
   if (engravedMatch && engravedMatch[1]) {
@@ -668,6 +863,15 @@ function extractVerovioVersionFromDescText (descText = '') {
   return null
 }
 
+/**
+ * Processes fluid systems provenance desc for this operation.
+ *
+ * @param {SVGElement|Document} svgElement - SVG document used by this function.
+ * @param {Object} options - Structured options object.
+ * @param {string} options.liquifierVersion - Liquifier version string used in the provenance text.
+ * @param {string} options.thulemeierVersion - Thulemeier version string used in the provenance text.
+ * @returns {Element} The updated or newly created desc element.
+ */
 function upsertFluidSystemsProvenanceDesc (svgElement, { liquifierVersion, thulemeierVersion }) {
   const descNodes = Array.from(svgElement.querySelectorAll('desc'))
   const nonMetadataDescNodes = descNodes.filter(desc => desc.getAttribute('id') !== FLUID_SYSTEMS_DESC_ID)
@@ -696,17 +900,18 @@ function upsertFluidSystemsProvenanceDesc (svgElement, { liquifierVersion, thule
 
 /**
  * Stamp fluidSystems provenance and reading-order overlay metadata into output SVG.
+ *
  * @param {SVGElement} svgElement - Fluid SVG root element
  * @param {Object} params - Metadata source bundle
  * @param {Object} params.triple - File tuple containing page metadata
- * @param {string} [params.systemId] - Single DT system id (legacy single-system path)
- * @param {string[]} [params.systemIds] - DT system ids used in the output
- * @param {Document} [params.atDom] - AT MEI DOM used for reading-order grouping
- * @param {Document} [params.dtDom] - DT MEI DOM used for current-page region mapping
- * @param {SVGElement} [params.dtSvgElement] - DT SVG root for geometry extraction
- * @param {string} [params.liquifierVersion] - Liquifier version string for provenance description
- * @param {string} [params.thulemeierVersion] - Thulemeier version string for provenance description
- * @returns {SVGElement} The same SVG element with updated metadata attributes/desc payload
+ * @param {string} params.systemId - Optional single-system identifier for legacy callers.
+ * @param {string[]} params.systemIds - List of DT system identifiers included in the output.
+ * @param {Document} params.atDom - Annotated transcript MEI used for measure and corresp mapping.
+ * @param {Document} params.dtDom - Diplomatic transcript MEI used to determine relevant DT ids.
+ * @param {SVGElement|Document} params.dtSvgElement - DT SVG root used for reading-order geometry extraction.
+ * @param {string} params.liquifierVersion - Liquifier version string for provenance metadata.
+ * @param {string} params.thulemeierVersion - Thulemeier version string for provenance metadata.
+ * @returns {SVGElement} The same SVG element with updated metadata attributes and description payload.
  */
 export function applyFluidSystemsOutputMetadata (svgElement, { triple, systemId, systemIds, atDom, dtDom, dtSvgElement, liquifierVersion, thulemeierVersion }) {
   const classList = (svgElement.getAttribute('class') || '').split(/\s+/).filter(Boolean)
@@ -766,6 +971,23 @@ export function applyFluidSystemsOutputMetadata (svgElement, { triple, systemId,
   return svgElement
 }
 
+/**
+ * Renders fluid systems like.
+ *
+ * @param {Object} params - Destructured parameter bundle for this renderer stage.
+ * @param {Object} params.data - Source payload containing AT/DT documents.
+ * @param {Object} params.triple - File tuple with derived paths and timestamps.
+ * @param {boolean} params.recreate - Re-render flag that bypasses output timestamp checks.
+ * @param {{debug: Function, info: Function, warn: Function, error: Function}} params.logger - Logger instance.
+ * @param {string} params.sourceDir - Source directory segment for per-system input SVGs.
+ * @param {string} params.sourceSuffix - Source filename suffix used to resolve DT system SVGs.
+ * @param {string} params.targetDir - Target directory segment for generated output SVGs.
+ * @param {string} params.targetSuffix - Target filename suffix for generated SVGs.
+ * @param {Date} params.outputDate - Output timestamp used by render freshness checks.
+ * @param {Function} params.postProcessSvg - Optional post-processing hook for each generated system SVG.
+ * @param {Object} params.generationOptions - Options passed through to fluid transcription generation.
+ * @returns {{skipped: boolean, successCount?: number, errorCount?: number, noSystemFiles?: boolean}} Render summary for this invocation.
+ */
 function renderFluidSystemsLike ({ data, triple, recreate, logger, sourceDir, sourceSuffix, targetDir, targetSuffix, outputDate, postProcessSvg, generationOptions = {} }) {
   const { atDate, dtDate, atSvgPath } = triple
 
@@ -853,6 +1075,7 @@ function renderFluidSystemsLike ({ data, triple, recreate, logger, sourceDir, so
 
 /**
  * Check if a file should be rendered based on recreate flag or date comparison
+ *
  * @param {boolean} recreate - Force recreation flag
  * @param {Date[]} sourceDates - Array of source file dates to compare
  * @param {Date} outputDate - Output file date
@@ -865,11 +1088,13 @@ function shouldRender (recreate, sourceDates, outputDate) {
 
 /**
  * Render Edited Annotated Transcript (MEI XML)
+ *
  * @param {Object} params - Rendering parameters
  * @param {Object} params.data - Source data (atDom, dtDom, sourceDom)
  * @param {Object} params.triple - File paths and dates
  * @param {boolean} params.recreate - Force recreation flag
  * @param {Object} params.logger - Logger instance
+ * @returns {Promise<void>} Promise resolving to the computed result.
  */
 export async function renderEditedAnnotatedTranscript ({ data, triple, recreate, logger }) {
   const { atDate, editedAtPath, editedAtDate } = triple
@@ -890,6 +1115,7 @@ export async function renderEditedAnnotatedTranscript ({ data, triple, recreate,
 /**
  * Render Annotated Transcript SVG
  * Renders both the full continuous AT and individual system ATs
+ *
  * @param {Object} params - Rendering parameters
  * @param {Object} params.data - Source data (atDom, dtDom, sourceDom)
  * @param {Object} params.triple - File paths and dates
@@ -897,6 +1123,7 @@ export async function renderEditedAnnotatedTranscript ({ data, triple, recreate,
  * @param {Object} params.pageDimensions - Page dimensions for rendering
  * @param {boolean} params.recreate - Force recreation flag
  * @param {Object} params.logger - Logger instance
+ * @returns {Promise<void>} Promise resolving to the computed result.
  */
 export async function renderAnnotatedTranscriptSvg ({ data, triple, verovio, pageDimensions, recreate, logger }) {
   const { atDate, atSvgPath, atSvgDate } = triple
@@ -941,6 +1168,7 @@ export async function renderAnnotatedTranscriptSvg ({ data, triple, verovio, pag
 
 /**
  * Render Annotated Transcript MIDI
+ *
  * @param {Object} params - Rendering parameters
  * @param {Object} params.data - Source data (atDom, dtDom, sourceDom)
  * @param {Object} params.triple - File paths and dates
@@ -948,6 +1176,7 @@ export async function renderAnnotatedTranscriptSvg ({ data, triple, verovio, pag
  * @param {Object} params.pageDimensions - Page dimensions for rendering
  * @param {boolean} params.recreate - Force recreation flag
  * @param {Object} params.logger - Logger instance
+ * @returns {void} No return value.
  */
 export function renderAnnotatedTranscriptMidi ({ data, triple, verovio, pageDimensions, recreate, logger }) {
   const { atDate, atMidPath, atMidDate } = triple
@@ -965,25 +1194,16 @@ export function renderAnnotatedTranscriptMidi ({ data, triple, verovio, pageDime
 
 /**
  * Render Diplomatic Transcript SVG
- * Uses Thulemeier library to render diplomatic transcripts with merged source information
- *
- * @param {Object} params - Rendering parameters
- * @param {Object} params.data - Source data (atDom, dtDom, sourceDom)
- * @param {Object} params.triple - File paths and dates
- * @param {Object} params.verovio - Verovio toolkit instance (not used for DT rendering)
- * @param {Object} params.pageDimensions - Page dimensions for rendering
- * @param {boolean} params.recreate - Force recreation flag
- * @param {Object} params.logger - Logger instance
- */
-/**
- * Render Diplomatic Transcript SVG
  * Renders both the full DT and individual system files
+ *
  * @param {Object} params - Rendering parameters
  * @param {Object} params.data - Source data (atDom, dtDom, sourceDom)
  * @param {Object} params.triple - File paths and dates
  * @param {Object} params.verovio - Verovio toolkit instance
  * @param {Object} params.pageDimensions - Page dimensions for rendering
  * @param {boolean} params.recreate - Force recreation flag
+ * @param {Object} params.logger - Logger instance
+ * @returns {Promise<*>} Promise resolving to the computed result.
  */
 export async function renderDiplomaticTranscriptSvg ({ data, triple, verovio, pageDimensions, recreate, logger }) {
   const { dtDate, dtSvgPath, dtSvgDate, sourceFullPath } = triple
@@ -1054,6 +1274,7 @@ export async function renderDiplomaticTranscriptSvg ({ data, triple, verovio, pa
 /**
  * Render Fluid Transcript SVG
  * Generates fluid transcriptions for each system pair (DT + AT)
+ *
  * @param {Object} params - Rendering parameters
  * @param {Object} params.data - Source data (atDom, dtDom, sourceDom)
  * @param {Object} params.triple - File paths and dates
@@ -1061,6 +1282,7 @@ export async function renderDiplomaticTranscriptSvg ({ data, triple, verovio, pa
  * @param {Object} params.pageDimensions - Page dimensions for rendering
  * @param {boolean} params.recreate - Force recreation flag
  * @param {Object} params.logger - Logger instance
+ * @returns {void} No return value.
  */
 export function renderFluidTranscriptSvg ({ data, triple, verovio, pageDimensions, recreate, logger }) {
   const { atDate, dtDate, ftSvgPath, ftSvgDate } = triple
@@ -1103,6 +1325,7 @@ export function renderFluidTranscriptSvg ({ data, triple, verovio, pageDimension
 
 /**
  * Render Fluid Systems SVG
+ *
  * @param {Object} params - Rendering parameters
  * @param {Object} params.data - Source data (atDom, dtDom, sourceDom)
  * @param {Object} params.triple - File paths and dates
@@ -1110,6 +1333,7 @@ export function renderFluidTranscriptSvg ({ data, triple, verovio, pageDimension
  * @param {Object} params.pageDimensions - Page dimensions for rendering
  * @param {boolean} params.recreate - Force recreation flag
  * @param {Object} params.logger - Logger instance
+ * @returns {Promise<void>} Promise resolving to the computed result.
  */
 export async function renderFluidSystemsSvg ({ data, triple, verovio, pageDimensions, recreate, logger }) {
   const { atDate, dtDate, fsSvgPath, fsSvgDate, dtSvgPath } = triple
@@ -1184,6 +1408,7 @@ export async function renderFluidSystemsSvg ({ data, triple, verovio, pageDimens
 
 /**
  * Render Fluid Transcript HTML
+ *
  * @param {Object} params - Rendering parameters
  * @param {Object} params.data - Source data (atDom, dtDom, sourceDom)
  * @param {Object} params.triple - File paths and dates
@@ -1191,6 +1416,7 @@ export async function renderFluidSystemsSvg ({ data, triple, verovio, pageDimens
  * @param {Object} params.pageDimensions - Page dimensions for rendering
  * @param {boolean} params.recreate - Force recreation flag
  * @param {Object} params.logger - Logger instance
+ * @returns {void} No return value.
  */
 export function renderFluidTranscriptHtml ({ data, triple, verovio, pageDimensions, recreate, logger }) {
   const { atDate, dtDate, ftHtmlPath, ftHtmlDate } = triple

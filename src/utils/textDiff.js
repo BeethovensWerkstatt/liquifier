@@ -1,20 +1,8 @@
 /**
- * @file Text diff utility for comparing two strings and identifying common/different parts
- * @module utils/textDiff
- */
-
-/**
  * Compute the differences between two strings using a dynamic programming approach.
  * Returns segments that are common, only in source (DT), or only in target (AT).
- *
  * This uses a simplified diff algorithm similar to the Myers algorithm, optimized
  * for short text strings like musical dynamics annotations.
- *
- * @param {string} source - Source string (DT text)
- * @param {string} target - Target string (AT text)
- * @returns {Array<{text: string, type: 'common'|'delete'|'insert'}>} Array of text segments
- *
- * @example
  * computeTextDiff('dimin:', 'dim.')
  * // Returns:
  * // [
@@ -22,6 +10,11 @@
  * //   { text: 'in:', type: 'delete' },
  * //   { text: '.', type: 'insert' }
  * // ]
+ *
+ * @example
+ * @param {string} source - Source string (DT text)
+ * @param {string} target - Target string (AT text)
+ * @returns {Array<{text: string, type: 'common'|'delete'|'insert'} >} Array of text segments
  */
 export function computeTextDiff (source, target) {
   const sourceLen = source.length
@@ -112,7 +105,7 @@ export function computeTextDiff (source, target) {
  *
  * @param {string} source - Source string (DT text)
  * @param {string} target - Target string (AT text)
- * @returns {Array<{text: string, type: 'common'|'delete'|'insert'}>} Array of text segments
+ * @returns {Array<{text: string, type: 'common'|'delete'|'insert'} >} Array of text segments
  */
 export function computeWordDiff (source, target) {
   // For now, just use character-level diff

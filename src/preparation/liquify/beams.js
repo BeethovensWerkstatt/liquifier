@@ -1,18 +1,16 @@
 /**
  * Prepare AT beam elements for animation
- *
  * Beams consist of polygon elements representing beam lines. Typically there is:
  * - One main beam spanning the full length
  * - Additional segmented beams (e.g., for 16th notes, 32nd notes)
- *
  * This function merges connected segments into continuous polygons by detecting
  * segments that share endpoints (indicating they connect). Only segments that
  * attach to each other are combined.
- *
  * Also handles beamSpan elements which have the same structure as beam elements.
  *
  * @param {SVGElement} svg - AT SVG DOM containing beam elements
- * @param {Object} logger - Logger instance
+ * @param {{debug: Function, info: Function, warn: Function, error: Function}} logger - Logger instance
+ * @returns {Object} Resulting object.
  */
 const adjustAtBeams = (svg, logger) => {
   const beams = svg.querySelectorAll('g.beam:not(.bounding-box), g.beamSpan:not(.bounding-box)')
@@ -158,7 +156,6 @@ const adjustAtBeams = (svg, logger) => {
 
 /**
  * Check if two polygons connect (share an edge)
- *
  * Two beam segments connect if they share two points (an edge).
  * For example: segment1 ends with points [x1,y1] [x2,y2] and segment2 starts with [x1,y1] [x2,y2]
  *
@@ -195,6 +192,11 @@ const polygonsConnect = (points1, points2) => {
 
 /**
  * Check if two points are equal within a tolerance
+ *
+ * @param {{x: number, y: number}} p1 - Input object used by this function.
+ * @param {{x: number, y: number}} p2 - Input object used by this function.
+ * @param {number} tolerance - Numeric input used by this function.
+ * @returns {Array<*>} Resulting list.
  */
 const pointsEqual = (p1, p2, tolerance = 0.1) => {
   return Math.abs(p1.x - p2.x) < tolerance && Math.abs(p1.y - p2.y) < tolerance
@@ -202,7 +204,6 @@ const pointsEqual = (p1, p2, tolerance = 0.1) => {
 
 /**
  * Calculate normalized beam polygons for the diplomatic state
- *
  * The normalization state normalizes beams by:
  * 1. Finding which notes' stems attach to the beam (from MEI)
  * 2. Calculating beam endpoints from first and last note stem endpoints
@@ -213,7 +214,7 @@ const pointsEqual = (p1, p2, tolerance = 0.1) => {
  * @param {Document} atMeiDom - AT MEI DOM for beam-note relationships
  * @param {string} beamId - The beam's AT ID
  * @param {Array<SVGPolygonElement>} atPolygons - AT beam polygons (sorted top to bottom)
- * @param {Object} logger - Logger instance
+ * @param {{debug: Function, info: Function, warn: Function, error: Function}} logger - Logger instance
  * @returns {Array<string>} Array of diplomatic polygon points strings
  */
 const calculateDiplomaticBeams = (ftSvg, atMeiDom, beamId, atPolygons, logger) => {
@@ -258,6 +259,14 @@ const calculateDiplomaticBeams = (ftSvg, atMeiDom, beamId, atPolygons, logger) =
 
   // Parse stem path to get endpoint for a specific state
   // Frame indices: 0=finding, 1=normalization, 2=readingOrder, 3=regulation, 4=supplements, 5=interventions
+  /**
+   * Returns stem endpoint from the current data context.
+   *
+   * @param {string} stemPath - File or resource path.
+   * @param {string} stemDir - String input used by this function.
+   * @param {number} frameIndex - Zero-based phase index.
+   * @returns {Object} Resulting object.
+   */
   const getStemEndpoint = (stemPath, stemDir, frameIndex) => {
     const animates = stemPath.querySelectorAll('animate[attributeName="d"]')
 
@@ -280,6 +289,13 @@ const calculateDiplomaticBeams = (ftSvg, atMeiDom, beamId, atPolygons, logger) =
   }
 
   // Also need to get the note/chord group position for X coordinate
+  /**
+   * Returns note position from the current data context.
+   *
+   * @param {Element} noteGroup - Element processed by this function.
+   * @param {number} frameIndex - Zero-based phase index.
+   * @returns {Object} Resulting object.
+   */
   const getNotePosition = (noteGroup, frameIndex) => {
     // The animate element should have been set by liquifyNotes/liquifyChords
     // It's an animateTransform element that is a DIRECT child of the note group (not nested in accidentals etc)
@@ -302,6 +318,12 @@ const calculateDiplomaticBeams = (ftSvg, atMeiDom, beamId, atPolygons, logger) =
     return parseTransform(transform)
   }
 
+  /**
+   * Parses transform from serialized input values.
+   *
+   * @param {Function} transform - Callback invoked by this function.
+   * @returns {Object} Resulting object.
+   */
   const parseTransform = (transform) => {
     if (!transform) return { x: 0, y: 0 }
 
@@ -326,6 +348,13 @@ const calculateDiplomaticBeams = (ftSvg, atMeiDom, beamId, atPolygons, logger) =
     return { x: 0, y: 0 }
   }
 
+  /**
+   * Parses stem path from serialized input values.
+   *
+   * @param {Object} d - Input object used by this function.
+   * @param {string} stemDir - String input used by this function.
+   * @returns {Object} Resulting object.
+   */
   const parseStemPath = (d, stemDir) => {
     const match = d.match(/M\s*([\d.-]+)\s+([\d.-]+)\s+L\s*([\d.-]+)\s+([\d.-]+)/)
     if (!match) return null
@@ -415,6 +444,9 @@ const calculateDiplomaticBeams = (ftSvg, atMeiDom, beamId, atPolygons, logger) =
 
 /**
  * Parse polygon points string into array of {x, y} objects
+ *
+ * @param {Array<*>} pointsStr - Collection of values used by this function.
+ * @returns {Object} Resulting object.
  */
 const parsePolygonPoints = (pointsStr) => {
   return pointsStr.trim().split(/\s+/).map(point => {
@@ -425,20 +457,20 @@ const parsePolygonPoints = (pointsStr) => {
 
 /**
  * Animate beam elements between AT and DT transcriptions
- *
  * First prepares beam paths in the AT, then animates each beam path based on
  * corresponding DT beam position. Handles beams without DT correspondence by
  * fading them out.
+ * - getNewPos: Function to calculate new position
+ * - convertD: Function to convert path d attribute
+ * - scaleFactor: Scale factor between DT and AT
+ * - correspMappings: Map of AT to DT element IDs
+ * - setAnimation: Function to create 5-state animations from descriptors
  *
  * @param {SVGElement} ftSvg - Fluid transcription SVG (cloned from AT)
  * @param {SVGElement} dtSvg - Diplomatic transcript SVG
  * @param {Document} atMeiDom - AT MEI DOM for accessing element metadata
  * @param {Object} tools - Tools object containing helper functions and data:
- *   - getNewPos: Function to calculate new position
- *   - convertD: Function to convert path d attribute
- *   - scaleFactor: Scale factor between DT and AT
- *   - correspMappings: Map of AT to DT element IDs
- *   - setAnimation: Function to create 5-state animations from descriptors
+ * @returns {Object} Resulting object.
  */
 export const liquifyBeams = (ftSvg, dtSvg, atMeiDom, tools) => {
   const { getNewPos, correspMappings, setAnimation, logger } = tools
@@ -577,7 +609,6 @@ export const liquifyBeams = (ftSvg, dtSvg, atMeiDom, tools) => {
 
 /**
  * Sort polygons by their vertical position (top to bottom)
- *
  * Calculates the average Y coordinate of each polygon's points and sorts
  * from smallest (top) to largest (bottom).
  *
@@ -601,10 +632,8 @@ const sortPolygonsByPosition = (polygons) => {
 
 /**
  * Convert polygon points from AT to DT coordinate system
- *
  * Takes the points attribute string, parses each coordinate pair, transforms
  * them using getNewPos, and reconstructs the points string.
- *
  * Assumes both AT and DT polygons already have the same winding order
  * (handled in adjustAtBeams preparation phase).
  *

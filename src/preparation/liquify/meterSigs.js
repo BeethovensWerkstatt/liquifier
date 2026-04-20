@@ -1,6 +1,5 @@
 /**
  * Animate meter signatures between AT and DT transcriptions
- *
  * For each meter signature in the AT (fluid transcription):
  * - Animates the meter signature position based on corresponding DT meter signature position
  * - Handles meter signatures without DT correspondence by fading them out
@@ -9,6 +8,7 @@
  * @param {SVGElement} dtSvg - Diplomatic transcript SVG
  * @param {Document} atMeiDom - AT MEI DOM for accessing element metadata
  * @param {Object} tools - Tools object containing helper functions and data
+ * @returns {number} Resulting numeric value.
  */
 export const liquifyMeterSigs = (ftSvg, dtSvg, atMeiDom, tools) => {
   const { getNewPos, correspMappings, setAnimation, logger } = tools

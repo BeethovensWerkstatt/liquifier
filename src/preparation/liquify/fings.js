@@ -1,10 +1,8 @@
 /**
  * Animate fingerings between AT and DT transcriptions
- *
  * For each fingering in the AT (fluid transcription):
  * - Animates the fingering text position based on corresponding DT fingering position
  * - Handles fingerings without DT correspondence by fading them out
- *
  * Fingerings are text elements (typically numbers 1-5) that indicate which finger
  * should be used to play a note.
  *
@@ -12,6 +10,7 @@
  * @param {SVGElement} dtSvg - Diplomatic transcript SVG
  * @param {Document} atMeiDom - AT MEI DOM for accessing fingering metadata
  * @param {Object} tools - Tools object containing helper functions and data
+ * @returns {number} Resulting numeric value.
  */
 export const liquifyFings = (ftSvg, dtSvg, atMeiDom, tools) => {
   const { getNewPos, correspMappings, setAnimation, logger } = tools

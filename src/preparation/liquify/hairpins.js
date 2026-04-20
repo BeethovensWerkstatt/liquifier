@@ -1,37 +1,35 @@
 /**
  * Prepares animations for <hairpin> elements (crescendo/diminuendo wedges)
  * between DT (diplomatic transcript) and AT (annotated transcript).
- *
  * HAIRPIN ELEMENT COMPLEXITY:
  * - Visual wedge elements with form attribute: "cres" (crescendo) or "dim" (diminuendo)
  * - Multiple DT correspondence: one AT hairpin can map to multiple DT hairpins (space-separated corresp attribute)
  * - Different SVG rendering patterns:
- *   DT (Thulemeier):
- *     - Single 3-point polyline forming wedge (e.g., "27369,945 23976,1422 27369,2115")
- *     - Two separate 2-point polylines for top/bottom lines
- *   AT (Verovio):
- *     - Polyline representation (various point counts)
- *
+ * DT (Thulemeier):
+ * - Single 3-point polyline forming wedge (e.g., "27369,945 23976,1422 27369,2115")
+ * - Two separate 2-point polylines for top/bottom lines
+ * AT (Verovio):
+ * - Polyline representation (various point counts)
  * ANIMATION STRATEGY:
  * Hairpins consist of two legs (upper and lower). To create smooth morphing animation:
  * 1. Find AT hairpin in FT SVG (cloned from AT SVG rendered by Verovio)
  * 2. Find corresponding DT hairpin(s) in DT SVG (rendered by Thulemeier)
  * 3. Split AT hairpin polyline into two separate line elements (upper and lower legs)
  * 4. Split DT hairpin into two legs:
- *    - If 3-point wedge: upper edge (points 0→1) and lower edge (points 2→1)
- *    - If two 2-point polylines: use top and bottom as-is
+ * - If 3-point wedge: upper edge (points 0→1) and lower edge (points 2→1)
+ * - If two 2-point polylines: use top and bottom as-is
  * 5. Create independent animations for each leg from AT position to DT position
- *
  * This allows both legs to morph independently, creating a smooth transition between
  * the AT and DT hairpin shapes (e.g., from AT center line to DT wedge).
+ * - getNewPos(atPos, dtPos): Calculate transformed position between systems
+ * - setAnimation(options): Apply animation states to SVG elements
+ * - logger: Debug logging utility
  *
  * @param {SVGSVGElement} ftSvg - The fluid transcript SVG (output, will be modified)
  * @param {SVGSVGElement} dtSvg - The diplomatic transcript SVG (reference, read-only)
  * @param {Document} atMeiDom - The annotated transcript MEI DOM (source of hairpin elements)
- * @param {object} tools - Object containing:
- *   - getNewPos(atPos, dtPos): Calculate transformed position between systems
- *   - setAnimation(options): Apply animation states to SVG elements
- *   - logger: Debug logging utility
+ * @param {Object} tools - Object containing:
+ * @returns {number} Resulting numeric value.
  */
 export function liquifyHairpins (ftSvg, dtSvg, atMeiDom, tools) {
   const { setAnimation, logger } = tools
@@ -94,6 +92,10 @@ export function liquifyHairpins (ftSvg, dtSvg, atMeiDom, tools) {
 /**
  * Handle editorial hairpins (no DT correspondence).
  * Mark as supplied and fade in from supplements state.
+ *
+ * @param {Element} atHairpinGroup - Element processed by this function.
+ * @param {Function} setAnimation - Animation descriptor writer for phase transitions.
+ * @returns {void} No return value.
  */
 function handleEditorialHairpin (atHairpinGroup, setAnimation) {
   atHairpinGroup.classList.add('supplied')
@@ -116,6 +118,13 @@ function handleEditorialHairpin (atHairpinGroup, setAnimation) {
 /**
  * Handle 1:1 correspondence between AT and DT hairpin.
  * Splits both hairpins into two legs and animates each independently.
+ *
+ * @param {Element} atHairpinGroup - Element processed by this function.
+ * @param {string} dtHairpinId - Identifier for the target element.
+ * @param {string} atId - Identifier for the target element.
+ * @param {SVGElement|Document} dtSvg - SVG document used by this function.
+ * @param {Object} tools - Helper functions and mapping objects used during liquification.
+ * @returns {Object} Resulting object.
  */
 function handleSingleCorrespondence (atHairpinGroup, dtHairpinId, atId, dtSvg, tools) {
   const { getNewPos, setAnimation, logger } = tools
@@ -182,6 +191,13 @@ function handleSingleCorrespondence (atHairpinGroup, dtHairpinId, atId, dtSvg, t
 /**
  * Handle multi-correspondence: multiple DT hairpins → single AT hairpin.
  * Filters to find DT hairpins that exist in the current system, then animates to the first available one.
+ *
+ * @param {Element} atHairpinGroup - Element processed by this function.
+ * @param {string} dtHairpinIds - Identifier for the target element.
+ * @param {string} atId - Identifier for the target element.
+ * @param {SVGElement|Document} dtSvg - SVG document used by this function.
+ * @param {Object} tools - Helper functions and mapping objects used during liquification.
+ * @returns {Object} Resulting object.
  */
 function handleMultiCorrespondence (atHairpinGroup, dtHairpinIds, atId, dtSvg, tools) {
   const { logger } = tools
@@ -210,16 +226,12 @@ function handleMultiCorrespondence (atHairpinGroup, dtHairpinIds, atId, dtSvg, t
 }
 
 /**
- * Split hairpin polyline(s) into upper and lower legs.
- *
- * Handles two cases:
- * 1. Single polyline with 3 points (wedge): split into upper (0→1) and lower (2→1) edges
- * 2. Two polylines: treat as upper and lower legs
+ * Processes hairpin into legs data within the liquification stage.
  *
  * @param {Array<SVGPolylineElement>} polylines - Hairpin polylines
  * @param {string} label - 'AT' or 'DT' for logging
- * @param {Object} logger - Logger instance
- * @returns {{upper: Array, lower: Array}|null} - Upper and lower leg points, or null
+ * @param {{debug: Function, info: Function, warn: Function, error: Function}} logger - Logger instance
+ * @returns {{upper: Array, lower: Array} |null} - Upper and lower leg points, or null
  */
 function splitHairpinIntoLegs (polylines, label, logger) {
   if (polylines.length === 0) return null
@@ -298,7 +310,7 @@ function splitHairpinIntoLegs (polylines, label, logger) {
  * Parse polyline points attribute into array of {x, y} objects.
  *
  * @param {string} pointsAttr - Points attribute value (e.g., "708,297 8335,387")
- * @returns {Array<{x: number, y: number}>} - Array of point objects
+ * @returns {Array<{x: number, y: number} >} - Array of point objects
  */
 function parsePolylinePoints (pointsAttr) {
   return pointsAttr.trim().split(/\s+/).map(point => {
@@ -311,12 +323,13 @@ function parsePolylinePoints (pointsAttr) {
  * Animate a single hairpin leg from AT to DT position.
  *
  * @param {SVGPolylineElement} polyline - The polyline element to animate
- * @param {Array<{x, y}>} atPoints - AT leg points
- * @param {Array<{x, y}>} dtPoints - DT leg points
+ * @param {Array<*>} atPoints - Collection of values used by this function.
+ * @param {Array<*>} dtPoints - Collection of values used by this function.
  * @param {string} id - Unique ID for this leg animation
  * @param {Function} getNewPos - Position transformation function
  * @param {Function} setAnimation - Animation setter function
- * @param {Object} logger - Logger instance
+ * @param {{debug: Function, info: Function, warn: Function, error: Function}} logger - Logger instance
+ * @returns {Object} Resulting object.
  */
 function animateHairpinLeg (polyline, atPoints, dtPoints, id, getNewPos, setAnimation, logger) {
   // Update the polyline's base points attribute to match this leg's AT position

@@ -1,10 +1,8 @@
 /**
  * Animate articulation symbols between AT and DT transcriptions
- *
  * Articulations are performance markings like staccato dots, accent marks, tenuto lines, etc.
  * In this dataset, articulations are typically editorial additions and may not have
  * corresponding elements in the DT.
- *
  * SVG Structure:
  * - AT: <g class="artic"> contains <use> element with transform="translate(x, y)"
  * - DT: Articulations are typically not present (editorial additions)
@@ -19,6 +17,7 @@
  * @param {Object} tools.logger - Logger instance
  * @param {string} tools.stateModel - Active state model (fluidTranscript or fluidSystems)
  * @param {Function} tools.getChoiceVerticalOffset - Returns fluidSystems vertical override per element id
+ * @returns {number} Resulting numeric value.
  */
 export const liquifyArtics = (ftSvg, dtSvg, atMeiDom, tools) => {
   const { getNewPos, correspMappings, setAnimation, logger, stateModel, getChoiceVerticalOffset } = tools

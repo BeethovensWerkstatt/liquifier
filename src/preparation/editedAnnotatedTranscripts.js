@@ -38,6 +38,11 @@ export const WRAPPABLE_EDITED_AT_ELEMENTS = [
 
 const wrappableElementNames = new Set(WRAPPABLE_EDITED_AT_ELEMENTS)
 
+/**
+ * Returns liquifier commit hash from the current data context.
+ *
+ * @returns {Object} Resulting object.
+ */
 function getLiquifierCommitHash () {
   try {
     return execSync('git rev-parse HEAD', { encoding: 'utf8' }).trim()
@@ -46,6 +51,11 @@ function getLiquifierCommitHash () {
   }
 }
 
+/**
+ * Returns current local iso date from the current data context.
+ *
+ * @returns {string} Resulting string.
+ */
 function getCurrentLocalIsoDate () {
   const now = new Date()
   const year = String(now.getFullYear())
@@ -54,6 +64,12 @@ function getCurrentLocalIsoDate () {
   return `${year}-${month}-${day}`
 }
 
+/**
+ * Appends title postfix.
+ *
+ * @param {Object} clone - Working cloned document that is modified in place.
+ * @returns {void} No return value.
+ */
 function appendTitlePostfix (clone) {
   const firstTitle = clone.querySelector('title')
   if (!firstTitle) return
@@ -64,6 +80,12 @@ function appendTitlePostfix (clone) {
   firstTitle.textContent = `${currentText.trim()}${TITLE_POSTFIX}`
 }
 
+/**
+ * Ensures liquifier application entry.
+ *
+ * @param {Object} clone - Working cloned document that is modified in place.
+ * @returns {void} No return value.
+ */
 function ensureLiquifierApplicationEntry (clone) {
   const encodingDesc = clone.querySelector('meiHead > encodingDesc')
   if (!encodingDesc) return
@@ -98,6 +120,12 @@ function ensureLiquifierApplicationEntry (clone) {
   ptr.setAttribute('target', LIQUIFIER_URL)
 }
 
+/**
+ * Ensures revision change entry.
+ *
+ * @param {Object} clone - Working cloned document that is modified in place.
+ * @returns {Element|null} Resulting object.
+ */
 function ensureRevisionChangeEntry (clone) {
   const meiHead = clone.querySelector('meiHead')
   if (!meiHead) return
@@ -135,6 +163,12 @@ function ensureRevisionChangeEntry (clone) {
   revisionDesc.appendChild(change)
 }
 
+/**
+ * Returns whether diplomatic corresp.
+ *
+ * @param {Element} element - Element processed by this function.
+ * @returns {boolean} Whether the condition is satisfied.
+ */
 function hasDiplomaticCorresp (element) {
   if (!element.hasAttribute('corresp')) return false
 
@@ -149,6 +183,12 @@ function hasDiplomaticCorresp (element) {
   })
 }
 
+/**
+ * Returns whether be wrapped as supplied.
+ *
+ * @param {Element} element - Element processed by this function.
+ * @returns {boolean} Whether the condition is satisfied.
+ */
 function canBeWrappedAsSupplied (element) {
   if (!wrappableElementNames.has(element.localName)) return false
   if (!element.hasAttribute('xml:id')) return false
@@ -158,6 +198,12 @@ function canBeWrappedAsSupplied (element) {
   return !hasDiplomaticCorresp(element)
 }
 
+/**
+ * Returns first diplomatic corresp id from the current data context.
+ *
+ * @param {Element} element - Element processed by this function.
+ * @returns {string} Resulting string.
+ */
 function getFirstDiplomaticCorrespId (element) {
   if (!element || !element.hasAttribute('corresp')) return null
 
@@ -186,6 +232,12 @@ const PITCH_INDEX = new Map([
 ])
 const PITCHES = ['c', 'd', 'e', 'f', 'g', 'a', 'b']
 
+/**
+ * Returns clef shape and line from the current data context.
+ *
+ * @param {Element} element - Element processed by this function.
+ * @returns {Object} Resulting object.
+ */
 function getClefShapeAndLine (element) {
   if (!element) return null
 
@@ -197,10 +249,24 @@ function getClefShapeAndLine (element) {
   return { shape, line }
 }
 
+/**
+ * Processes precedes for this operation.
+ *
+ * @param {number} left - Numeric input used by this function.
+ * @param {number} right - Numeric input used by this function.
+ * @returns {boolean} Whether the condition is satisfied.
+ */
 function nodePrecedes (left, right) {
   return !!(left.compareDocumentPosition(right) & NODE_POSITION_FOLLOWING)
 }
 
+/**
+ * Returns at clef for note from the current data context.
+ *
+ * @param {Element} note - Element processed by this function.
+ * @param {Document} atDom - DOM document used by this function.
+ * @returns {Object} Resulting object.
+ */
 function getAtClefForNote (note, atDom) {
   if (!note || !atDom) return null
 
@@ -239,6 +305,16 @@ function getAtClefForNote (note, atDom) {
   return clef
 }
 
+/**
+ * Returns loc from pitch from the current data context.
+ *
+ * @param {Object} params - Destructured parameter bundle for pitch/clef conversion.
+ * @param {string} params.pname - Pitch name (c, d, e, f, g, a, b).
+ * @param {string|number} params.oct - Octave value for the pitch.
+ * @param {string} params.clefShape - Clef shape used for conversion.
+ * @param {string|number} params.clefLine - Clef line used for conversion.
+ * @returns {number|null} Staff location value, or null when conversion is not possible.
+ */
 function getLocFromPitch ({ pname, oct, clefShape, clefLine }) {
   const pitchIndex = PITCH_INDEX.get(String(pname).toLowerCase())
   const octave = parseInt(oct, 10)
@@ -259,10 +335,26 @@ function getLocFromPitch ({ pname, oct, clefShape, clefLine }) {
   return null
 }
 
+/**
+ * Processes data for this operation.
+ *
+ * @param {Object} n - Input object used by this function.
+ * @param {Object} m - Input object used by this function.
+ * @returns {Object} Resulting object.
+ */
 function mod (n, m) {
   return ((n % m) + m) % m
 }
 
+/**
+ * Returns pitch from loc from the current data context.
+ *
+ * @param {Object} params - Destructured parameter bundle for loc-to-pitch conversion.
+ * @param {number} params.loc - Staff location value to convert.
+ * @param {string} params.clefShape - Clef shape used for conversion.
+ * @param {string|number} params.clefLine - Clef line used for conversion.
+ * @returns {{pname: string, oct: string}|null} Converted pitch data, or null when conversion is not possible.
+ */
 function getPitchFromLoc ({ loc, clefShape, clefLine }) {
   if (!Number.isFinite(loc)) return null
 
@@ -297,9 +389,10 @@ function getPitchFromLoc ({ loc, clefShape, clefLine }) {
  * clef change in the same staff). If they differ, the note is wrapped in
  * <choice><orig/><reg/></choice> where orig carries DT-derived pname/oct and reg
  * keeps the AT pitch.
- * @param {Document} clone
- * @param {Document} dtDom
- * @returns {void}
+ *
+ * @param {Object} clone - Working cloned document that is modified in place.
+ * @param {Document} dtDom - Source document used by this function.
+ * @returns {void} No return value.
  */
 function normalizePitchMismatches (clone, dtDom) {
   if (!dtDom) return
@@ -390,9 +483,10 @@ function normalizePitchMismatches (clone, dtDom) {
 /**
  * Create a clone of AT DOM where AT elements without DT correspondence are wrapped
  * in <supplied resp="#bw"> ... </supplied>.
+ *
  * @param {Document} atDom - Annotated transcript MEI document
- * @param {Document} [dtDom] - Diplomatic transcript MEI document
- * @returns {Document}
+ * @param {Document} dtDom - DOM document used by this function.
+ * @returns {Document} Resulting object.
  */
 export function prepareEditedAtDom (atDom, dtDom) {
   const clone = atDom.cloneNode(true)

@@ -1,6 +1,5 @@
 /**
  * Animate clefs between AT and DT transcriptions
- *
  * For each clef in the AT (fluid transcription):
  * - Animates the clef position based on corresponding DT clef position
  * - Handles clefs without DT correspondence by fading them out
@@ -9,6 +8,7 @@
  * @param {SVGElement} dtSvg - Diplomatic transcript SVG
  * @param {Document} atMeiDom - AT MEI DOM for accessing element metadata
  * @param {Object} tools - Tools object containing helper functions and data
+ * @returns {number} Resulting numeric value.
  */
 export const liquifyClefs = (ftSvg, dtSvg, atMeiDom, tools) => {
   const { getNewPos, correspMappings, setAnimation, logger } = tools

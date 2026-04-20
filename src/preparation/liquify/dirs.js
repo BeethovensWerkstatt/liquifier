@@ -3,44 +3,39 @@ import { computeTextDiff } from '../../utils/textDiff.js'
 /**
  * Prepares animations for <dir> elements (musical directions like "pizz.", "8tel auch 6te", etc.)
  * between DT (diplomatic transcript) and AT (annotated transcript).
- *
  * DIR ELEMENT COMPLEXITY:
  * - Multi-line support via <lb/> (line break) elements in MEI
  * - Multiple DT correspondence: one AT dir can map to multiple DT dirs (space-separated corresp attribute)
  * - Text variations: DT "8tel" → AT "16tel", DT "Stim." → AT "Stimme"
- *
  * THREE ANIMATION STRATEGIES:
- *
  * 1. LINE-BY-LINE (same line count):
- *    - Each line gets independent text diff (common/delete/insert segments)
- *    - Entire group translates to first line's DT position
- *    - Example: DT "andere tiefe Stim.\ndasselbe" → AT "andere tiefe Stimme\ndasselbe"
- *
+ * - Each line gets independent text diff (common/delete/insert segments)
+ * - Entire group translates to first line's DT position
+ * - Example: DT "andere tiefe Stim.\ndasselbe" → AT "andere tiefe Stimme\ndasselbe"
  * 2. MULTI-CORRESPONDENCE (multiple DT dirs → single AT line):
- *    - Split AT text into segments matching DT text boundaries
- *    - Each segment wrapped in <g> with independent translate animation
- *    - Sequential positioning in AT using estimated character width (~162 units @ 405px font)
- *    - Example: DT "8tel" + "auch" + "6te" → AT "8tel auch 6te" (animated as 3 independent words)
- *
+ * - Split AT text into segments matching DT text boundaries
+ * - Each segment wrapped in <g> with independent translate animation
+ * - Sequential positioning in AT using estimated character width (~162 units @ 405px font)
+ * - Example: DT "8tel" + "auch" + "6te" → AT "8tel auch 6te" (animated as 3 independent words)
  * 3. FULL TEXT DIFF (mismatched line counts):
- *    - Concatenate all lines with spaces, compute single text diff
- *    - Group translates to first line's DT position
- *    - Fallback for complex structural mismatches
- *
+ * - Concatenate all lines with spaces, compute single text diff
+ * - Group translates to first line's DT position
+ * - Fallback for complex structural mismatches
  * KEY TECHNICAL DETAILS:
  * - Transform animations only work on <g> elements, not <tspan> in SVG
  * - Multi-correspondence requires wrapping each word in its own <g>
  * - Character width estimation uses proportional font with 12% extra spacing
  * - Text diff shows insertions (class="supplied") and deletions (opacity fade)
+ * - getNewPos(atPos, dtPos): Calculate transformed position between systems
+ * - correspMappings: Map of AT element IDs to DT element IDs
+ * - setAnimation(options): Apply animation states to SVG elements
+ * - logger: Debug logging utility
  *
  * @param {SVGSVGElement} ftSvg - The fluid transcript SVG (output, will be modified)
  * @param {SVGSVGElement} dtSvg - The diplomatic transcript SVG (reference, read-only)
  * @param {Document} atMeiDom - The annotated transcript MEI DOM (source of dir elements)
- * @param {object} tools - Object containing:
- *   - getNewPos(atPos, dtPos): Calculate transformed position between systems
- *   - correspMappings: Map of AT element IDs to DT element IDs
- *   - setAnimation(options): Apply animation states to SVG elements
- *   - logger: Debug logging utility
+ * @param {Object} tools - Object containing:
+ * @returns {void} No return value.
  */
 export function liquifyDirs (ftSvg, dtSvg, atMeiDom, tools) {
   const { getNewPos, correspMappings, setAnimation, logger } = tools
@@ -235,6 +230,15 @@ export function liquifyDirs (ftSvg, dtSvg, atMeiDom, tools) {
 
 /**
  * Animate dir with line-by-line text diff (when DT and AT have same line count)
+ *
+ * @param {string} atDirGroup - String input used by this function.
+ * @param {Array<*>} dtLines - Collection of values used by this function.
+ * @param {Array<*>} atLines - Collection of values used by this function.
+ * @param {Function} getNewPos - Callback function invoked by this operation.
+ * @param {Function} setAnimation - Animation descriptor writer for phase transitions.
+ * @param {{debug: Function, info: Function, warn: Function, error: Function}} logger - Logger instance used for diagnostic output.
+ * @param {string} atId - Identifier for the target element.
+ * @returns {void} No return value.
  */
 function animateLineByLine (atDirGroup, dtLines, atLines, getNewPos, setAnimation, logger, atId) {
   const atTextElement = atDirGroup.querySelector('text')
@@ -389,36 +393,30 @@ function animateLineByLine (atDirGroup, dtLines, atLines, getNewPos, setAnimatio
 /**
  * Animate a multi-correspondence dir element where multiple DT dirs map to a single AT dir.
  * Each word segment animates independently to its corresponding DT position.
- *
  * EXAMPLE: AT has "8tel auch 6te" (single dir), DT has three separate dirs: "8tel", "auch", "6te"
- *
  * APPROACH:
  * 1. Split the AT text into segments matching each DT text boundary
  * 2. Compute text diff for each segment individually (allows for variations like "8tel" vs "16tel")
  * 3. Wrap each segment (and spaces between them) in its own <g> element
  * 4. Apply independent translate animations to each <g> based on corresponding DT position
  * 5. Calculate sequential x-offsets for proper AT positioning (since font is proportional)
- *
  * POSITIONING CHALLENGE:
  * - In finding/normalization states: Each segment translates to its DT position independently
  * - In regulation/supplements/interventions: Segments converge to AT, forming continuous text
  * - Problem: Font is proportional (not monospaced), so character widths vary significantly
  * - Solution: Use average character width (~162 units for 405px font) with extra spacing (~12%)
- *   This creates slightly uneven gaps but ensures readability without complex width calculations
+ * This creates slightly uneven gaps but ensures readability without complex width calculations
  * - Character width formula: fontSize * 0.40 ≈ 162 units/char
- *   (Based on measured bounding box: 2020 width / 14 chars ≈ 144 units, plus 12% padding)
- *
+ * (Based on measured bounding box: 2020 width / 14 chars ≈ 144 units, plus 12% padding)
  * SVG STRUCTURE:
  * Original AT: <text x="14691" y="279"><tspan>8tel auch 6te</tspan></text>
  * After transformation:
- *   <g data-class="dir-segment"><text x="14691" y="279"><tspan>8tel</tspan></text><animateTransform translate="4251 72;...;0 0"/></g>
- *   <g data-class="dir-segment"><text x="15339" y="279"><tspan> </tspan></text></g>
- *   <g data-class="dir-segment"><text x="15501" y="279"><tspan>auch</tspan></text><animateTransform translate="6023 -704;...;0 0"/></g>
- *   <g data-class="dir-segment"><text x="16149" y="279"><tspan> </tspan></text></g>
- *   <g data-class="dir-segment"><text x="16311" y="279"><tspan>6te</tspan></text><animateTransform translate="9457 -1147;...;0 0"/></g>
- *
+ * <g data-class="dir-segment"><text x="14691" y="279"><tspan>8tel</tspan></text><animateTransform translate="4251 72;...;0 0"/></g>
+ * <g data-class="dir-segment"><text x="15339" y="279"><tspan> </tspan></text></g>
+ * <g data-class="dir-segment"><text x="15501" y="279"><tspan>auch</tspan></text><animateTransform translate="6023 -704;...;0 0"/></g>
+ * <g data-class="dir-segment"><text x="16149" y="279"><tspan> </tspan></text></g>
+ * <g data-class="dir-segment"><text x="16311" y="279"><tspan>6te</tspan></text><animateTransform translate="9457 -1147;...;0 0"/></g>
  * Each x-position is calculated cumulatively: previous x + (segment length × charWidth)
- *
  * IMPORTANT: Transform animations only work on <g> elements, not <tspan> elements in SVG.
  * This is why we wrap each segment in a group and apply the animateTransform to the group.
  *
@@ -427,8 +425,9 @@ function animateLineByLine (atDirGroup, dtLines, atLines, getNewPos, setAnimatio
  * @param {Object} atLine - The AT line object with {text, x, y}
  * @param {Function} getNewPos - Function to calculate transformed position: getNewPos(atPos, dtPos)
  * @param {Function} setAnimation - Function to set animation state on elements
- * @param {Object} logger - Logger object for debugging
+ * @param {{debug: Function, info: Function, warn: Function, error: Function}} logger - Logger object for debugging
  * @param {string} atId - The AT dir element ID (used for animation IDs)
+ * @returns {void} No return value.
  */
 function animateMultiCorrespondence (atDirGroup, dtDirData, atLine, getNewPos, setAnimation, logger, atId) {
   const atTextElement = atDirGroup.querySelector('text')
@@ -697,6 +696,17 @@ function animateMultiCorrespondence (atDirGroup, dtDirData, atLine, getNewPos, s
 
 /**
  * Animate dir with full text diff (when DT and AT have different line counts)
+ *
+ * @param {string} atDirGroup - String input used by this function.
+ * @param {string} dtText - String input used by this function.
+ * @param {string} atText - String input used by this function.
+ * @param {{x: number, y: number}} dtPos - Input object used by this function.
+ * @param {{x: number, y: number}} atPos - Input object used by this function.
+ * @param {Function} getNewPos - Callback function invoked by this operation.
+ * @param {Function} setAnimation - Animation descriptor writer for phase transitions.
+ * @param {{debug: Function, info: Function, warn: Function, error: Function}} logger - Logger instance used for diagnostic output.
+ * @param {string} atId - Identifier for the target element.
+ * @returns {void} No return value.
  */
 function animateFullText (atDirGroup, dtText, atText, dtPos, atPos, getNewPos, setAnimation, logger, atId) {
   const atTextElement = atDirGroup.querySelector('text')
@@ -828,8 +838,9 @@ function animateFullText (atDirGroup, dtText, atText, dtPos, atPos, getNewPos, s
 /**
  * Extract text lines from AT text element.
  * AT structure: <text><tspan data-class="text">...</tspan><tspan data-class="lb"/><tspan data-class="text">...</tspan></text>
+ *
  * @param {SVGTextElement} textElement - The AT text element
- * @returns {Array<{text: string, x: number, y: number}>} Array of line objects
+ * @returns {Array<{text: string, x: number, y: number} >} Array of line objects
  */
 function extractAtTextLines (textElement) {
   const lines = []
@@ -853,8 +864,9 @@ function extractAtTextLines (textElement) {
 /**
  * Extract text lines from DT text element.
  * DT structure: <text><tspan>...</tspan><tspan x="..." dy="...">...</tspan></text>
+ *
  * @param {SVGTextElement} textElement - The DT text element
- * @returns {Array<{text: string, x: number, y: number}>} Array of line objects
+ * @returns {Array<{text: string, x: number, y: number} >} Array of line objects
  */
 function extractDtTextLines (textElement) {
   const lines = []

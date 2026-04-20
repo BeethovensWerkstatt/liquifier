@@ -1,6 +1,5 @@
 /**
  * Animate fermatas between AT and DT transcriptions
- *
  * For each fermata in the AT (fluid transcription):
  * - Animates the fermata symbol position based on corresponding DT fermata position
  * - Handles fermatas without DT correspondence by fading them out
@@ -9,6 +8,7 @@
  * @param {SVGElement} dtSvg - Diplomatic transcript SVG
  * @param {Document} atMeiDom - AT MEI DOM for accessing fermata metadata
  * @param {Object} tools - Tools object containing helper functions and data
+ * @returns {number} Resulting numeric value.
  */
 export const liquifyFermatas = (ftSvg, dtSvg, atMeiDom, tools) => {
   const { getNewPos, correspMappings, setAnimation, logger } = tools

@@ -6,6 +6,13 @@ import path from 'node:path'
 
 import { fetchData, writeData } from '../src/filehandlers/filehandler.js'
 
+/**
+ * Writes the output data.
+ *
+ * @param {string} filePath - File or resource path.
+ * @param {string} content - String input used by this function.
+ * @returns {void} No return value.
+ */
 const write = (filePath, content = '<mei/>') => {
   fs.mkdirSync(path.dirname(filePath), { recursive: true })
   fs.writeFileSync(filePath, content, 'utf8')

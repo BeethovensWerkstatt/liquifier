@@ -1,13 +1,11 @@
 /**
  * Animate notes between AT and DT transcriptions, including noteheads, stems, ledger lines, and flags
- *
  * For each note in the AT (fluid transcription):
  * - Animates the notehead position based on corresponding DT note position
  * - Animates associated ledger lines to follow the notehead
  * - Scales and animates the stem length based on DT stem length and scale factor
  * - Animates flags (if present) to follow the stem endpoint
  * - Handles notes without DT correspondence by fading them out
- *
  * Stem animation logic:
  * - For stem.dir="up": keeps the bottom fixed and extends/contracts upward
  * - For stem.dir="down": keeps the top fixed and extends/contracts downward
@@ -23,6 +21,7 @@
  * @param {Function} tools.setAnimation - Phase-aware animation descriptor writer
  * @param {string} tools.stateModel - Active state model (fluidTranscript or fluidSystems)
  * @param {Function} tools.getChoiceVerticalOffset - Returns fluidSystems vertical override per element id
+ * @returns {number} Resulting numeric value.
  */
 export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
   const { scaleFactor, getNewPos, correspMappings, setAnimation, stateModel, getChoiceVerticalOffset } = tools

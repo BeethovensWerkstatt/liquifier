@@ -2,8 +2,7 @@ import minimist from 'minimist'
 
 /**
  * Parse command-line arguments into a structured configuration object
- * @param {string[]} argv - Process argv array (e.g., process.argv.slice(2))
- * @returns {Object} Configuration object with parsed and normalized values
+ *
  * @property {boolean} quiet - Suppress normal output
  * @property {boolean} verbose - Show detailed debug output
  * @property {string[]} types - Transcript types to process (at, dt, ft, editedAt, fluidSystems)
@@ -12,6 +11,8 @@ import minimist from 'minimist'
  * @property {string} outputDir - Base directory for output files
  * @property {boolean} recreate - Force recreation of all files
  * @property {string[]} fileNames - List of files to process
+ * @param {string[]} argv - Process argv array (e.g., process.argv.slice(2))
+ * @returns {Object} Configuration object with parsed and normalized values
  */
 export function parseCliArguments (argv) {
   const args = minimist(argv, {

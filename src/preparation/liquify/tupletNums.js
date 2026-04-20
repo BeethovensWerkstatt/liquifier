@@ -1,15 +1,15 @@
 /**
  * Liquify tuplet numbers
- *
  * Tuplet numbers are editorial additions that don't exist in diplomatic transcripts.
  * They fade in during the supplements phase.
+ * - setAnimation(options): Apply animation states to SVG elements
+ * - logger: Logger instance
  *
  * @param {SVGElement} ftSvg - Fluid Transcript SVG
  * @param {SVGElement} dtSvg - Diplomatic Transcript SVG (not used, as there are no tuplet numbers in DT)
  * @param {Document} atMeiDom - Annotated Transcript MEI DOM (not used)
  * @param {Object} tools - Tools object containing:
- *   - setAnimation(options): Apply animation states to SVG elements
- *   - logger: Logger instance
+ * @returns {number} Resulting numeric value.
  */
 export const liquifyTupletNums = (ftSvg, dtSvg, atMeiDom, tools) => {
   const { setAnimation, logger } = tools

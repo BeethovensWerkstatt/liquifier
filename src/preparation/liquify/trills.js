@@ -1,6 +1,5 @@
 /**
  * Animate trills between AT and DT transcriptions
- *
  * For each trill in the AT (fluid transcription):
  * - Animates the trill symbol position based on corresponding DT trill position
  * - Handles trills without DT correspondence by fading them out
@@ -9,6 +8,7 @@
  * @param {SVGElement} dtSvg - Diplomatic transcript SVG
  * @param {Document} atMeiDom - AT MEI DOM for accessing trill metadata
  * @param {Object} tools - Tools object containing helper functions and data
+ * @returns {number} Resulting numeric value.
  */
 export const liquifyTrills = (ftSvg, dtSvg, atMeiDom, tools) => {
   const { getNewPos, correspMappings, setAnimation, logger } = tools

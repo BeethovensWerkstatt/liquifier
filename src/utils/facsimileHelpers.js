@@ -1,14 +1,11 @@
-/**
- * This file contains helper functions for dealing with measurements in OpenSeadragon
- */
-
 import { getOuterBoundingRect } from './trigonometry.js'
 
 /**
- * gets the rotated bbox _around_ the straight IIIF media fragment rect
- * @param  {[type]} OpenSeadragon         the abstract OpenSeadragon object
- * @param  {[type]} getters               gives access to all vuex getters
- * @return {[type]}               [description]
+ * Returns media fragment bbox rect from the current data context.
+ *
+ * @param {Object} OpenSeadragon - OpenSeadragon API namespace.
+ * @param {Function} getters - Callback invoked by this function.
+ * @returns {Object} Result value.
  */
 export function getMediaFragmentBBoxRect (OpenSeadragon, getters) {
   const fragment = getMediaFragmentRect(OpenSeadragon, getters)
@@ -18,10 +15,11 @@ export function getMediaFragmentBBoxRect (OpenSeadragon, getters) {
 }
 
 /**
- * gets a rect with the straight (=unrotated) media fragment
- * @param  {[type]} OpenSeadragon         the abstract OpenSeadragon object
- * @param  {[type]} getters               gives access to all vuex getters
- * @return {[type]}                [description]
+ * Returns media fragment rect from the current data context.
+ *
+ * @param {Object} OpenSeadragon - OpenSeadragon API namespace.
+ * @param {Function} getters - Callback invoked by this function.
+ * @returns {Object} Result value.
  */
 export function getMediaFragmentRect (OpenSeadragon, getters) {
   const pageIndex = getters.currentPageZeroBased
@@ -98,9 +96,9 @@ export function getMediaFragmentRect (OpenSeadragon, getters) {
 
 /**
  * returns all major rectangles necessary for rendering facsimiles
- * @param  {[type]} OpenSeadragon               [description]
- * @param  {[type]} page                     [description]
- * @return {[type]}               [description]
+ *
+ * @param {Object} page - Input object used by this function.
+ * @returns {Object} Result value.
  */
 export function getOsdRects (page) {
   if (!page || !page.uri) {
@@ -153,10 +151,11 @@ export function getOsdRects (page) {
 }
 
 /**
- * gets a rect around the actual page
- * @param  {[type]} OpenSeadragon               [description]
- * @param  {[type]} getters                     [description]
- * @return {[type]}               [description]
+ * Returns media fragment inner box rect from the current data context.
+ *
+ * @param {Object} OpenSeadragon - OpenSeadragon API namespace.
+ * @param {Function} getters - Callback invoked by this function.
+ * @returns {Object} Result value.
  */
 export function getMediaFragmentInnerBoxRect (OpenSeadragon, getters) {
   const pageDimensions = getters.currentPageDimensions
@@ -176,7 +175,9 @@ export function getMediaFragmentInnerBoxRect (OpenSeadragon, getters) {
 
 /**
  * returns the suggested position for a new rastrum on the current page
- * @return {[type]} [description]
+ *
+ * @param {Function} getters - Callback invoked by this function.
+ * @returns {Object} Result value.
  */
 export function suggestRastrum (getters) {
   const existingRastrums = getters.rastrumsOnCurrentPage

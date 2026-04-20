@@ -1,11 +1,8 @@
 /**
- * @module toolbox/trigonometry
- */
-
-/**
  * Returns an object with all information, coming from a fragment identifier
- * @param  {[type]} fragment             a string in fragmentIdentifier format, i.e. #xywh=100,200,1000,600&rotate=7.3
- * @return {[type]}        [description]
+ *
+ * @param {Object} fragment - Input object used by this function.
+ * @returns {Object} Result value.
  */
 export function getRectFromFragment (fragment) {
   // console.log('\ntrying to parse fragment ' + fragment)
@@ -58,11 +55,12 @@ export function getRectFromFragment (fragment) {
 
 /**
  * Returns an object with all information, coming from four inner points
- * @param  {[type]} p1               [description]
- * @param  {[type]} p2               [description]
- * @param  {[type]} p3               [description]
- * @param  {[type]} p4               [description]
- * @return {[type]}    [description]
+ *
+ * @param {{x: number, y: number}} p1 - Input object used by this function.
+ * @param {{x: number, y: number}} p2 - Input object used by this function.
+ * @param {{x: number, y: number}} p3 - Input object used by this function.
+ * @param {{x: number, y: number}} p4 - Input object used by this function.
+ * @returns {Object} Result value.
  */
 export function getRectFromPoints (p1, p2, p3, p4) {
   const center = {
@@ -74,6 +72,12 @@ export function getRectFromPoints (p1, p2, p3, p4) {
   const outer = {}
 
   // function to identify position of a point as one of the corners of the rect
+  /**
+   * Provides utility logic for position.
+   *
+   * @param {Object} p - Input object used by this function.
+   * @returns {void} No return value.
+   */
   const determinePosition = (p) => {
     if (p.x < center.x) {
       if (p.y < center.y) {
@@ -123,10 +127,27 @@ export function getRectFromPoints (p1, p2, p3, p4) {
   return { outer, inner, rotate, center, fragmentIdentifier }
 }
 
+/**
+ * Returns rect from center and rotation from the current data context.
+ *
+ * @param {{x: number, y: number}} center - Input object used by this function.
+ * @param {Object} rotate - Input object used by this function.
+ * @returns {void} No return value.
+ */
 export function getRectFromCenterAndRotation (center, rotate) {
   //
 }
 
+/**
+ * Returns outer bounding rect from the current data context.
+ *
+ * @param {number} x - Numeric input used by this function.
+ * @param {number} y - Numeric input used by this function.
+ * @param {number} w - Numeric input used by this function.
+ * @param {number} h - Numeric input used by this function.
+ * @param {number} deg - Numeric input used by this function.
+ * @returns {Object} Resulting object.
+ */
 export function getOuterBoundingRect (x, y, w, h, deg) {
   const center = {
     x: parseFloat(x) + parseFloat(w) / 2,
@@ -172,9 +193,10 @@ export function getOuterBoundingRect (x, y, w, h, deg) {
 
 /**
  * returns the rotation between two points in degrees
- * @param  {Object} p1               the upper point, an object with x and y props
- * @param  {Object} p2               the lower point, an object with x and y props
- * @return {Number}    the rotation in degrees, positive = clockwise
+ *
+ * @param {{x: number, y: number}} p1 - Input object used by this function.
+ * @param {{x: number, y: number}} p2 - Input object used by this function.
+ * @returns {Number} the rotation in degrees, positive = clockwise
  */
 function determineDeg (p1, p2) {
   const dy = p2.y - p1.y
@@ -189,8 +211,9 @@ function determineDeg (p1, p2) {
 
 /**
  * calculates radians from degrees
- * @param  {[type]} deg               [description]
- * @return {[type]}     [description]
+ *
+ * @param {number} deg - Numeric input used by this function.
+ * @returns {Object} Result value.
  */
 function deg2rad (deg) {
   // console.log('\n\ndeg2rad. deg="' + deg + '", rad="' + deg * (Math.PI / 180) + '"')
@@ -199,10 +222,11 @@ function deg2rad (deg) {
 
 /**
  * rotate point around specified center
- * @param  {[type]} point                a point with x and y props
- * @param  {[type]} center               a point with x and y props
- * @param  {[type]} deg                  the rotation in degrees
- * @return {[type]}        a point with x and y props
+ *
+ * @param {{x: number, y: number}} point - Input object used by this function.
+ * @param {{x: number, y: number}} center - Input object used by this function.
+ * @param {number} deg - Numeric input used by this function.
+ * @returns {Object} a point with x and y props
  */
 export function rotatePoint (point, center, deg) {
   const xOff = center.x
@@ -228,9 +252,10 @@ export function rotatePoint (point, center, deg) {
 
 /**
  * calculates the distance between two points in pixels
- * @param  {Object} pointA               an object with x and y props
- * @param  {Object} pointB               an object with x and y props
- * @return {Number}        The distance in pixels
+ *
+ * @param {{x: number, y: number}} pointA - Input object used by this function.
+ * @param {{x: number, y: number}} pointB - Input object used by this function.
+ * @returns {Number} The distance in pixels
  */
 export function getDistance (pointA, pointB) {
   const a = Math.abs(pointA.x - pointB.x)

@@ -1,17 +1,41 @@
 const INDENT = '  '
 
+/**
+ * Escapes text.
+ *
+ * @param {string} value - String input used by this function.
+ * @returns {void} No return value.
+ */
 const escapeText = (value) => value
   .replace(/&/g, '&amp;')
   .replace(/</g, '&lt;')
   .replace(/>/g, '&gt;')
 
+/**
+ * Escapes attribute.
+ *
+ * @param {string} value - String input used by this function.
+ * @returns {void} No return value.
+ */
 const escapeAttribute = (value) => escapeText(value)
   .replace(/"/g, '&quot;')
   .replace(/'/g, '&apos;')
 
+/**
+ * Sorts attributes.
+ *
+ * @param {Object} attributes - Input object used by this function.
+ * @returns {void} No return value.
+ */
 const sortAttributes = (attributes) => [...attributes]
   .sort((a, b) => a.name.localeCompare(b.name))
 
+/**
+ * Renders attributes.
+ *
+ * @param {Element} element - Element processed by this function.
+ * @returns {void} No return value.
+ */
 const renderAttributes = (element) => {
   if (!element.attributes || element.attributes.length === 0) return ''
 
@@ -20,8 +44,21 @@ const renderAttributes = (element) => {
     .join(' ')
 }
 
+/**
+ * Normalizes text.
+ *
+ * @param {string} text - String input used by this function.
+ * @returns {void} No return value.
+ */
 const normalizeText = (text) => text.replace(/\s+/g, ' ').trim()
 
+/**
+ * Renders node.
+ *
+ * @param {Element} node - Element processed by this function.
+ * @param {number} level - Numeric input used by this function.
+ * @returns {void} No return value.
+ */
 const renderNode = (node, level = 0) => {
   const indent = INDENT.repeat(level)
 
@@ -79,8 +116,9 @@ const renderNode = (node, level = 0) => {
 /**
  * Serialize an XML document into a deterministic, indented string.
  * Uses two-space indentation and sorted attributes for stable output.
- * @param {Document} doc
- * @returns {string}
+ *
+ * @param {Document} doc - Source MEI/XML document used in this operation.
+ * @returns {string} Resulting string.
  */
 export function serializeXmlCanonical (doc) {
   const nodes = Array.from(doc.childNodes)

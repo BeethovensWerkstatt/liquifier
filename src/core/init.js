@@ -5,10 +5,11 @@ import { checkThulemeierAvailability } from '../rendering/thulemeierHandler.js'
 /**
  * Initialize all required tools for the liquifier application
  * Sets up Verovio rendering engine and checks Thulemeier availability
- * @param {Object} logger - Logger instance for reporting initialization status
- * @returns {Promise<Object>} Tools object containing verovio and thulemeierAvailable
+ *
  * @property {VerovioToolkit} verovio - Initialized Verovio toolkit instance
  * @property {boolean} thulemeierAvailable - Whether Thulemeier rendering is available
+ * @param {{debug: Function, info: Function, warn: Function, error: Function}} logger - Logger instance for reporting initialization status
+ * @returns {Promise<Object>} Tools object containing verovio and thulemeierAvailable
  */
 export async function initializeTools (logger) {
   // Initialize Verovio WASM module and toolkit

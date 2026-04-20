@@ -6,6 +6,8 @@ import { processFiles } from './src/core/processor.js'
 /**
  * Main entry point for the liquifier application
  * Orchestrates the high-level flow: CLI → Logger → Init → Process
+ *
+ * @returns {Promise<void>} Promise resolving to the computed result.
  */
 const main = async () => {
   // 1. Parse CLI arguments into config object

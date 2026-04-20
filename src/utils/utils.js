@@ -1,6 +1,14 @@
 import { JSDOM } from 'jsdom'
 const { document } = (new JSDOM('<!DOCTYPE html><html><body></body></html>')).window
 
+/**
+ * Provides utility logic for new element.
+ *
+ * @param {Element} parent - Element processed by this function.
+ * @param {string} name - String input used by this function.
+ * @param {string} ns - String input used by this function.
+ * @returns {void} No return value.
+ */
 export const appendNewElement = (parent, name, ns = 'http://www.music-encoding.org/ns/mei') => {
   const elem = parent.appendChild(document.createElementNS(ns, name))
   if (ns === 'http://www.w3.org/2000/svg') {
@@ -13,7 +21,9 @@ export const appendNewElement = (parent, name, ns = 'http://www.music-encoding.o
 
 /**
  * determines the center of a rendered system
- * @param {} system
+ *
+ * @param {Element} measures - Element processed by this function.
+ * @returns {Object} Resulting object.
  */
 export const getSystemCenter = (measures) => {
   const firstMeasure = measures[0]
@@ -22,6 +32,12 @@ export const getSystemCenter = (measures) => {
   const firstStaffLine = firstMeasure.querySelector('.staff:not(.bounding-box) > path')
   const lastStaffLine = lastMeasure.querySelectorAll('.staff:not(.bounding-box) > path')[4]
 
+  /**
+   * Parses dattribute from serialized input values.
+   *
+   * @param {Object} d - Input object used by this function.
+   * @returns {Object} Resulting object.
+   */
   const parseDAttribute = (d) => {
     const commands = d.match(/[a-zA-Z][^a-zA-Z]*/g)
     return commands.map(command => {
@@ -52,6 +68,11 @@ export const getSystemCenter = (measures) => {
   return { x: centerX, y: centerY, left: topLeftX, right: bottomRightX, top: topLeftY, bottom: bottomRightY }
 }
 
+/**
+ * Generates a UUID value.
+ *
+ * @returns {string} Resulting string.
+ */
 const uuid = () => {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
     const r = Math.random() * 16 | 0
@@ -60,6 +81,13 @@ const uuid = () => {
   })
 }
 
+/**
+ * Returns page dimensions from the current data context.
+ *
+ * @param {Object} sourceMEI - Input object used by this function.
+ * @param {Object} transcriptionMEI - Input object used by this function.
+ * @returns {Object} Resulting object.
+ */
 export const getPageDimensions = (sourceMEI, transcriptionMEI) => {
   const source = transcriptionMEI.querySelector('source')
   const wzId = source.getAttribute('target').split('#')[1]
@@ -73,11 +101,27 @@ export const getPageDimensions = (sourceMEI, transcriptionMEI) => {
   return { width: foliumWidth, height: foliumHeight }
 }
 
+/**
+ * Returns at system centers from the current data context.
+ *
+ * @param {SVGElement|Document} atSvgDom - Source document used by this function.
+ * @returns {void} No return value.
+ */
 export const getAtSystemCenters = (atSvgDom) => {
   // const arr = []
 }
 
 // calculates the outer bounding rect of a rotated rectangle
+/**
+ * Returns outer bounding rect from the current data context.
+ *
+ * @param {number} x - Numeric input used by this function.
+ * @param {number} y - Numeric input used by this function.
+ * @param {number} w - Numeric input used by this function.
+ * @param {number} h - Numeric input used by this function.
+ * @param {number} deg - Numeric input used by this function.
+ * @returns {Object} Resulting object.
+ */
 export function getOuterBoundingRect (x, y, w, h, deg) {
   const center = {
     x: parseFloat(x) + parseFloat(w) / 2,
@@ -113,8 +157,9 @@ export function getOuterBoundingRect (x, y, w, h, deg) {
 
 /**
  * calculates radians from degrees
- * @param  {[type]} deg               [description]
- * @return {[type]}     [description]
+ *
+ * @param {number} deg - Numeric input used by this function.
+ * @returns {Object} Result value.
  */
 function deg2rad (deg) {
   // console.log('\n\ndeg2rad. deg="' + deg + '", rad="' + deg * (Math.PI / 180) + '"')
@@ -123,10 +168,11 @@ function deg2rad (deg) {
 
 /**
  * rotate point around specified center
- * @param  {[type]} point                a point with x and y props
- * @param  {[type]} center               a point with x and y props
- * @param  {[type]} deg                  the rotation in degrees
- * @return {[type]}        a point with x and y props
+ *
+ * @param {{x: number, y: number}} point - Input object used by this function.
+ * @param {{x: number, y: number}} center - Input object used by this function.
+ * @param {number} deg - Numeric input used by this function.
+ * @returns {Object} a point with x and y props
  */
 function rotatePoint (point, center, deg) {
   const xOff = center.x

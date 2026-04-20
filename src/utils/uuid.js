@@ -1,3 +1,8 @@
+/**
+ * Generates a UUID value.
+ *
+ * @returns {string} Resulting string.
+ */
 export function uuid () {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
     const r = Math.random() * 16 | 0

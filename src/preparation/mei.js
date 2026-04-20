@@ -7,9 +7,6 @@ const { DOMParser, Node } = (new JSDOM()).window
 // import store from '@/store'
 const parser = new DOMParser()
 
-/**
- * MEI version tag
- */
 export const MEIversion = '5.0'
 
 const rawSelectables = [
@@ -50,13 +47,16 @@ export const CSSselectables = clsSelectables.join(', ')
 
 /**
  * generates a diplomatic transcription from a given annotated transcription and a list of shapes
- * @param {*} annotElem the annotated transcription to be converted
- * @param {*} shapes the shapes to be converted
- * @param {*} bbox the bounding box of the annotated transcription in mm and px
- * @param {*} svgPath the path to the SVG file containing the shapes
- * @param {*} correspPath the path to the corresponding diplomatic transcription
- * @param {*} annotElemRef the reference to the annotated element, used for dots
+ *
  * @returns the generated diplomatic transcription
+ * @param {Element} annotElem - Element processed by this function.
+ * @param {Object} shapes - Shape mapping used while generating diplomatic elements.
+ * @param {number} bbox - Numeric input used by this function.
+ * @param {string} svgPath - String input used by this function.
+ * @param {string} correspPath - String input used by this function.
+ * @param {Element} annotElemRef - Element processed by this function.
+ * @param {string} specialModes - String input used by this function.
+ * @returns {Object} Resulting object.
  */
 export function generateDiplomaticElement (annotElem, shapes, bbox, svgPath, correspPath, annotElemRef, specialModes) {
   let name = annotElem.localName
@@ -185,8 +185,10 @@ export function generateDiplomaticElement (annotElem, shapes, bbox, svgPath, cor
 
 /**
  * translates an annotated note to a diplomatic note
- * @param {*} annotElem the annotated note to be translated
- * @param {*} note the diplomatic note to be translated
+ *
+ * @param {Element} annotElem - Element processed by this function.
+ * @param {Element} note - Element processed by this function.
+ * @returns {void} No return value.
  */
 function getDiplomaticNote (annotElem, note) {
   try {
@@ -230,8 +232,10 @@ function getDiplomaticNote (annotElem, note) {
 
 /**
  * translates an annotated rest to a diplomatic rest
- * @param {*} annotElem the annotated rest to be translated
- * @param {*} rest the diplomatic rest to be translated
+ *
+ * @param {Element} annotElem - Element processed by this function.
+ * @param {Object} rest - Input object used by this function.
+ * @returns {void} No return value.
  */
 function getDiplomaticRest (annotElem, rest) {
   try {
@@ -267,8 +271,10 @@ function getDiplomaticRest (annotElem, rest) {
 
 /**
  * translates an annotated beam to a diplomatic beam
- * @param {*} annotElem the annotated beam to be translated
- * @param {*} beam the diplomatic beam to be translated
+ *
+ * @param {Element} annotElem - Element processed by this function.
+ * @param {Element} beam - Element processed by this function.
+ * @returns {void} No return value.
  */
 function getDiplomaticBeam (annotElem, beam) {
   // This function requires store which is not available in standalone mode
@@ -301,8 +307,11 @@ function getDiplomaticBeam (annotElem, beam) {
 
 /**
  * translates an annotated accidental to a diplomatic accidental
- * @param {*} annotElem the annotated accidental to be translated
- * @param {*} accid the diplomatic accid to be translated
+ *
+ * @param {Element} annotElem - Element processed by this function.
+ * @param {string} accid - String input used by this function.
+ * @param {Object} options3 - Structured options object.
+ * @returns {void} No return value.
  */
 function getDiplomaticAccid (annotElem, accid, { keySig, keyAccid, keyBase }) {
   // console.log(279, 'getDiplomaticAccid', annotElem, accid, keySig)
@@ -324,8 +333,11 @@ function getDiplomaticAccid (annotElem, accid, { keySig, keyAccid, keyBase }) {
 
 /**
  * translates an annotated barLine to a diplomatic barLine
- * @param {*} annotElem the annotated barLine to be translated
- * @param {*} barLine the diplomatic barLine to be translated
+ *
+ * @param {Element} annotElem - Element processed by this function.
+ * @param {Element} barLine - Element processed by this function.
+ * @param {number} bbox - Numeric input used by this function.
+ * @returns {void} No return value.
  */
 function getDiplomaticBarline (annotElem, barLine, bbox) {
   barLine.setAttribute('form', 'single')
@@ -338,8 +350,10 @@ function getDiplomaticBarline (annotElem, barLine, bbox) {
 
 /**
  * translates a dot from an annotated note to a diplomatic dot
- * @param {*} annotElem the annotated dot to be translated
- * @param {*} dot the diplomatic dot to be translated
+ *
+ * @param {Element} annotElem - Element processed by this function.
+ * @param {Object} dot - Input object used by this function.
+ * @returns {void} No return value.
  */
 function getDiplomaticDot (annotElem, dot) {
   const loc = getLocAttribute(annotElem)
@@ -349,9 +363,12 @@ function getDiplomaticDot (annotElem, dot) {
 
 /**
  * translates a dynamic from an annotated note to a diplomatic dynamic
- * @param {*} annotElem the annotated dynam to be translated
- * @param {*} dynam the initial dynam that needs specific treatment
+ *
  * @returns the dt:dynam element
+ * @param {Element} annotElem - Element processed by this function.
+ * @param {number} dynam - Numeric input used by this function.
+ * @param {number} bbox - Numeric input used by this function.
+ * @returns {void} No return value.
  */
 function getDiplomaticDynam (annotElem, dynam, bbox) {
   dynam.setAttribute('x', (parseFloat(bbox.mm.x)).toFixed(1))
@@ -363,9 +380,12 @@ function getDiplomaticDynam (annotElem, dynam, bbox) {
 
 /**
  * translates a tempo from an annotated note to a diplomatic tempo
- * @param {*} annotElem the annotated tempo to be translated
- * @param {*} tempo the initial tempo that needs specific treatment
+ *
  * @returns the dt:tempo element
+ * @param {Element} annotElem - Element processed by this function.
+ * @param {Object} tempo - Input object used by this function.
+ * @param {number} bbox - Numeric input used by this function.
+ * @returns {void} No return value.
  */
 function getDiplomaticTempo (annotElem, tempo, bbox) {
   tempo.setAttribute('x', (parseFloat(bbox.mm.x)).toFixed(1))
@@ -377,9 +397,12 @@ function getDiplomaticTempo (annotElem, tempo, bbox) {
 
 /**
  * translates a dir from an annotated note to a diplomatic dir
- * @param {*} annotElem the annotated dir to be translated
- * @param {*} dynam the initial dir that needs specific treatment
+ *
  * @returns the dt:dir element
+ * @param {Element} annotElem - Element processed by this function.
+ * @param {string} dir - String input used by this function.
+ * @param {number} bbox - Numeric input used by this function.
+ * @returns {void} No return value.
  */
 function getDiplomaticDir (annotElem, dir, bbox) {
   dir.setAttribute('x', (parseFloat(bbox.mm.x)).toFixed(1))
@@ -391,9 +414,12 @@ function getDiplomaticDir (annotElem, dir, bbox) {
 
 /**
  * translates a fing from an AT to a diplomatic fing(ering)
- * @param {*} annotElem the annotated fing to be translated
- * @param {*} fing the initial fing that needs specific treatment
+ *
  * @returns the dt:fing element
+ * @param {Element} annotElem - Element processed by this function.
+ * @param {Object} fing - Input object used by this function.
+ * @param {number} bbox - Numeric input used by this function.
+ * @returns {void} No return value.
  */
 function getDiplomaticFing (annotElem, fing, bbox) {
   fing.setAttribute('x', (parseFloat(bbox.mm.x)).toFixed(1))
@@ -404,9 +430,12 @@ function getDiplomaticFing (annotElem, fing, bbox) {
 
 /**
  * translates a pedal from an AT to a diplomatic pedal
- * @param {*} annotElem the annotated pedal to be translated
- * @param {*} pedal the initial pedal that needs specific treatment
+ *
  * @returns the dt:pedal element
+ * @param {Element} annotElem - Element processed by this function.
+ * @param {Object} pedal - Input object used by this function.
+ * @param {number} bbox - Numeric input used by this function.
+ * @returns {void} No return value.
  */
 function getDiplomaticPedal (annotElem, pedal, bbox) {
   pedal.setAttribute('x', (parseFloat(bbox.mm.x)).toFixed(1))
@@ -417,9 +446,12 @@ function getDiplomaticPedal (annotElem, pedal, bbox) {
 
 /**
  * translates an octave from an AT to a diplomatic octave
- * @param {*} annotElem the annotated octave to be translated
- * @param {*} octave the initial octave that needs specific treatment
+ *
  * @returns the dt:octave element
+ * @param {Element} annotElem - Element processed by this function.
+ * @param {Object} octave - Input object used by this function.
+ * @param {number} bbox - Numeric input used by this function.
+ * @returns {void} No return value.
  */
 function getDiplomaticOctave (annotElem, octave, bbox) {
   octave.setAttribute('x', (parseFloat(bbox.mm.x)).toFixed(1))
@@ -435,9 +467,12 @@ function getDiplomaticOctave (annotElem, octave, bbox) {
 
 /**
  * translates a fermata from an AT to a diplomatic fermata
- * @param {*} annotElem the annotated fermata to be translated
- * @param {*} fermata the initial fermata that needs specific treatment
+ *
  * @returns the dt:fermata element
+ * @param {Element} annotElem - Element processed by this function.
+ * @param {Object} fermata - Input object used by this function.
+ * @param {number} bbox - Numeric input used by this function.
+ * @returns {void} No return value.
  */
 function getDiplomaticFermata (annotElem, fermata, bbox) {
   fermata.setAttribute('x', (parseFloat(bbox.mm.x)).toFixed(1))
@@ -448,9 +483,12 @@ function getDiplomaticFermata (annotElem, fermata, bbox) {
 
 /**
  * translates a trill from an annotated note to a diplomatic trill
- * @param {*} annotElem the annotated trill to be translated
- * @param {*} trill the initial trill that needs specific treatment
+ *
  * @returns the dt:trill element
+ * @param {Element} annotElem - Element processed by this function.
+ * @param {Object} trill - Input object used by this function.
+ * @param {number} bbox - Numeric input used by this function.
+ * @returns {void} No return value.
  */
 function getDiplomaticTrill (annotElem, trill, bbox) {
   trill.setAttribute('x', +bbox.mm.x.toFixed(1))
@@ -460,10 +498,12 @@ function getDiplomaticTrill (annotElem, trill, bbox) {
 
 /**
  * generates a diplomatic hairpin
- * @param {*} annotElem the annotated hairpin to be translated
- * @param {*} hairpin the initial hairpin that needs specific treatment
- * @param {*} bbox the bounding box of the annotated transcription in mm and px
+ *
  * @returns the dt:dir element
+ * @param {Element} annotElem - Element processed by this function.
+ * @param {Object} hairpin - Input object used by this function.
+ * @param {number} bbox - Numeric input used by this function.
+ * @returns {void} No return value.
  */
 function getDiplomaticHairpin (annotElem, hairpin, bbox) {
   hairpin.setAttribute('form', annotElem.getAttribute('form') || 'cres')
@@ -482,8 +522,10 @@ function getDiplomaticHairpin (annotElem, hairpin, bbox) {
 
 /**
  * translates a chord to a diplomatic chord
- * @param {*} annotElem the annotated chord to be translated
- * @param {*} chord the diplomatic chord to be translated
+ *
+ * @param {Element} annotElem - Element processed by this function.
+ * @param {Object} chord - Input object used by this function.
+ * @returns {void} No return value.
  */
 function getDiplomaticChord (annotElem, chord) {
   // console.log(472, ' entering ', annotElem, chord)
@@ -538,6 +580,13 @@ function getDiplomaticChord (annotElem, chord) {
   // console.log(472, annotElem, chord)
 }
 
+/**
+ * Maps annotated diplomatic key accid data to diplomatic transcription output.
+ *
+ * @param {Element} annotElem - Element processed by this function.
+ * @param {string} keyAccid - Identifier for the target element.
+ * @returns {void} No return value.
+ */
 function getDiplomaticKeyAccid (annotElem, keyAccid) {
   const loc = annotElem.getAttribute('loc')
   console.log('keyAccid:', loc)
@@ -545,6 +594,14 @@ function getDiplomaticKeyAccid (annotElem, keyAccid) {
   console.log('getDiplomaticKeysig', annotElem, keyAccid)
 }
 
+/**
+ * Maps annotated diplomatic metersig data to diplomatic transcription output.
+ *
+ * @param {Element} annotElem - Element processed by this function.
+ * @param {Object} metersig - Input object used by this function.
+ * @param {Object} options3 - Structured options object.
+ * @returns {void} No return value.
+ */
 function getDiplomaticMetersig (annotElem, metersig, { count, unit }) {
   console.log('getDiplomaticMetersig', annotElem, metersig, count, unit)
   if (count && unit) {
@@ -555,6 +612,14 @@ function getDiplomaticMetersig (annotElem, metersig, { count, unit }) {
   }
 }
 
+/**
+ * Maps annotated diplomatic clef data to diplomatic transcription output.
+ *
+ * @param {Element} annotElem - Element processed by this function.
+ * @param {Object} clef - Input object used by this function.
+ * @param {Element} annotElementClef - Element processed by this function.
+ * @returns {void} No return value.
+ */
 function getDiplomaticClef (annotElem, clef, annotElementClef) {
   const { shape, line } = annotElementClef || { shape: annotElem.getAttribute('shape'), line: annotElem.getAttribute('line') }
   console.log('getDiplomaticClef', annotElem, clef, shape, line)
@@ -562,6 +627,14 @@ function getDiplomaticClef (annotElem, clef, annotElementClef) {
   clef.setAttribute('line', line)
 }
 
+/**
+ * Maps annotated diplomatic curve data to diplomatic transcription output.
+ *
+ * @param {Element} annotElem - Element processed by this function.
+ * @param {Element} curve - Element processed by this function.
+ * @param {number} bbox - Numeric input used by this function.
+ * @returns {void} No return value.
+ */
 function getDiplomaticCurve (annotElem, curve, bbox) {
   const bboxbezier = boundingboxDefaultControlpoints(bbox, annotElem.getAttribute('curvedir') === 'above')
   curve.removeAttribute('x')
@@ -587,8 +660,11 @@ function getDiplomaticCurve (annotElem, curve, bbox) {
 
 /**
  * generates a pitch clarification letter for the given annotated element
- * @param {*} annotElem the annotated element
- * @param {*} metaMark the metaMark element to be modified
+ *
+ * @param {Element} annotElem - Element processed by this function.
+ * @param {Object} metaMark - Input object used by this function.
+ * @param {number} bbox - Numeric input used by this function.
+ * @returns {void} No return value.
  */
 function getPitchClarificationLetter (annotElem, metaMark, bbox) {
   try {
@@ -611,9 +687,12 @@ function getPitchClarificationLetter (annotElem, metaMark, bbox) {
 
 /**
  * translates a syllable from an annotated transcript to a diplomatic word
- * @param {*} annotElem the annotated syl to be translated
- * @param {*} word the initial word that needs specific treatment
+ *
  * @returns the dt:word element
+ * @param {Element} annotElem - Element processed by this function.
+ * @param {Object} word - Input object used by this function.
+ * @param {number} bbox - Numeric input used by this function.
+ * @returns {void} No return value.
  */
 function getDiplomaticWord (annotElem, word, bbox) {
   word.setAttribute('x', (parseFloat(bbox.mm.x)).toFixed(1))
@@ -623,6 +702,12 @@ function getDiplomaticWord (annotElem, word, bbox) {
   word.innerHTML = annotElem.innerHTML.replace(/\s+/g, ' ').trim()
 }
 
+/**
+ * Returns loc attribute from the current data context.
+ *
+ * @param {Element} annotElem - Element processed by this function.
+ * @returns {Object} Resulting object.
+ */
 function getLocAttribute (annotElem) {
   if (!annotElem) {
     console.warn('WARNING: no proper annotElem provided to calculate @loc', annotElem)
@@ -691,13 +776,15 @@ function getLocAttribute (annotElem) {
 
 /**
  * takes a template for diplomatic transcriptions and initializes it by generating IDs
- * @param {*} diploTemplate the template to be initialized
- * @param {*} filename the filename of the document containing the page where the diplomatic transcription is located
- * @param {*} wzObj the object for the current writing zone
- * @param {*} surfaceId the xml:id of the <surface> on which this writing zone is transcribed
- * @param {*} appVersion the version of the application, as taken from package.json
- * @param {*} affectedStaves the staves that are covered by this diplomatic transcription
+ *
  * @returns the initialized template
+ * @param {string} filename - String input used by this function.
+ * @param {Object} wzObj - Writing-zone metadata for the current page region.
+ * @param {string} surfaceId - String input used by this function.
+ * @param {string} appVersion - String input used by this function.
+ * @param {Object} affectedStaves - List of affected staff identifiers.
+ * @param {number} systemcount - Numeric input used by this function.
+ * @returns {Promise<unknown>} Promise resolving to the computed result.
  */
 export async function initializeDiploTrans (filename, wzObj, surfaceId, appVersion, affectedStaves, systemcount) {
   /*
@@ -804,9 +891,11 @@ export async function initializeDiploTrans (filename, wzObj, surfaceId, appVersi
 
 /**
  * generates an MEI that will render empty rastrums for a given page
- * @param {*} mei the MEI document containing the page
- * @param {*} surfaceId the xml:id of the <surface> element of the page
+ *
  * @returns the MEI document containing the empty rastrums
+ * @param {Object} mei - Input object used by this function.
+ * @param {string} surfaceId - String input used by this function.
+ * @returns {Promise<number>} Promise resolving to the computed result.
  */
 export async function getEmptyPage (mei, surfaceId) {
   if (!mei || !surfaceId) {
@@ -851,6 +940,14 @@ export async function getEmptyPage (mei, surfaceId) {
   outSurface.setAttribute('lry', parseFloat(folium.getAttribute('height') * defaultFactor))
   outSurface.setAttribute('lrx', parseFloat(folium.getAttribute('width') * defaultFactor))
 
+  /**
+   * Appends new element.
+   *
+   * @param {Element} parent - Element processed by this function.
+   * @param {string} name - String input used by this function.
+   * @param {string} ns - String input used by this function.
+   * @returns {void} No return value.
+   */
   const appendNewElement = (parent, name, ns = 'http://www.music-encoding.org/ns/mei') => {
     const elem = parent.appendChild(document.createElementNS(ns, name))
     if (ns === 'http://www.w3.org/2000/svg') {
@@ -911,6 +1008,13 @@ export async function getEmptyPage (mei, surfaceId) {
   return template
 }
 
+/**
+ * Initializes page if necessary.
+ *
+ * @param {Object} page - Input object used by this function.
+ * @param {number} height - Numeric input used by this function.
+ * @returns {void} No return value.
+ */
 export function initializePageIfNecessary (page, height) {
   const hasScoreDef = page.querySelector('score')
   if (hasScoreDef === null) {
@@ -955,6 +1059,14 @@ export function initializePageIfNecessary (page, height) {
   }
 }
 
+/**
+ * Generates system from rect.
+ *
+ * @param {number} uly - Numeric input used by this function.
+ * @param {number} left - Numeric input used by this function.
+ * @param {number} right - Numeric input used by this function.
+ * @returns {number} Resulting numeric value.
+ */
 export function generateSystemFromRect (uly, left, right) {
   const system = document.createElementNS('http://www.music-encoding.org/ns/mei', 'system')
   const measure = document.createElementNS('http://www.music-encoding.org/ns/mei', 'measure')
@@ -986,6 +1098,14 @@ export function generateSystemFromRect (uly, left, right) {
   return system
 }
 
+/**
+ * Inserts system.
+ *
+ * @param {Object} page - Input object used by this function.
+ * @param {number} system - Numeric input used by this function.
+ * @param {number} followingSystem - Numeric input used by this function.
+ * @returns {void} No return value.
+ */
 export function insertSystem (page, system, followingSystem) {
   const where = (followingSystem === null || followingSystem === undefined) ? null : followingSystem.previousSibling
   page.insertBefore(document.createTextNode('\n  '), where)
@@ -995,8 +1115,9 @@ export function insertSystem (page, system, followingSystem) {
 
 /**
  * checks if SVG has grouped unassigned shapes already. Used during import.
- * @param  {[type]} svg               [description]
- * @return {[type]}     [description]
+ *
+ * @param {SVGElement|Document} svg - Source document used by this function.
+ * @returns {Object} Result value.
  */
 export function verifyUnassignedGroupInSvg (svg) {
   // JPV: svg is XMLDocument now
@@ -1038,12 +1159,13 @@ export function verifyUnassignedGroupInSvg (svg) {
 
 /**
  * converts rectangles between mm and px units
- * @param  {[type]} dom                     [description]
- * @param  {[type]} surfaceId               [description]
- * @param  {[type]} xywh                    [description]
- * @param  {[type]} dir                     [description]
- * @param  {[type]} getters                 access to the store's getters
- * @return {[type]}           [description]
+ *
+ * @param {Document} dom - Source document used by this function.
+ * @param {string} surfaceId - String input used by this function.
+ * @param {number} xywh - Numeric input used by this function.
+ * @param {string} dir - String input used by this function.
+ * @param {Function} getters - Callback invoked by this function.
+ * @returns {Object} Result value.
  */
 export function convertRectUnits (dom, surfaceId, xywh, dir, getters) {
   if (dir !== 'px2mm' && dir !== 'mm2px') {
@@ -1140,12 +1262,20 @@ export function convertRectUnits (dom, surfaceId, xywh, dir, getters) {
 
 /**
  * sorts the rastrum elements inside a given rastrumDesc
- * @param  {[type]} rastrumDesc               [description]
- * @return {[type]}             [description]
+ *
+ * @param {Element} rastrumDesc - Element processed by this function.
+ * @returns {Object} Result value.
  */
 export function sortRastrumsByVerticalPosition (rastrumDesc) {
   const rastrums = [...rastrumDesc.querySelectorAll('rastrum')]
 
+  /**
+   * Sorts func.
+   *
+   * @param {Object} a - Input object used by this function.
+   * @param {Object} b - Input object used by this function.
+   * @returns {void} No return value.
+   */
   const sortFunc = (a, b) => {
     const aY = parseFloat(a.getAttribute('system.topmar'))
     const bY = parseFloat(b.getAttribute('system.topmar'))
@@ -1157,6 +1287,14 @@ export function sortRastrumsByVerticalPosition (rastrumDesc) {
   reordered.forEach(rastrum => rastrumDesc.append(rastrum))
 }
 
+/**
+ * Processes new element for this operation.
+ *
+ * @param {Element} parent - Element processed by this function.
+ * @param {string} name - String input used by this function.
+ * @param {string} ns - String input used by this function.
+ * @returns {void} No return value.
+ */
 export const appendNewElement = (parent, name, ns = 'http://www.music-encoding.org/ns/mei') => {
   // Get the document from the parent element's ownerDocument
   const doc = parent.ownerDocument || parent
@@ -1171,11 +1309,19 @@ export const appendNewElement = (parent, name, ns = 'http://www.music-encoding.o
 
 /**
  * adds indicators for system begins to the MEI, using dir elements
- * @param {*} meiDom
+ *
+ * @param {string} meiDom - String input used by this function.
+ * @returns {Object} Resulting object.
  */
 export const addSbIndicators = (meiDom) => {
   const sbs = meiDom.querySelectorAll('sb')
 
+  /**
+   * Returns measure from the current data context.
+   *
+   * @param {Element} node - Element processed by this function.
+   * @returns {Object} Resulting object.
+   */
   const getMeasure = (node) => {
     let sibling = node.nextElementSibling
     while (sibling) {
@@ -1229,10 +1375,6 @@ function convertDiploTransEvent (event) {
   return event
 }
 */
-/**
- * converts a diplomatic note to something renderable
- * @param {*} note the diplomatic note to be translated
- */
 /*
 function getRenderableDiplomaticNote (note) {
   const headshape = note.getAttribute('head.shape')

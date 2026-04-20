@@ -1,6 +1,5 @@
 /**
  * Animate chords between AT and DT transcriptions, including noteheads, stems, ledger lines, and flags
- *
  * For each chord in the AT (fluid transcription):
  * - Animates the chord position based on corresponding DT chord position
  * - Animates all noteheads within the chord
@@ -8,7 +7,6 @@
  * - Scales and animates the stem length based on DT stem length and scale factor
  * - Animates flags (if present) to follow the stem endpoint
  * - Handles chords without DT correspondence by fading them out
- *
  * Stem animation logic:
  * - For stem.dir="up": keeps the bottom fixed and extends/contracts upward
  * - For stem.dir="down": keeps the top fixed and extends/contracts downward
@@ -23,6 +21,7 @@
  * @param {Map<string, string[]>} tools.correspMappings - AT element id to DT ids mapping
  * @param {Function} tools.setAnimation - Phase-aware animation descriptor writer
  * @param {Object} tools.logger - Logger instance
+ * @returns {Object} Resulting object.
  */
 export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
   const { scaleFactor, getNewPos, correspMappings, setAnimation, logger } = tools

@@ -1,6 +1,5 @@
 /**
  * Merge AT barLine paths sharing the same x position into single continuous lines
- *
  * For each barLine group in the AT, identifies all vertical path segments and groups them
  * by their x coordinate. Paths with the same x position (representing the same vertical
  * line across multiple staves) are merged into a single continuous path stretching from
@@ -8,6 +7,7 @@
  * are rendered as separate segments per staff into unified lines.
  *
  * @param {SVGElement} svg - AT SVG DOM containing barLine elements
+ * @returns {void} No return value.
  */
 const adjustAtBarLines = (svg) => {
   const barLines = svg.querySelectorAll('g.measure:not(.bounding-box) .barLine:not(.bounding-box)')
@@ -59,7 +59,6 @@ const adjustAtBarLines = (svg) => {
 
 /**
  * Animate barlines between AT and DT transcriptions
- *
  * First merges multi-staff barlines in the AT into single continuous lines,
  * then animates each barline path based on corresponding DT barline position.
  * Handles measures without DT correspondence by fading them out.
@@ -68,6 +67,7 @@ const adjustAtBarLines = (svg) => {
  * @param {SVGElement} dtSvg - Diplomatic transcript SVG
  * @param {Document} atMeiDom - AT MEI DOM for accessing element metadata
  * @param {Object} tools - Tools object containing helper functions and data
+ * @returns {Element|null} Resulting object.
  */
 export const liquifyBarlines = (ftSvg, dtSvg, atMeiDom, tools) => {
   const { getNewPos, correspMappings, setAnimation } = tools

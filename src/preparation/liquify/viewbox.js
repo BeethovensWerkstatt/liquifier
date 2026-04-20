@@ -1,12 +1,12 @@
 /**
  * Adjust viewBox of SVG to encompass all animated content
- *
  * This post-processing function analyzes all animation values to find the
  * bounding box of all content across all animation states, then adjusts
  * the SVG viewBox to ensure everything is visible with padding.
  *
  * @param {SVGElement} svg - The SVG element to adjust
  * @param {Object} tools - Tools object containing logger
+ * @returns {number} Resulting numeric value.
  */
 export const adjustViewBoxForContent = (svg, tools) => {
   const { logger } = tools
@@ -123,8 +123,9 @@ export const adjustViewBoxForContent = (svg, tools) => {
 
 /**
  * Parse translate value: "x y" or "x,y"
+ *
  * @param {string} value - Translate value
- * @returns {Array<{x: number, y: number}>} Array with one coordinate
+ * @returns {Array<{x: number, y: number} >} Array with one coordinate
  */
 const parseTranslateValue = (value) => {
   if (!value || value.trim() === '') return []
@@ -141,8 +142,9 @@ const parseTranslateValue = (value) => {
 
 /**
  * Parse SVG path d attribute to extract all coordinates
+ *
  * @param {string} d - Path d attribute value
- * @returns {Array<{x: number, y: number}>} Array of coordinates
+ * @returns {Array<{x: number, y: number} >} Array of coordinates
  */
 const parsePathD = (d) => {
   if (!d || d.trim() === '') return []
@@ -166,8 +168,9 @@ const parsePathD = (d) => {
 
 /**
  * Parse polyline points attribute: "x1,y1 x2,y2 x3,y3"
+ *
  * @param {string} points - Points attribute value
- * @returns {Array<{x: number, y: number}>} Array of coordinates
+ * @returns {Array<{x: number, y: number} >} Array of coordinates
  */
 const parsePoints = (points) => {
   if (!points || points.trim() === '') return []

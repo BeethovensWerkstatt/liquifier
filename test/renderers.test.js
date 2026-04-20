@@ -257,6 +257,14 @@ test('applyFluidSystemsOutputMetadata exposes currentPageRegion in rendered coor
   const svg = svgDom.documentElement
   const pageMargin = svg.querySelector('g.page-margin')
 
+  /**
+   * Processes measure for this operation.
+   *
+   * @param {string} id - Identifier for the target element.
+   * @param {number} x - Numeric input used by this function.
+   * @param {number} width - Identifier for the target element.
+   * @returns {Object} Resulting object.
+   */
   const makeMeasure = (id, x, width) => {
     const measure = svgDom.createElementNS('http://www.w3.org/2000/svg', 'g')
     measure.setAttribute('class', 'measure')

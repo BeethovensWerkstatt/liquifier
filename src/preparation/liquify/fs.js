@@ -1,14 +1,11 @@
 /**
  * Animate figured bass numbers (<f> elements) between AT and DT transcriptions.
- *
  * For each figured bass number in the AT (fluid transcription):
  * - Animates the individual number position based on corresponding DT position
  * - Keeps numbers without DT correspondence in place (no translation)
- *
  * Figured bass numbers (<f>) are individual digits or symbols within figured bass notation,
  * typically found in Baroque and Classical music to indicate harmony above a bass line.
  * They are wrapped in <tspan> elements within <text> elements.
- *
  * Note: In many cases, figured bass is editorial (not in the original manuscript),
  * so these elements often have no DT correspondence and remain in their AT position.
  *
@@ -20,6 +17,7 @@
  * @param {Map<string, string[]>} tools.correspMappings - AT element id to DT ids mapping
  * @param {Function} tools.setAnimation - Phase-aware animation descriptor writer
  * @param {Object} tools.logger - Logger instance
+ * @returns {number} Resulting numeric value.
  */
 export const liquifyFs = (ftSvg, dtSvg, atMeiDom, tools) => {
   const { getNewPos, correspMappings, setAnimation, logger } = tools

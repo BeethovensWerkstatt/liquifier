@@ -14,6 +14,16 @@ const verovioOptions = {
   svgAdditionalAttribute: ['staff@rotate', 'staff@height', 'score@viewBox', 'sb@rotate', 'chord@stem.dir']
 }
 
+/**
+ * Renders continuous at.
+ *
+ * @param {Document} dom - Source document used by this function.
+ * @param {Object} verovio - Verovio toolkit instance.
+ * @param {Object} target - Input object used by this function.
+ * @param {{width?: number, height?: number}} pageDimensions - Rendering page dimensions.
+ * @param {Object} extraOptions - Input object used by this function.
+ * @returns {void} No return value.
+ */
 export const renderContinuousAt = (dom, verovio, target, pageDimensions, extraOptions = {}) => {
   const domString = new XMLSerializer().serializeToString(dom)
 
@@ -42,6 +52,14 @@ export const renderContinuousAt = (dom, verovio, target, pageDimensions, extraOp
   return fixedSvgString
 }
 
+/**
+ * Renders system based at.
+ *
+ * @param {Document} dom - Source document used by this function.
+ * @param {Object} verovio - Verovio toolkit instance.
+ * @param {{width?: number, height?: number}} pageDimensions - Rendering page dimensions.
+ * @returns {number} Resulting numeric value.
+ */
 export const renderSystemBasedAt = (dom, verovio, pageDimensions) => {
   // Clone the DOM to avoid modifying the original
   const modifiedDom = dom.cloneNode(true)
@@ -112,6 +130,13 @@ export const renderSystemBasedAt = (dom, verovio, pageDimensions) => {
   return systemSvgs
 }
 
+/**
+ * Renders midi.
+ *
+ * @param {Document} dom - Source document used by this function.
+ * @param {Object} verovio - Verovio toolkit instance.
+ * @returns {string} Resulting string.
+ */
 export const renderMidi = (dom, verovio) => {
   const domString = new XMLSerializer().serializeToString(dom)
   verovio.loadData(domString)

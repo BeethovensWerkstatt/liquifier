@@ -1,6 +1,5 @@
 /**
  * Animate curves (slurs, ties, etc.) between AT and DT transcriptions
- *
  * For each curve in the AT (fluid transcription):
  * - Animates the curve path based on corresponding DT curve position
  * - Handles curves without DT correspondence by fading them out
@@ -9,6 +8,7 @@
  * @param {SVGElement} dtSvg - Diplomatic transcript SVG
  * @param {Document} atMeiDom - AT MEI DOM for accessing element metadata
  * @param {Object} tools - Tools object containing helper functions and data
+ * @returns {Element|null} Resulting object.
  */
 export const liquifyCurves = (ftSvg, dtSvg, atMeiDom, tools) => {
   const { convertD, correspMappings, setAnimation } = tools

@@ -40,6 +40,12 @@ export class Vector {
   }
 }
 
+/**
+ * Provides utility logic for data.
+ *
+ * @param {Array<*>} arr - Collection of values used by this function.
+ * @returns {number} Resulting numeric value.
+ */
 export const flattenarray = (arr) => {
   return arr.reduce((acc, val) => {
     if (Array.isArray(val)) {
@@ -52,9 +58,11 @@ export const flattenarray = (arr) => {
 }
 
 /**
- * get control points from verovio generated slur bezier
- * @param {string} pathstr
+ * Provides utility logic for svg bezier to controlpoints.
+ *
  * @returns control points of cubic bezier as flat array
+ * @param {string} pathstr - String input used by this function.
+ * @returns {Array<*>} Resulting list.
  */
 export const verovioSvgBezierToControlpoints = (pathstr) => {
   const pbreg = /(([CM]?)([+-.\d]+),([+-.\d]+))/
@@ -88,9 +96,11 @@ export const verovioSvgBezierToControlpoints = (pathstr) => {
 
 /**
  * generate string for SVG path element
- * @param {*} Q control points
- * @param {*} w width of slur
+ *
  * @returns
+ * @param {Object} Q - Input object used by this function.
+ * @param {number} w - Numeric input used by this function.
+ * @returns {string} Resulting string.
  */
 export const controlpointsToVerovioSvgBezier = (Q, w = 1) => {
   // console.log(837, 'controlpointsToVerovioSvgBezier')
@@ -113,12 +123,11 @@ export const controlpointsToVerovioSvgBezier = (Q, w = 1) => {
 
 /**
  * calculate default control points for slur inside bounding box
- * @param {number} x upper left x
- * @param {number} y upper left y
- * @param {number} width width
- * @param {number} height height
- * @param {boolean=true} up wether the slur is up or down
+ *
  * @returns array of control points
+ * @param {number} bbox - Numeric input used by this function.
+ * @param {boolean} up - Flag that controls this function.
+ * @returns {number} Resulting numeric value.
  */
 export const boundingboxDefaultControlpoints = (bbox, up = true) => {
   const { mm: { x, y, w, h } } = bbox

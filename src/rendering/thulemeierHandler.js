@@ -2,20 +2,12 @@ import { render, version } from 'thulemeier'
 import { JSDOM } from 'jsdom'
 
 /**
- * Thulemeier integration for Liquifier
- * Provides diplomatic transcript rendering capabilities using the Thulemeier library
- */
-
-/**
  * Render a diplomatic transcript using Thulemeier
  * This function renders a single draft (writing zone) from a prepared MEI document
  * that has been merged with source information using prepareDtForThulemeier.
  *
  * @param {Document} meiDoc - The prepared MEI document to render (output of prepareDtForThulemeier)
  * @param {Object} options - Rendering options
- * @param {string} [options.mode] - Rendering mode: 'singleDraftStandalone' (default) or 'singleSystem'
- * @param {string} [options.draftId] - Optional draft ID to render (if not provided, will use first draft found)
- * @param {string} [options.systemId] - System ID (required for 'singleSystem' mode)
  * @returns {Promise<string>} The rendered SVG as a string
  */
 export async function renderDiplomaticTranscript (meiDoc, options = {}) {
@@ -65,6 +57,7 @@ export async function renderDiplomaticTranscript (meiDoc, options = {}) {
 
 /**
  * Render an empty page with rastrums using Thulemeier
+ *
  * @param {Document} meiDoc - The MEI document containing page structure
  * @param {Object} options - Rendering options
  * @returns {Promise<string>} The rendered SVG as a string
@@ -97,6 +90,7 @@ export async function renderEmptyPage (meiDoc, options = {}) {
 
 /**
  * Check if Thulemeier is available and working
+ *
  * @returns {Promise<boolean>} True if Thulemeier is working
  */
 export async function checkThulemeierAvailability () {
@@ -112,6 +106,7 @@ export async function checkThulemeierAvailability () {
 
 /**
  * Resolve the Thulemeier version string.
+ *
  * @returns {Promise<string>} Thulemeier version string or 'unknown' when unavailable
  */
 export async function getThulemeierVersion () {

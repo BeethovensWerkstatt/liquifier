@@ -1,11 +1,20 @@
 /**
  * improves display of <sb> and <pb> indicators in the SVG rendered from Verovio
- * @param {*} svgDom
- * @param {*} atDom
+ *
+ * @param {SVGElement|Document} svgDom - Source document used by this function.
+ * @param {Document} atDom - Source document used by this function.
+ * @param {Function} getters - Callback invoked by this function.
+ * @returns {Object} Resulting object.
  */
 export function resolveSbIndicators (svgDom, atDom, getters) {
   const wzBegins = svgDom.querySelectorAll('g.annot:not(.bounding-box)')
 
+  /**
+   * Returns measure from the current data context.
+   *
+   * @param {Element} node - Element processed by this function.
+   * @returns {Object} Resulting object.
+   */
   const getMeasure = (node) => {
     let sibling = node.nextElementSibling
     while (sibling) {
@@ -208,8 +217,10 @@ export function resolveSbIndicators (svgDom, atDom, getters) {
 
 /**
  * fixes corresp attributes for dots in the SVG output, as ATs use attributes, but DTs use elements
- * @param {*} svgDom
- * @param {*} atDom
+ *
+ * @param {SVGElement|Document} svgDom - Source document used by this function.
+ * @param {Document} atDom - Source document used by this function.
+ * @returns {Object} Resulting object.
  */
 export function addSbIndicators (svgDom, atDom) {
   const doc = atDom.ownerDocument || atDom
@@ -220,6 +231,12 @@ export function addSbIndicators (svgDom, atDom) {
 
   const sbs = atDom.querySelectorAll('sb')
 
+  /**
+   * Returns measure from the current data context.
+   *
+   * @param {Element} node - Element processed by this function.
+   * @returns {Object} Resulting object.
+   */
   const getMeasure = (node) => {
     let sibling = node.nextElementSibling
     while (sibling) {
@@ -254,8 +271,12 @@ export function addSbIndicators (svgDom, atDom) {
 
 /**
  * This function prepares an AT for rendering by Verovio
- * @param {*} atDom
+ *
  * @returns
+ * @param {Document} atDom - Source document used by this function.
+ * @param {Document} dtDom - DOM document used by this function.
+ * @param {{width?: number, height?: number}} pageDimensions - Rendering page dimensions.
+ * @returns {void} No return value.
  */
 export function prepareAtDomForRendering (atDom, dtDom, pageDimensions) {
   const clone = atDom.cloneNode(true)
@@ -297,8 +318,11 @@ export function prepareAtDomForRendering (atDom, dtDom, pageDimensions) {
 
 /**
  * This function fixes some artifacts of an AT as rendered by Verovio
- * @param {*} svgDom
- * @param {*} atDom
+ *
+ * @param {SVGElement|Document} svgDom - Source document used by this function.
+ * @param {Document} atDom - Source document used by this function.
+ * @param {Document} dtDom - DOM document used by this function.
+ * @returns {void} No return value.
  */
 export function improveAtSvg (svgDom, atDom, dtDom) {
   /* const dotBearers = svgDom.querySelectorAll('*[data-dot-corresp]')
@@ -318,6 +342,13 @@ export function improveAtSvg (svgDom, atDom, dtDom) {
   return svgDom
 }
 
+/**
+ * Processes score def child ids for this operation.
+ *
+ * @param {SVGElement|Document} svgDom - Source document used by this function.
+ * @param {string} meiDom - String input used by this function.
+ * @returns {void} No return value.
+ */
 export const fixScoreDefChildIds = (svgDom, meiDom) => {
   const firstScoreDef = meiDom.querySelector('scoreDef')
 

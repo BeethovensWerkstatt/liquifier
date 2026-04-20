@@ -2,7 +2,16 @@
  * Animates rest elements in a fluid transcript.
  * Rests are simpler than notes as they only need position animation,
  * without stems, flags, or other child elements.
+ * // Rest structure in AT:
+ * // <g data-id="x123" class="rest">
+ * //   <use href="#E4E5" transform="translate(1234, 5678) scale(0.72, 0.72)"/>
+ * // </g>
+ * // Rest structure in DT:
+ * // <g data-id="d456" class="rest">
+ * //   <use href="#sym_rest_quarter" x="2345" y="13456"/>
+ * // </g>
  *
+ * @example
  * @param {SVGElement} ftSvg - The fluid transcript SVG element
  * @param {SVGElement} dtSvg - The diplomatic transcript SVG element
  * @param {Document} atMeiDom - The annotated transcript MEI DOM (for corresp mapping)
@@ -11,17 +20,7 @@
  * @param {Map<string, string[]>} tools.correspMappings - AT element id to DT ids mapping
  * @param {Function} tools.setAnimation - Phase-aware animation descriptor writer
  * @param {Object} tools.logger - Logger instance
- *
- * @example
- * // Rest structure in AT:
- * // <g data-id="x123" class="rest">
- * //   <use href="#E4E5" transform="translate(1234, 5678) scale(0.72, 0.72)"/>
- * // </g>
- *
- * // Rest structure in DT:
- * // <g data-id="d456" class="rest">
- * //   <use href="#sym_rest_quarter" x="2345" y="13456"/>
- * // </g>
+ * @returns {void} No return value.
  */
 export function liquifyRests (ftSvg, dtSvg, atMeiDom, tools) {
   const { getNewPos, correspMappings, setAnimation, logger } = tools

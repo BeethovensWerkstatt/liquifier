@@ -12,11 +12,13 @@ import {
 
 /**
  * Process a single file: fetch data and render all requested outputs
+ *
  * @param {Object} params - Processing parameters
  * @param {string} params.fileName - Input file name/path
  * @param {Object} params.config - Configuration object
  * @param {Object} params.verovio - Verovio toolkit instance
  * @param {Object} params.logger - Logger instance
+ * @returns {Promise<void>} Promise resolving to the computed result.
  */
 async function processFile ({ fileName, config, verovio, logger }) {
   const triple = getFilesObject(fileName, config.inputDir, config.outputDir)
@@ -41,12 +43,14 @@ async function processFile ({ fileName, config, verovio, logger }) {
 
 /**
  * Process fetched data: render all requested transcript types and media
+ *
  * @param {Object} params - Processing parameters
  * @param {Object} params.data - Source data (atDom, dtDom, sourceDom)
  * @param {Object} params.triple - File paths and dates
  * @param {Object} params.config - Configuration object
  * @param {Object} params.verovio - Verovio toolkit instance
  * @param {Object} params.logger - Logger instance
+ * @returns {Promise<void>} Promise resolving to the computed result.
  */
 async function processData ({ data, triple, config, verovio, logger }) {
   logger.debug('Processing triple: ' + JSON.stringify(triple))
@@ -121,11 +125,13 @@ async function processData ({ data, triple, config, verovio, logger }) {
 
 /**
  * Process multiple files sequentially
+ *
  * @param {Object} params - Processing parameters
  * @param {string[]} params.fileNames - Array of file names to process
  * @param {Object} params.config - Configuration object
  * @param {Object} params.verovio - Verovio toolkit instance
  * @param {Object} params.logger - Logger instance
+ * @returns {Promise<void>} Promise resolving to the computed result.
  */
 export async function processFiles ({ fileNames, config, verovio, logger }) {
   if (fileNames.length === 0) {

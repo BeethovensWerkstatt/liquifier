@@ -1,16 +1,15 @@
 /**
  * Animate pedals between AT and DT transcriptions
- *
  * For each pedal in the AT (fluid transcription):
  * - Animates the pedal symbol position based on corresponding DT pedal position
  * - Handles pedals without DT correspondence by fading them out
- *
  * Pedals include pedalDown (Ped.) and pedalUp (*) symbols.
  *
  * @param {SVGElement} ftSvg - Fluid transcription SVG (cloned from AT)
  * @param {SVGElement} dtSvg - Diplomatic transcript SVG
  * @param {Document} atMeiDom - AT MEI DOM for accessing pedal metadata
  * @param {Object} tools - Tools object containing helper functions and data
+ * @returns {number} Resulting numeric value.
  */
 export const liquifyPedals = (ftSvg, dtSvg, atMeiDom, tools) => {
   const { getNewPos, correspMappings, setAnimation, logger } = tools

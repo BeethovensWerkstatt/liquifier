@@ -25,6 +25,12 @@ const duration = '5s'
 const repeatCount = 'indefinite'
 const reverseAnimations = false
 
+/**
+ * Builds at measure block map for subsequent processing steps.
+ *
+ * @param {string} atMeiDom - DOM document used by this function.
+ * @returns {Map<*, *>} Resulting mapping.
+ */
 function buildAtMeasureBlockMap (atMeiDom) {
   const map = new Map()
   if (!atMeiDom) return map
@@ -59,6 +65,7 @@ function buildAtMeasureBlockMap (atMeiDom) {
 /**
  * Calculate the center of DT system based on rastrum bounding boxes
  * Takes into account rotation and the visible viewBox area
+ *
  * @param {Object} svg - DT SVG DOM
  * @returns {Object} {x, y} coordinates of the center
  */
@@ -112,6 +119,7 @@ const calculateDtSystemCenter = (svg) => {
 
 /**
  * Calculate the center of AT system based on staff lines
+ *
  * @param {Object} svg - AT SVG DOM
  * @returns {Object} {x, y} coordinates of the center
  */
@@ -161,6 +169,7 @@ const calculateAtSystemCenter = (svg) => {
 
 /**
  * Calculate scale factor between DT and AT system pairs based on staff height
+ *
  * @param {Object} dtSystemSvg - DT system SVG DOM
  * @param {Object} atSystemSvg - AT system SVG DOM
  * @returns {number} Scale factor to apply to DT to match AT
@@ -202,6 +211,7 @@ export const calculateScaleFactor = (dtSystemSvg, atSystemSvg) => {
 
 /**
  * Extract corresp mappings from AT MEI document
+ *
  * @param {Document} atMeiDom - AT MEI DOM
  * @returns {Map} Map of atElementId -> dtElementId
  */
@@ -232,13 +242,12 @@ const extractCorrespMappings = (atMeiDom) => {
 
 /**
  * Generate fluid transcription by pairing DT and AT system SVGs
+ *
  * @param {Object} dtSystemSvg - DT system SVG DOM (document or svg element)
  * @param {Object} atSystemSvg - AT system SVG DOM (document or svg element)
  * @param {Document} atMeiDom - AT MEI DOM (for corresp mappings)
- * @param {Object} logger - Logger instance for info/debug/warn/error messages
- * @param {Object} [options] - Generation options
- * @param {string} [options.stateModel='fluidTranscript'] - Animation resolver model
- * @param {Map<string, number>} [options.choiceVerticalOffsets] - Optional fluidSystems vertical offsets
+ * @param {{debug: Function, info: Function, warn: Function, error: Function}} logger - Logger instance for info/debug/warn/error messages
+ * @param {Object} options - Structured options object.
  * @returns {Object} Fluid transcription SVG DOM
  */
 export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, logger, options = {}) => {
@@ -262,6 +271,13 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, l
   adjustDtStaffLines(dtSvgElement)
 
   // helper function that will get the translation between two points
+  /**
+   * Returns new pos from the current data context.
+   *
+   * @param {{x: number, y: number}} at - Input object used by this function.
+   * @param {{x: number, y: number}} dt - Input object used by this function.
+   * @returns {void} No return value.
+   */
   const getNewPos = (at = { x: 0, y: 0 }, dt = { x: 0, y: 0 }) => {
     const atOffX = atCenter.x - at.x
     const atOffY = atCenter.y - at.y
@@ -277,11 +293,9 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, l
 
   /**
    * Convert all coordinates in a path's d attribute using getNewPos transformation
-   *
    * Parses the path d attribute, extracts all coordinate pairs, transforms them using
    * getNewPos (which applies scale factor and coordinate system transformations), and
    * reconstructs the path string with the new coordinates.
-   *
    * Supports path commands: M (moveto), L (lineto), H (horizontal), V (vertical),
    * C (cubic bezier), S (smooth cubic), Q (quadratic), T (smooth quadratic), A (arc)
    *
@@ -329,6 +343,12 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, l
     : new Map()
 
   // Expose a no-op getter outside fluidSystems so liquify modules can call one API.
+  /**
+   * Returns choice vertical offset from the current data context.
+   *
+   * @param {string} elementId - Identifier for the target element.
+   * @returns {number} Resulting numeric value.
+   */
   const getChoiceVerticalOffset = (elementId) => {
     if (stateModel !== 'fluidSystems') return 0
     if (!elementId) return 0
@@ -362,7 +382,10 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, l
 
 /**
  * Adjust AT staff lines to have only one continuous path per line across all measures
+ *
  * @param {Object} svg - AT SVG DOM
+ * @param {string} atMeiDom - DOM document used by this function.
+ * @returns {void} No return value.
  */
 const adjustAtStaffLines = (svg, atMeiDom) => {
   const measureBlockMap = buildAtMeasureBlockMap(atMeiDom)
@@ -447,7 +470,9 @@ const adjustAtStaffLines = (svg, atMeiDom) => {
 
 /**
  * Cut DT staff lines to fit within the viewBox
- * @param {*} svg
+ *
+ * @param {SVGElement|Document} svg - Source document used by this function.
+ * @returns {void} No return value.
  */
 const adjustDtStaffLines = (svg) => {
   const viewBox = svg.getAttribute('viewBox').split(' ').map(Number)
@@ -468,10 +493,8 @@ const adjustDtStaffLines = (svg) => {
 
 /**
  * Animate staff lines between AT and DT transcriptions
- *
  * Pairs each staff line from the fluid transcription with its corresponding DT staff line
  * and creates animations for the `d` attribute (path data) to morph between the two positions.
- *
  * Uses the `convertD` function to transform all coordinates in the path, which applies
  * scale factor and coordinate system transformations.
  *
@@ -479,7 +502,8 @@ const adjustDtStaffLines = (svg) => {
  * @param {SVGElement} dtSvg - Diplomatic transcript SVG
  * @param {Function} convertD - Function to convert path d attribute: (atD, dtD) => newD
  * @param {Function} setAnimation - Function to create six-phase animations from descriptors
- * @param {Object} logger - Logger instance
+ * @param {{debug: Function, info: Function, warn: Function, error: Function}} logger - Logger instance
+ * @returns {Array<*>} Resulting list.
  */
 const animateStaffLines = (ftSvg, dtSvg, convertD, setAnimation, logger) => {
   const ftStaffLines = Array.from(ftSvg.querySelectorAll('path.rastrum'))
@@ -535,7 +559,6 @@ const animateStaffLines = (ftSvg, dtSvg, convertD, setAnimation, logger) => {
 
 /**
  * Orchestrate animation of all musical events (notes, rests, chords, etc.) between AT and DT transcriptions
- *
  * This function serves as the main coordinator for animating all types of musical notation elements.
  *
  * @param {SVGElement} ftSvg - Fluid transcription SVG (cloned from AT)
@@ -550,6 +573,7 @@ const animateStaffLines = (ftSvg, dtSvg, convertD, setAnimation, logger) => {
  * @param {Function} tools.getChoiceVerticalOffset - Returns fluidSystems vertical override per element id
  * @param {Function} tools.setAnimation - Phase-aware animation descriptor writer
  * @param {Object} tools.logger - Logger instance
+ * @returns {void} No return value.
  */
 const liquifyMusic = (ftSvg, dtSvg, atMeiDom, tools) => {
   // events
@@ -584,14 +608,14 @@ const liquifyMusic = (ftSvg, dtSvg, atMeiDom, tools) => {
 
 /**
  * Add an SVG animateTransform element for translate animations
- *
  * Creates an `<animateTransform>` element with type="translate" to animate the position
  * of an SVG element. The animation transitions between the provided values using the
  * global duration and repeat settings.
+ * the start and end positions as "x y" strings
  *
  * @param {SVGElement} node - The SVG element to add the animation to
  * @param {string[]} values - Array of translate values (e.g., ["0 0", "100 50"]) representing
- *                            the start and end positions as "x y" strings
+ * @returns {void} No return value.
  */
 const addTransformTranslate = (node, values = []) => {
   const anim = appendNewElement(node, 'animateTransform', 'http://www.w3.org/2000/svg')
@@ -608,13 +632,13 @@ const addTransformTranslate = (node, values = []) => {
 
 /**
  * Add an SVG animate element for animating any attribute
- *
  * Creates an `<animate>` element to animate any SVG attribute (e.g., `d`, `opacity`, `fill`).
  * The animation transitions between the provided values using the global duration and repeat settings.
  *
  * @param {SVGElement} node - The SVG element to add the animation to
  * @param {string} attribute - The name of the attribute to animate (e.g., "d", "opacity", "fill")
  * @param {string[]} values - Array of attribute values representing the animation states
+ * @returns {void} No return value.
  */
 const addTransform = (node, attribute, values = []) => {
   const anim = appendNewElement(node, 'animate', 'http://www.w3.org/2000/svg')
@@ -630,38 +654,27 @@ const addTransform = (node, attribute, values = []) => {
 /**
  * Set animation for an element based on the six-phase sequence:
  * finding -> normalization -> readingOrder -> regulation -> supplements -> interventions.
- *
  * This resolver is used for fluid transcript output. Missing states are filled with
  * conservative defaults so each animated attribute always has six frames.
- *
  * Null states indicate the element doesn't exist in that phase and will be hidden (opacity: 0).
+ * Each state object has:
+ * Example:
+ * {
+ * element: noteElement,
+ * id: 'note-123',
+ * localName: 'note',
+ * states: {
+ * finding: { type: 'translate', val: '0 0' },
+ * interventions: { type: 'translate', val: '100 50' }
+ * }
+ * }
  *
  * @param {Object} descriptor - Animation descriptor with the following structure:
  * @param {SVGElement} descriptor.element - The SVG element to animate
  * @param {string} descriptor.id - The element's ID (for logging)
  * @param {string} descriptor.localName - The element's type (e.g., 'note', 'artic')
  * @param {Object} descriptor.states - State definitions for each phase
- * @param {Object} [descriptor.states.finding] - State in finding phase
- * @param {Object} [descriptor.states.normalization] - State in normalization phase
- * @param {Object} [descriptor.states.readingOrder] - State in readingOrder phase
- * @param {Object} [descriptor.states.regulation] - State in regulation phase
- * @param {Object} [descriptor.states.supplements] - State in supplements phase
- * @param {Object} [descriptor.states.interventions] - State in interventions phase
- *
- * Each state object has:
- * @param {string} state.type - Animation type: 'translate', 'd', 'opacity', etc.
- * @param {string} state.val - The value for that state
- *
- * Example:
- * {
- *   element: noteElement,
- *   id: 'note-123',
- *   localName: 'note',
- *   states: {
- *     finding: { type: 'translate', val: '0 0' },
- *     interventions: { type: 'translate', val: '100 50' }
- *   }
- * }
+ * @returns {string} Resulting string.
  */
 const setAnimationFluidTranscript = (descriptor) => {
   const { element, id, localName, states } = descriptor
@@ -716,7 +729,8 @@ const setAnimationFluidTranscript = (descriptor) => {
 /**
  * Resolve a partial state descriptor into the canonical fluidSystems six-phase sequence.
  * Missing phases are derived conservatively to preserve existing behavior.
- * @param {Object} [states={}] - Partial animation state descriptor
+ *
+ * @param {Object} states - Input object used by this function.
  * @returns {Object} Fully-resolved six-phase state descriptor
  */
 export const resolveFluidSystemsStates = (states = {}) => {
@@ -749,6 +763,12 @@ export const resolveFluidSystemsStates = (states = {}) => {
   }
 }
 
+/**
+ * Sets animation fluid systems.
+ *
+ * @param {Element} descriptor - Element processed by this function.
+ * @returns {string} Resulting string.
+ */
 const setAnimationFluidSystems = (descriptor) => {
   const { element, id, localName, states } = descriptor
   const resolvedStates = resolveFluidSystemsStates(states)
@@ -802,6 +822,12 @@ const setAnimationFluidSystems = (descriptor) => {
   }
 }
 
+/**
+ * Creates animation setter.
+ *
+ * @param {string} stateModel - State value used by this function.
+ * @returns {void} No return value.
+ */
 const createAnimationSetter = (stateModel) => {
   if (stateModel === 'fluidSystems') {
     return setAnimationFluidSystems

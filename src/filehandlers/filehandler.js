@@ -11,6 +11,7 @@ const { DOMParser } = new JSDOM().window
 
 /**
  * Extract page number from filename (e.g., "_p005_" -> "p005")
+ *
  * @param {string} filename - Filename containing page pattern
  * @returns {string|null} Page identifier (e.g., "p005") or null if not found
  */
@@ -21,6 +22,7 @@ function extractPageFromFilename (filename) {
 
 /**
  * Insert page folder into output path
+ *
  * @param {string} outputPath - Base output path
  * @param {string} page - Page identifier (e.g., "p005")
  * @returns {string} Path with page folder inserted
@@ -36,6 +38,12 @@ function insertPageFolder (outputPath, page) {
   return path.join(dir, page, file)
 }
 
+/**
+ * Resolves AT symlink target.
+ *
+ * @param {string} symlinkPath - File or resource path.
+ * @returns {number} Resulting numeric value.
+ */
 function resolveAtSymlinkTarget (symlinkPath) {
   try {
     if (!fs.existsSync(symlinkPath)) return null
@@ -55,7 +63,8 @@ function resolveAtSymlinkTarget (symlinkPath) {
 
 /**
  * collect files from <code>git show --name-only --pretty="format:--- %H %cI" <i>COMMIT</></code>
- * @param {string[]} lines
+ *
+ * @param {Array<*>} lines - Collection of values used by this function.
  * @returns {string[]} list of file paths
  */
 const collectFiles = (lines) => {
@@ -75,8 +84,10 @@ const collectFiles = (lines) => {
 
 /**
  * return changed files in
- * @param {string|'HEAD'} commit
+ *
  * @returns
+ * @param {string} commit - String input used by this function.
+ * @returns {Array<*>} Resulting list.
  */
 export const changedFiles = (commit = 'HEAD') => {
   const cmd = `git show --name-only --pretty="format:--- %H %cI" ${commit}`
@@ -87,8 +98,10 @@ export const changedFiles = (commit = 'HEAD') => {
 
 /**
  * return changed files since date
- * @param {datetime} sinceDate
+ *
  * @returns
+ * @param {Date|string} sinceDate - Input object used by this function.
+ * @returns {Array<*>} Resulting list.
  */
 export const changedFilesSince = (sinceDate) => {
   const cmd = `git log --name-only --since="${sinceDate.toISOString()}" --pretty="format:--- %H %cI"`
@@ -99,8 +112,10 @@ export const changedFilesSince = (sinceDate) => {
 
 /**
  * return datetime of last commit for file
- * @param {datetime} file
+ *
  * @returns
+ * @param {string} file - String input used by this function.
+ * @returns {Object} Resulting object.
  */
 export const gitFileDate = (file) => {
   let date = 0
@@ -122,11 +137,14 @@ export const gitFileDate = (file) => {
 }
 
 /**
-* Walk through the directory and return all files
-* @param {*} dir
-* @param {*} regex
-* @param {*} done
-*/
+ * Walk through the directory and return all files
+ *
+ * @param {string} dir - String input used by this function.
+ * @param {Function} done - Completion callback invoked after traversal finishes.
+ * @param {string} inputDir - String input used by this function.
+ * @param {string} outputDir - String input used by this function.
+ * @returns {Promise<*>} Promise resolving to the computed result.
+ */
 export async function walk (dir, done, inputDir = './', outputDir = './cache') {
   let results = []
 
@@ -176,7 +194,11 @@ export async function walk (dir, done, inputDir = './', outputDir = './cache') {
 
 /**
  * given either the path of a diplomatic transcript, return the paths to all three relevant files
- * @param {*} path
+ *
+ * @param {string} file - String input used by this function.
+ * @param {string} inputDir - String input used by this function.
+ * @param {string} outputDir - String input used by this function.
+ * @returns {Object} Resulting object.
  */
 export function getFilesObject (file, inputDir = './', outputDir = './cache') {
   // Determine if file path is absolute or already includes inputDir
@@ -303,6 +325,14 @@ export function getFilesObject (file, inputDir = './', outputDir = './cache') {
   return undefined
 }
 
+/**
+ * Fetches data.
+ *
+ * @param {Object} triple - File tuple containing source, target, and timestamp metadata.
+ * @param {boolean} verbose - Flag that controls this function.
+ * @param {string} inputDir - String input used by this function.
+ * @returns {Promise<*>} Promise resolving to the computed result.
+ */
 export async function fetchData (triple, verbose = false, inputDir = './') {
   // Use full paths if available, otherwise join with inputDir
   const sourcePath = triple.sourceFullPath || path.join(inputDir, triple.source)
@@ -335,11 +365,28 @@ export async function fetchData (triple, verbose = false, inputDir = './') {
   }
 }
 
+/**
+ * Writes data.
+ *
+ * @param {string} content - String input used by this function.
+ * @param {string} filePath - File or resource path.
+ * @returns {Object} Resulting object.
+ */
 export function writeData (content, filePath) {
   return fs.promises.mkdir(path.dirname(filePath), { recursive: true })
     .then(x => fs.promises.writeFile(filePath, content))
 }
 
+/**
+ * Generates HTML wrapper.
+ *
+ * @param {SVGElement|Document} svg - SVG document used by this function.
+ * @param {Document} meiSourceDom - DOM document used by this function.
+ * @param {string} meiDtDom - DOM document used by this function.
+ * @param {Document} meiAtDom - DOM document used by this function.
+ * @param {string} path - File or resource path.
+ * @returns {string} Resulting string.
+ */
 export function generateHtmlWrapper (svg, meiSourceDom, meiDtDom, meiAtDom, path) {
   const dom = new JSDOM(`
 <!DOCTYPE html>
@@ -407,6 +454,12 @@ export function generateHtmlWrapper (svg, meiSourceDom, meiDtDom, meiAtDom, path
         <div class="label"></div>
     </div>
     <script type="text/ecmascript">
+        /**
+         * Sets pos.
+         *
+         * @param {Event} event - DOM event object.
+         * @returns {void} No return value.
+         */
         function setPos(event) {
             const val = event.target.value / 2
             document.querySelectorAll('svg').forEach(function(svg) {svg.setCurrentTime(val)})

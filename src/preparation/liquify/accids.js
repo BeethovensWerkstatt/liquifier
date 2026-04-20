@@ -1,6 +1,5 @@
 /**
  * Animate accidentals between AT and DT transcriptions
- *
  * For each accidental in the AT (fluid transcription):
  * - Animates the accidental position based on corresponding DT accidental position
  * - Handles accidentals without DT correspondence by fading them out
@@ -15,6 +14,7 @@
  * @param {Object} tools.logger - Logger instance
  * @param {string} tools.stateModel - Active state model (fluidTranscript or fluidSystems)
  * @param {Function} tools.getChoiceVerticalOffset - Returns fluidSystems vertical override per element id
+ * @returns {string} Resulting string.
  */
 export const liquifyAccids = (ftSvg, dtSvg, atMeiDom, tools) => {
   const { getNewPos, correspMappings, setAnimation, logger, stateModel, getChoiceVerticalOffset } = tools

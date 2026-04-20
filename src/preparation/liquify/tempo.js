@@ -1,15 +1,13 @@
-/**
- * Animates tempo elements between diplomatic and annotated transcripts
- */
-
 import { computeTextDiff } from '../../utils/textDiff.js'
 
 /**
  * Liquify tempo elements
+ *
  * @param {SVGElement} ftSvg - The fluid transcript SVG (based on AT)
  * @param {SVGElement} dtSvg - The diplomatic transcript SVG
  * @param {Document} atMeiDom - The annotated transcript MEI DOM
  * @param {Object} tools - Utility functions and mappings
+ * @returns {void} No return value.
  */
 export function liquifyTempo (ftSvg, dtSvg, atMeiDom, tools) {
   const { getNewPos, correspMappings, setAnimation, logger } = tools
