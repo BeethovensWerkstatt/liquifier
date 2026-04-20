@@ -215,6 +215,49 @@ test('generateFluidTranscription fluidSystems builds separate AT target staff se
   assert.deepEqual(atTargets.sort(), ['M10 100 L90 100', 'M110 100 L190 100'])
 })
 
+test('generateFluidTranscription fluidSystems keeps AT block rastrum order left-to-right', () => {
+  const atSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
+      <g class="system" data-id="sysA">
+        <g class="measure" data-id="m1"><g class="staff"><path d="M10 100 L90 100"/></g></g>
+        <g class="measure" data-id="m2"><g class="staff"><path d="M110 100 L190 100"/></g></g>
+      </g>
+    </svg>
+  `, 'image/svg+xml')
+
+  const dtSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
+      <g class="rastrum bounding-box"><rect x="0" y="90" width="120" height="40"/></g>
+      <g class="rastrum"><path d="M0 100 L120 100"/></g>
+      <g class="rastrum bounding-box"><rect x="0" y="190" width="120" height="40"/></g>
+      <g class="rastrum"><path d="M0 200 L120 200"/></g>
+    </svg>
+  `, 'image/svg+xml')
+
+  const atMei = parser.parseFromString(`
+    <mei xmlns="http://www.music-encoding.org/ns/mei">
+      <music><body><mdiv><score><section>
+        <measure xml:id="m1"/>
+        <sb xml:id="sb2"/>
+        <measure xml:id="m2"/>
+      </section></score></mdiv></body></music>
+    </mei>
+  `, 'text/xml')
+
+  const logger = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} }
+  const outSvg = generateFluidTranscription(dtSvg, atSvg, atMei, logger, { stateModel: 'fluidSystems' })
+
+  const rastrumLines = Array.from(outSvg.querySelectorAll('path.rastrum'))
+  assert.equal(rastrumLines.length, 2)
+
+  const xStarts = rastrumLines.map(path => {
+    const d = path.getAttribute('d')
+    return Number(d.match(/^M([\d.-]+)/)[1])
+  })
+
+  assert.deepEqual(xStarts, [10, 110])
+})
+
 test('generateFluidTranscription fluidSystems clones AT staff lines to cover multiple DT systems', () => {
   const atSvg = parser.parseFromString(`
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">

@@ -14,6 +14,8 @@ import { createRequire } from 'module'
 const FLUID_SYSTEMS_DESC_ID = 'bw-fs-overlay-metadata'
 const SVG_NS = 'http://www.w3.org/2000/svg'
 const READING_ORDER_BLOCK_GAP = 80
+const CURRENT_PAGE_REGION_PADDING = 500
+const CURRENT_PAGE_REGION_TARGET_X = 1000
 const require = createRequire(import.meta.url)
 const { version: LIQUIFIER_VERSION } = require('../../package.json')
 /**
@@ -59,7 +61,7 @@ function parseViewBox (viewBoxAttr) {
 function parseTranslatePoint (transformAttr) {
   if (!transformAttr) return null
 
-  const match = transformAttr.match(/translate\(\s*([\d.-]+)\s*,\s*([\d.-]+)\s*\)/)
+  const match = transformAttr.match(/translate\(\s*([\d.-]+)\s*[\s,]+\s*([\d.-]+)\s*\)/)
   if (!match) return null
 
   const x = parseFloat(match[1])
@@ -236,18 +238,54 @@ function buildReadingOrderBlockMap (atDom) {
 }
 
 function getFirstDiplomaticCorrespId (value = '') {
-  if (!value) return null
+  const diplomaticIds = getDiplomaticCorrespIds(value)
+  return diplomaticIds[0] || null
+}
 
-  const tokens = value.trim().split(/\s+/)
-  const diplomaticToken = tokens.find(token => {
-    if (!token.includes('#')) return false
-    const [filePart] = token.split('#')
-    return filePart.includes('/diplomaticTranscripts/') || filePart.endsWith('_dt.xml') || filePart === ''
+function buildDtIdSet (dtDom) {
+  const dtIds = new Set()
+  if (!dtDom) return dtIds
+
+  dtDom.querySelectorAll('*').forEach(node => {
+    const id = node.getAttribute('xml:id')
+    if (id) dtIds.add(id)
   })
 
-  if (!diplomaticToken || !diplomaticToken.includes('#')) return null
-  const [, id] = diplomaticToken.split('#')
-  return id || null
+  return dtIds
+}
+
+function buildMappedAtIdSet (atDom, dtIds) {
+  const atIds = new Set()
+  if (!atDom || !dtIds || dtIds.size === 0) return atIds
+
+  atDom.querySelectorAll('[corresp]').forEach(element => {
+    const atId = element.getAttribute('xml:id')
+    if (!atId) return
+
+    const diplomaticIds = getDiplomaticCorrespIds(element.getAttribute('corresp'))
+    if (diplomaticIds.some(id => dtIds.has(id))) {
+      atIds.add(atId)
+    }
+  })
+
+  return atIds
+}
+
+function getDiplomaticCorrespIds (value = '') {
+  if (!value) return []
+
+  const ids = []
+  const tokens = value.trim().split(/\s+/)
+  tokens.forEach(token => {
+    if (!token.includes('#')) return
+    const [filePart, id] = token.split('#')
+    if (!id) return
+    const isDiplomaticRef = filePart.includes('/diplomaticTranscripts/') || filePart.endsWith('_dt.xml') || filePart === ''
+    if (!isDiplomaticRef) return
+    ids.push(id)
+  })
+
+  return ids
 }
 
 function buildAtToDtMeasureMap (atDom) {
@@ -289,6 +327,44 @@ function parseTranslateXValues (transformAttr) {
   return values
 }
 
+function getAnimationValueForPhase (animationElement, phaseIndex) {
+  if (!animationElement) return null
+
+  const values = (animationElement.getAttribute('values') || '').split(';').map(v => v.trim()).filter(Boolean)
+  if (values.length === 0) return null
+
+  const index = Math.min(phaseIndex, values.length - 1)
+  return values[index]
+}
+
+function parseTranslateXFromAnimationValue (value) {
+  if (!value) return 0
+
+  const match = value.match(/^([\d.-]+)[\s,]+([\d.-]+)$/)
+  if (!match) return 0
+
+  const x = parseFloat(match[1])
+  return Number.isFinite(x) ? x : 0
+}
+
+function parseNoteheadBaseX (noteElement) {
+  const noteheadUse = noteElement.querySelector('.notehead > use')
+  if (!noteheadUse) return null
+
+  const translatedPoint = parseTranslatePoint(noteheadUse.getAttribute('transform'))
+  if (translatedPoint) return translatedPoint.x
+
+  const x = parseFloat(noteheadUse.getAttribute('x') || '')
+  return Number.isFinite(x) ? x : null
+}
+
+function isElementVisibleAtPhase (element, phaseIndex) {
+  const opacityAnimation = element.querySelector(':scope > animate[attributeName="opacity"]')
+  const opacityValue = getAnimationValueForPhase(opacityAnimation, phaseIndex)
+  if (!opacityValue) return true
+  return opacityValue !== '0'
+}
+
 function extractNodeXRange (node) {
   const range = { min: Infinity, max: -Infinity }
   const nodes = [node, ...node.querySelectorAll('*')]
@@ -325,6 +401,136 @@ function extractNodeXRange (node) {
   }
 
   return range
+}
+
+function computeMappedNotePhaseRegion (svgElement, mappedAtIds, phaseIndex) {
+  if (!svgElement || !mappedAtIds || mappedAtIds.size === 0) return null
+
+  const displaySvg = svgElement.querySelector('svg.definition-scale') || svgElement
+  const pageMargin = displaySvg.querySelector('g.page-margin')
+  if (!pageMargin) return null
+
+  const pageMarginTranslate = parseTranslatePoint(pageMargin.getAttribute('transform')) || { x: 0, y: 0 }
+  const positions = []
+
+  pageMargin.querySelectorAll('g.note:not(.bounding-box)[data-id]').forEach(noteElement => {
+    const atId = noteElement.getAttribute('data-id')
+    if (!atId || !mappedAtIds.has(atId)) return
+    if (!isElementVisibleAtPhase(noteElement, phaseIndex)) return
+
+    const baseX = parseNoteheadBaseX(noteElement)
+    if (!Number.isFinite(baseX)) return
+
+    const translateAnimation = noteElement.querySelector(':scope > animateTransform[type="translate"]')
+    const translateValue = getAnimationValueForPhase(translateAnimation, phaseIndex)
+    const translateX = parseTranslateXFromAnimationValue(translateValue)
+
+    positions.push(baseX + translateX + pageMarginTranslate.x)
+  })
+
+  if (positions.length === 0) return null
+
+  const min = Math.min(...positions)
+  const max = Math.max(...positions)
+  const width = Math.max(1, max - min)
+
+  return {
+    source: 'mappedNotes',
+    phaseIndex,
+    sampleCount: positions.length,
+    contentXMin: Math.round(min),
+    contentXMax: Math.round(max),
+    contentWidth: Math.round(width)
+  }
+}
+
+function computeCurrentPageRegion (svgElement, atDom, dtDom) {
+  if (!svgElement || !atDom || !dtDom) return null
+
+  const dtMeasureIds = buildDtIdSet(dtDom)
+  if (dtMeasureIds.size === 0) return null
+
+  const atMeasureIds = []
+  atDom.querySelectorAll('measure[corresp]').forEach(measure => {
+    const atId = measure.getAttribute('xml:id')
+    if (!atId) return
+
+    const diplomaticIds = getDiplomaticCorrespIds(measure.getAttribute('corresp'))
+    if (diplomaticIds.some(id => dtMeasureIds.has(id))) {
+      atMeasureIds.push(atId)
+    }
+  })
+
+  if (atMeasureIds.length === 0) return null
+
+  const ranges = []
+  atMeasureIds.forEach(atId => {
+    const measureNode = svgElement.querySelector(`g.measure:not(.bounding-box)[data-id="${atId}"]`)
+    if (!measureNode) return
+
+    const range = extractNodeXRange(measureNode)
+    if (range) ranges.push(range)
+  })
+
+  if (ranges.length === 0) return null
+
+  const rawMin = Math.min(...ranges.map(range => range.min))
+  const rawMax = Math.max(...ranges.map(range => range.max))
+
+  const displaySvg = svgElement.querySelector('svg.definition-scale') || svgElement
+  const pageMargin = displaySvg.querySelector('g.page-margin')
+  const pageMarginTranslate = parseTranslatePoint(pageMargin?.getAttribute('transform')) || { x: 0, y: 0 }
+
+  const renderedMin = rawMin + pageMarginTranslate.x
+  const renderedMax = rawMax + pageMarginTranslate.x
+  const renderedWidth = Math.max(1, renderedMax - renderedMin)
+
+  const displayViewBox = parseViewBox(displaySvg.getAttribute('viewBox')) || getSvgViewBoxSize(displaySvg)
+  const focusX = Math.floor(renderedMin - CURRENT_PAGE_REGION_PADDING)
+  const focusWidth = Math.max(1, Math.ceil(renderedWidth + 2 * CURRENT_PAGE_REGION_PADDING))
+
+  return {
+    source: 'atMeasureCorresp',
+    coordinateSpace: 'definition-scale-viewBox',
+    dtMeasureCount: dtMeasureIds.size,
+    atMeasureCount: ranges.length,
+    contentXMin: Math.round(renderedMin),
+    contentXMax: Math.round(renderedMax),
+    contentWidth: Math.round(renderedWidth),
+    pageMarginTranslateX: pageMarginTranslate.x,
+    pageMarginTranslateY: pageMarginTranslate.y,
+    focusViewBox: {
+      x: focusX,
+      y: displayViewBox.y,
+      width: focusWidth,
+      height: displayViewBox.height
+    },
+    focusViewBoxString: `${focusX} ${displayViewBox.y} ${focusWidth} ${displayViewBox.height}`,
+    padding: CURRENT_PAGE_REGION_PADDING
+  }
+}
+
+function alignCurrentPageRegionToVisibleLeft (svgElement, currentPageRegion) {
+  if (!svgElement || !currentPageRegion) return null
+
+  const displaySvg = svgElement.querySelector('svg.definition-scale') || svgElement
+  const pageMargin = displaySvg.querySelector('g.page-margin')
+  if (!pageMargin) return null
+
+  const currentTranslation = parseTranslatePoint(pageMargin.getAttribute('transform')) || { x: 0, y: 0 }
+  const deltaX = Math.round(CURRENT_PAGE_REGION_TARGET_X - currentPageRegion.contentXMin)
+  const nextX = currentTranslation.x + deltaX
+
+  if (deltaX !== 0) {
+    pageMargin.setAttribute('transform', `translate(${nextX}, ${currentTranslation.y})`)
+  }
+
+  return {
+    targetX: CURRENT_PAGE_REGION_TARGET_X,
+    previousTranslateX: currentTranslation.x,
+    translatedX: nextX,
+    deltaX
+  }
 }
 
 function computeBlockLayout (blockRanges) {
@@ -496,12 +702,13 @@ function upsertFluidSystemsProvenanceDesc (svgElement, { liquifierVersion, thule
  * @param {string} [params.systemId] - Single DT system id (legacy single-system path)
  * @param {string[]} [params.systemIds] - DT system ids used in the output
  * @param {Document} [params.atDom] - AT MEI DOM used for reading-order grouping
+ * @param {Document} [params.dtDom] - DT MEI DOM used for current-page region mapping
  * @param {SVGElement} [params.dtSvgElement] - DT SVG root for geometry extraction
  * @param {string} [params.liquifierVersion] - Liquifier version string for provenance description
  * @param {string} [params.thulemeierVersion] - Thulemeier version string for provenance description
  * @returns {SVGElement} The same SVG element with updated metadata attributes/desc payload
  */
-export function applyFluidSystemsOutputMetadata (svgElement, { triple, systemId, systemIds, atDom, dtSvgElement, liquifierVersion, thulemeierVersion }) {
+export function applyFluidSystemsOutputMetadata (svgElement, { triple, systemId, systemIds, atDom, dtDom, dtSvgElement, liquifierVersion, thulemeierVersion }) {
   const classList = (svgElement.getAttribute('class') || '').split(/\s+/).filter(Boolean)
   const filteredClassList = classList.filter(className => !className.startsWith('bw-fs-state-'))
 
@@ -518,6 +725,13 @@ export function applyFluidSystemsOutputMetadata (svgElement, { triple, systemId,
   })
 
   const readingOrder = applyReadingOrderStageTransform(svgElement, atDom, dtSvgElement)
+  const mappedAtIds = buildMappedAtIdSet(atDom, buildDtIdSet(dtDom))
+  const interventionsRegionBeforeAlignment = computeMappedNotePhaseRegion(svgElement, mappedAtIds, 5)
+  const regionBeforeAlignment = interventionsRegionBeforeAlignment || computeCurrentPageRegion(svgElement, atDom, dtDom)
+  const currentPageRegionAlignment = alignCurrentPageRegionToVisibleLeft(svgElement, regionBeforeAlignment)
+  const findingRegion = computeMappedNotePhaseRegion(svgElement, mappedAtIds, 0)
+  const interventionsRegion = computeMappedNotePhaseRegion(svgElement, mappedAtIds, 5)
+  const currentPageRegion = computeCurrentPageRegion(svgElement, atDom, dtDom)
 
   const vb = getSvgViewBoxSize(svgElement)
   const metadata = {
@@ -531,7 +745,13 @@ export function applyFluidSystemsOutputMetadata (svgElement, { triple, systemId,
     readingOrderAdjustedMeasures: readingOrder.adjustedMeasureIds,
     readingOrderAdjustedCount: readingOrder.adjustedCount,
     readingOrderGeometrySource: readingOrder.geometrySource,
-    atLeftAnchored: true
+    atLeftAnchored: true,
+    currentPageRegionAlignment,
+    phaseRegions: {
+      finding: findingRegion,
+      interventions: interventionsRegion
+    },
+    currentPageRegion
   }
 
   const doc = svgElement.ownerDocument
@@ -948,6 +1168,7 @@ export async function renderFluidSystemsSvg ({ data, triple, verovio, pageDimens
       triple,
       systemIds,
       atDom: data.atDom,
+      dtDom: data.dtDom,
       dtSvgElement: dtSvg.documentElement || dtSvg,
       liquifierVersion: LIQUIFIER_VERSION,
       thulemeierVersion

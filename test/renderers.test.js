@@ -31,6 +31,23 @@ test('applyFluidSystemsOutputMetadata updates provenance desc and overlay metada
     </mei>
   `, 'text/xml')
 
+  const dtDom = parser.parseFromString(`
+    <mei xmlns="http://www.music-encoding.org/ns/mei">
+      <music>
+        <body>
+          <mdiv>
+            <score>
+              <section>
+                <measure xml:id="d1"/>
+                <measure xml:id="d2"/>
+              </section>
+            </score>
+          </mdiv>
+        </body>
+      </music>
+    </mei>
+  `, 'text/xml')
+
   const dtSvgDom = parser.parseFromString('<svg xmlns="http://www.w3.org/2000/svg"></svg>', 'image/svg+xml')
   const dtMeasureLayer = dtSvgDom.createElementNS('http://www.w3.org/2000/svg', 'g')
   const d1 = dtSvgDom.createElementNS('http://www.w3.org/2000/svg', 'g')
@@ -74,6 +91,7 @@ test('applyFluidSystemsOutputMetadata updates provenance desc and overlay metada
     triple: { page: 'p005' },
     systemId: 's123',
     atDom,
+    dtDom,
     dtSvgElement: dtSvgDom.documentElement,
     liquifierVersion: '1.2.0',
     thulemeierVersion: '1.0.0'
@@ -100,6 +118,16 @@ test('applyFluidSystemsOutputMetadata updates provenance desc and overlay metada
   assert.equal(payload.readingOrderAdjustedCount, 2)
   assert.deepEqual(payload.readingOrderAdjustedMeasures.sort(), ['m1', 'm2'])
   assert.equal(payload.readingOrderGeometrySource, 'dt')
+  assert.equal(payload.currentPageRegion.source, 'atMeasureCorresp')
+  assert.equal(payload.currentPageRegion.coordinateSpace, 'definition-scale-viewBox')
+  assert.equal(payload.currentPageRegion.dtMeasureCount, 2)
+  assert.equal(payload.currentPageRegion.atMeasureCount, 2)
+  assert.equal(payload.currentPageRegion.contentXMin, 0)
+  assert.equal(payload.currentPageRegion.contentXMax, 320)
+  assert.equal(payload.currentPageRegion.contentWidth, 320)
+  assert.equal(payload.currentPageRegion.pageMarginTranslateX, 0)
+  assert.equal(payload.currentPageRegion.pageMarginTranslateY, 0)
+  assert.equal(payload.currentPageRegion.focusViewBoxString, '-500 0 1320 400')
 
   const m1Anim = m1.querySelector('animateTransform')
   const m2Anim = m2.querySelector('animateTransform')
@@ -136,6 +164,7 @@ test('applyFluidSystemsOutputMetadata updates existing metadata desc', () => {
   assert.equal(payload.readingOrderAdjustedCount, 0)
   assert.deepEqual(payload.readingOrderAdjustedMeasures, [])
   assert.equal(payload.readingOrderGeometrySource, 'none')
+  assert.equal(payload.currentPageRegion, null)
 
   assert.equal(svg.getAttribute('class'), 'existing')
   assert.equal(svg.getAttribute('data-bw-fs-states'), null)
@@ -210,6 +239,7 @@ test('applyFluidSystemsOutputMetadata uses FT geometry fallback when DT mapping 
   const payload = JSON.parse(svg.querySelector('desc#bw-fs-overlay-metadata').textContent)
   assert.equal(payload.readingOrderGeometrySource, 'ft')
   assert.equal(payload.readingOrderAdjustedCount, 3)
+  assert.equal(payload.currentPageRegion, null)
 
   const values = [m1, m2, m3].map(node => node.querySelector('animateTransform').getAttribute('values'))
   assert.deepEqual(values, [
@@ -217,4 +247,69 @@ test('applyFluidSystemsOutputMetadata uses FT geometry fallback when DT mapping 
     '0 0;0 0;-30 0;0 0;0 0;0 0',
     '0 0;0 0;-50 0;0 0;0 0;0 0'
   ])
+})
+
+test('applyFluidSystemsOutputMetadata exposes currentPageRegion in rendered coordinates', () => {
+  const svgDom = parser.parseFromString(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 5000 500"><g class="page-margin" transform="translate(1000, 3000)"></g></svg>',
+    'image/svg+xml'
+  )
+  const svg = svgDom.documentElement
+  const pageMargin = svg.querySelector('g.page-margin')
+
+  const makeMeasure = (id, x, width) => {
+    const measure = svgDom.createElementNS('http://www.w3.org/2000/svg', 'g')
+    measure.setAttribute('class', 'measure')
+    measure.setAttribute('data-id', id)
+
+    const box = svgDom.createElementNS('http://www.w3.org/2000/svg', 'g')
+    box.setAttribute('class', 'bounding-box')
+    const rect = svgDom.createElementNS('http://www.w3.org/2000/svg', 'rect')
+    rect.setAttribute('x', String(x))
+    rect.setAttribute('width', String(width))
+    box.appendChild(rect)
+    measure.appendChild(box)
+
+    return measure
+  }
+
+  pageMargin.appendChild(makeMeasure('m10', 10000, 200))
+  pageMargin.appendChild(makeMeasure('m20', 10250, 150))
+
+  const atDom = parser.parseFromString(`
+    <mei xmlns="http://www.music-encoding.org/ns/mei">
+      <music><body><mdiv><score><section>
+        <measure xml:id="m10" corresp="../diplomaticTranscripts/src_dt.xml#d10"/>
+        <measure xml:id="m20" corresp="../diplomaticTranscripts/src_dt.xml#d20"/>
+      </section></score></mdiv></body></music>
+    </mei>
+  `, 'text/xml')
+
+  const dtDom = parser.parseFromString(`
+    <mei xmlns="http://www.music-encoding.org/ns/mei">
+      <music><body><mdiv><score><section>
+        <measure xml:id="d10"/>
+        <measure xml:id="d20"/>
+      </section></score></mdiv></body></music>
+    </mei>
+  `, 'text/xml')
+
+  applyFluidSystemsOutputMetadata(svg, {
+    triple: { page: 'p999' },
+    systemId: 'sysZ',
+    atDom,
+    dtDom
+  })
+
+  const payload = JSON.parse(svg.querySelector('desc#bw-fs-overlay-metadata').textContent)
+  assert.equal(pageMargin.getAttribute('transform'), 'translate(-9000, 3000)')
+  assert.equal(payload.currentPageRegionAlignment.targetX, 1000)
+  assert.equal(payload.currentPageRegionAlignment.previousTranslateX, 1000)
+  assert.equal(payload.currentPageRegionAlignment.translatedX, -9000)
+  assert.equal(payload.currentPageRegionAlignment.deltaX, -10000)
+  assert.equal(payload.currentPageRegion.contentXMin, 1000)
+  assert.equal(payload.currentPageRegion.contentXMax, 1400)
+  assert.equal(payload.currentPageRegion.contentWidth, 400)
+  assert.equal(payload.currentPageRegion.pageMarginTranslateX, -9000)
+  assert.equal(payload.currentPageRegion.focusViewBoxString, '500 0 1400 500')
 })

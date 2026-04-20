@@ -384,6 +384,8 @@ const adjustAtStaffLines = (svg, atMeiDom) => {
     system.querySelectorAll(':scope > g.bw-system-rastrum').forEach(group => group.remove())
 
     const doc = system.ownerDocument || system
+    // Keep generated rastrum groups behind existing content while preserving block order.
+    const insertionAnchor = system.firstChild
     Array.from(blockToMeasures.entries()).sort((a, b) => a[0] - b[0]).forEach(([block, blockMeasures]) => {
       let left = Infinity
       let right = -Infinity
@@ -428,7 +430,11 @@ const adjustAtStaffLines = (svg, atMeiDom) => {
         systemRastrum.appendChild(line)
       })
 
-      system.insertBefore(systemRastrum, system.firstChild)
+      if (insertionAnchor) {
+        system.insertBefore(systemRastrum, insertionAnchor)
+      } else {
+        system.appendChild(systemRastrum)
+      }
     })
 
     measures.forEach((measure, i) => {
