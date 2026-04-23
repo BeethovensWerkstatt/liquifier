@@ -40,7 +40,7 @@ function buildAtMeasureBlockMap (atMeiDom) {
   let startNewBlock = false
 
   atMeiDom.querySelectorAll('section').forEach(section => {
-    Array.from(section.children).forEach(node => {
+    Array.from(section.querySelectorAll('sb, measure')).forEach(node => {
       if (node.localName === 'sb') {
         startNewBlock = sawMeasure
         return
@@ -267,7 +267,12 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, l
   // Clone AT SVG as the base for fluid transcription
   const ftSvg = atSvgElement.cloneNode(true)
 
-  adjustAtStaffLines(ftSvg, atMeiDom)
+  const measureBlockMap = buildAtMeasureBlockMap(atMeiDom)
+  const matchedStaffLineBlocks = options.matchedStaffLineBlocks instanceof Set
+    ? options.matchedStaffLineBlocks
+    : null
+
+  adjustAtStaffLines(ftSvg, atMeiDom, measureBlockMap)
   adjustDtStaffLines(dtSvgElement)
 
   // helper function that will get the translation between two points
@@ -359,7 +364,7 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, l
   // Build the state-model-specific writer once, then pass through all liquify modules.
   const setAnimationForMode = createAnimationSetter(stateModel)
 
-  animateStaffLines(ftSvg, dtSvgElement, convertD, setAnimationForMode, logger)
+  animateStaffLines(ftSvg, dtSvgElement, convertD, setAnimationForMode, logger, matchedStaffLineBlocks)
 
   const tools = {
     getNewPos,
@@ -384,11 +389,11 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, l
  * Adjust AT staff lines to have only one continuous path per line across all measures
  *
  * @param {Object} svg - AT SVG DOM
- * @param {string} atMeiDom - DOM document used by this function.
+ * @param {Document} atMeiDom - AT MEI DOM used to infer reading-order blocks.
+ * @param {Map<string, number>} measureBlockMap - Optional precomputed map of AT measure ids to block indices.
  * @returns {void} No return value.
  */
-const adjustAtStaffLines = (svg, atMeiDom) => {
-  const measureBlockMap = buildAtMeasureBlockMap(atMeiDom)
+const adjustAtStaffLines = (svg, atMeiDom, measureBlockMap = buildAtMeasureBlockMap(atMeiDom)) => {
   const systemGroups = svg.querySelectorAll('g.system:not(.bounding-box)')
 
   systemGroups.forEach(system => {
@@ -462,7 +467,7 @@ const adjustAtStaffLines = (svg, atMeiDom) => {
 
     measures.forEach((measure, i) => {
       const staffLinesInMeasure = measure.querySelectorAll('g.staff:not(.bounding-box) > path')
-      // Remove measure-owned staff lines so staff rails are truly system-level.
+      // Remove measure-owned staff lines so staff lines are truly system-level.
       staffLinesInMeasure.forEach(path => path.remove())
     })
   })
@@ -492,6 +497,76 @@ const adjustDtStaffLines = (svg) => {
 }
 
 /**
+ * Group FT staff lines by block index and line index.
+ *
+ * @param {SVGElement[]} staffLines - Staff lines from the fluid transcription SVG.
+ * @returns {Map<number, SVGElement[]>} Staff lines grouped by block index.
+ */
+function groupFtStaffLinesByBlock (staffLines) {
+  const byBlock = new Map()
+
+  staffLines.forEach(line => {
+    const blockRaw = line.getAttribute('data-bw-block')
+    const blockIndex = Number.parseInt(blockRaw, 10)
+    if (!Number.isFinite(blockIndex)) return
+
+    if (!byBlock.has(blockIndex)) byBlock.set(blockIndex, [])
+    byBlock.get(blockIndex).push(line)
+  })
+
+  byBlock.forEach(lines => {
+    lines.sort((a, b) => {
+      const aIdx = Number.parseInt(a.getAttribute('data-bw-line-index') || '0', 10)
+      const bIdx = Number.parseInt(b.getAttribute('data-bw-line-index') || '0', 10)
+      return aIdx - bIdx
+    })
+  })
+
+  return byBlock
+}
+
+/**
+ * Group DT staff lines by matched AT block index using DT system order.
+ *
+ * @param {SVGElement|Document} dtSvg - Diplomatic transcript SVG.
+ * @param {Set<number>} matchedBlocks - AT block indices that belong to the current DT context.
+ * @param {{debug: Function, info: Function, warn: Function, error: Function}} logger - Logger instance.
+ * @returns {Map<number, SVGElement[]>} DT staff lines grouped by matched AT block index.
+ */
+function groupDtStaffLinesByMatchedBlocks (dtSvg, matchedBlocks, logger) {
+  const byBlock = new Map()
+  if (!(matchedBlocks instanceof Set) || matchedBlocks.size === 0) return byBlock
+
+  const sortedBlocks = Array.from(matchedBlocks).sort((a, b) => a - b)
+  const dtSystems = Array.from(dtSvg.querySelectorAll('g.system:not(.bounding-box)'))
+
+  if (dtSystems.length > 0) {
+    if (dtSystems.length !== sortedBlocks.length) {
+      logger.warn(`[animateStaffLines] DT systems (${dtSystems.length}) and matched AT blocks (${sortedBlocks.length}) differ; pairing by index order.`)
+    }
+
+    dtSystems.forEach((system, index) => {
+      const blockIndex = sortedBlocks[index]
+      if (!Number.isFinite(blockIndex)) return
+
+      const lines = Array.from(system.querySelectorAll('.rastrum:not(.bounding-box) > path'))
+      byBlock.set(blockIndex, lines)
+    })
+
+    return byBlock
+  }
+
+  const dtLines = Array.from(dtSvg.querySelectorAll('.rastrum:not(.bounding-box) > path'))
+  if (sortedBlocks.length === 1) {
+    byBlock.set(sortedBlocks[0], dtLines)
+  } else if (sortedBlocks.length > 1 && dtLines.length > 0) {
+    logger.warn('[animateStaffLines] DT has no system groups; cannot distribute DT staff lines across multiple matched blocks reliably.')
+  }
+
+  return byBlock
+}
+
+/**
  * Animate staff lines between AT and DT transcriptions
  * Pairs each staff line from the fluid transcription with its corresponding DT staff line
  * and creates animations for the `d` attribute (path data) to morph between the two positions.
@@ -503,57 +578,155 @@ const adjustDtStaffLines = (svg) => {
  * @param {Function} convertD - Function to convert path d attribute: (atD, dtD) => newD
  * @param {Function} setAnimation - Function to create six-phase animations from descriptors
  * @param {{debug: Function, info: Function, warn: Function, error: Function}} logger - Logger instance
- * @returns {Array<*>} Resulting list.
+ * @param {Set<number>|null} matchedStaffLineBlocks - AT block indices in the current DT page context.
+ * @returns {void} No return value.
  */
-const animateStaffLines = (ftSvg, dtSvg, convertD, setAnimation, logger) => {
+const animateStaffLines = (ftSvg, dtSvg, convertD, setAnimation, logger, matchedStaffLineBlocks = null) => {
   const ftStaffLines = Array.from(ftSvg.querySelectorAll('path.rastrum'))
-  const dtStaffLines = Array.from(dtSvg.querySelectorAll('.rastrum:not(.bounding-box) > path'))
 
-  if (ftStaffLines.length === 0 || dtStaffLines.length === 0) {
-    logger.warn('[animateStaffLines] Missing FT or DT staff lines; skipping staff-line animation')
+  if (ftStaffLines.length === 0) {
+    logger.warn('[animateStaffLines] Missing FT staff lines; skipping staff-line animation')
     return
   }
 
-  const targetCount = Math.max(ftStaffLines.length, dtStaffLines.length)
-  const expandedFtLines = Array.from({ length: targetCount }).map((_, i) => {
-    const baseLine = ftStaffLines[i % ftStaffLines.length]
-    if (i < ftStaffLines.length) return baseLine
+  const hasBlockFilter = matchedStaffLineBlocks instanceof Set && matchedStaffLineBlocks.size > 0
 
-    const clone = baseLine.cloneNode(true)
-    clone.setAttribute('data-bw-staff-clone', String(i))
-    baseLine.parentNode.appendChild(clone)
-    return clone
-  })
-
-  expandedFtLines.forEach((ftLine, i) => {
-    const dtLine = dtStaffLines[i % dtStaffLines.length]
-
-    if (!dtLine) {
-      logger.warn(`[animateStaffLines] No corresponding DT staff line for FT line ${i}`)
+  if (!hasBlockFilter) {
+    const dtStaffLines = Array.from(dtSvg.querySelectorAll('.rastrum:not(.bounding-box) > path'))
+    if (dtStaffLines.length === 0) {
+      logger.warn('[animateStaffLines] Missing DT staff lines; skipping staff-line animation')
       return
     }
 
-    const atD = ftLine.getAttribute('d')
-    const dtD = dtLine.getAttribute('d')
+    const targetCount = Math.max(ftStaffLines.length, dtStaffLines.length)
+    const expandedFtLines = Array.from({ length: targetCount }).map((_, i) => {
+      const baseLine = ftStaffLines[i % ftStaffLines.length]
+      if (i < ftStaffLines.length) return baseLine
 
-    // Use convertD to transform all coordinates
-    const newD = convertD(atD, dtD)
-
-    logger.debug(`[Animating Staff Line ${i}] AT D: ${atD}, DT D: ${newD}`)
-
-    setAnimation({
-      element: ftLine,
-      id: `staff-line-${i}`,
-      localName: 'staff-line',
-      states: {
-        finding: { type: 'd', val: newD },
-        normalization: { type: 'd', val: newD },
-        readingOrder: { type: 'd', val: newD },
-        regulation: { type: 'd', val: atD },
-        supplements: { type: 'd', val: atD },
-        interventions: { type: 'd', val: atD }
-      }
+      const clone = baseLine.cloneNode(true)
+      clone.setAttribute('data-bw-staff-clone', String(i))
+      baseLine.parentNode.appendChild(clone)
+      return clone
     })
+
+    expandedFtLines.forEach((ftLine, i) => {
+      const dtLine = dtStaffLines[i % dtStaffLines.length]
+      if (!dtLine) return
+
+      const atD = ftLine.getAttribute('d')
+      const dtD = dtLine.getAttribute('d')
+      const newD = convertD(atD, dtD)
+
+      setAnimation({
+        element: ftLine,
+        id: `staff-line-${i}`,
+        localName: 'staff-line',
+        states: {
+          finding: { type: 'd', val: newD },
+          normalization: { type: 'd', val: newD },
+          readingOrder: { type: 'd', val: newD },
+          regulation: { type: 'd', val: atD },
+          supplements: { type: 'd', val: atD },
+          interventions: { type: 'd', val: atD }
+        }
+      })
+    })
+
+    return
+  }
+
+  const ftByBlock = groupFtStaffLinesByBlock(ftStaffLines)
+  const dtByBlock = groupDtStaffLinesByMatchedBlocks(dtSvg, matchedStaffLineBlocks, logger)
+
+  const unmatchedBlocks = Array.from(ftByBlock.keys()).filter(blockIndex => !matchedStaffLineBlocks.has(blockIndex))
+
+  unmatchedBlocks.forEach(blockIndex => {
+    const lines = ftByBlock.get(blockIndex) || []
+    lines.forEach((line, idx) => {
+      line.setAttribute('opacity', '0')
+      setAnimation({
+        element: line,
+        id: `staff-line-block-${blockIndex}-unmatched-${idx}`,
+        localName: 'staff-line',
+        states: {
+          finding: { type: 'opacity', val: '0' },
+          normalization: { type: 'opacity', val: '0' },
+          readingOrder: { type: 'opacity', val: '1' },
+          regulation: { type: 'opacity', val: '1' },
+          supplements: { type: 'opacity', val: '1' },
+          interventions: { type: 'opacity', val: '1' }
+        }
+      })
+    })
+  })
+
+  const matchedBlocks = Array.from(matchedStaffLineBlocks).sort((a, b) => a - b)
+
+  matchedBlocks.forEach(blockIndex => {
+    const ftLines = ftByBlock.get(blockIndex) || []
+    const dtLines = dtByBlock.get(blockIndex) || []
+
+    if (ftLines.length === 0 || dtLines.length === 0) {
+      logger.warn(`[animateStaffLines] Missing FT or DT staff lines for block ${blockIndex}; skipping DT alignment for this block.`)
+      return
+    }
+
+    const sharedCount = Math.min(ftLines.length, dtLines.length)
+
+    for (let i = 0; i < sharedCount; i++) {
+      const ftLine = ftLines[i]
+      const dtLine = dtLines[i]
+      const atD = ftLine.getAttribute('d')
+      const dtD = dtLine.getAttribute('d')
+      const newD = convertD(atD, dtD)
+
+      setAnimation({
+        element: ftLine,
+        id: `staff-line-block-${blockIndex}-${i}`,
+        localName: 'staff-line',
+        states: {
+          finding: { type: 'd', val: newD },
+          normalization: { type: 'd', val: newD },
+          readingOrder: { type: 'd', val: newD },
+          regulation: { type: 'd', val: atD },
+          supplements: { type: 'd', val: atD },
+          interventions: { type: 'd', val: atD }
+        }
+      })
+    }
+
+    if (dtLines.length > ftLines.length) {
+      logger.warn(`[animateStaffLines] Staff-line count mismatch in block ${blockIndex}: FT=${ftLines.length}, DT=${dtLines.length}. Extra DT lines will be hidden from regulation onward.`)
+
+      for (let i = ftLines.length; i < dtLines.length; i++) {
+        const templateLine = ftLines[ftLines.length - 1]
+        const clone = templateLine.cloneNode(true)
+        clone.setAttribute('data-bw-staff-clone', `${blockIndex}-${i}`)
+        clone.setAttribute('data-bw-block', String(blockIndex))
+        clone.setAttribute('data-bw-line-index', String(i))
+        templateLine.parentNode.appendChild(clone)
+
+        const atD = clone.getAttribute('d')
+        const dtD = dtLines[i].getAttribute('d')
+        const newD = convertD(atD, dtD)
+
+        setAnimation({
+          element: clone,
+          id: `staff-line-block-${blockIndex}-dt-extra-${i}`,
+          localName: 'staff-line',
+          states: {
+            finding: { type: 'd', val: newD },
+            normalization: { type: 'd', val: newD },
+            readingOrder: { type: 'd', val: newD },
+            regulation: null,
+            supplements: null,
+            interventions: null
+          }
+        })
+      }
+    } else if (ftLines.length > dtLines.length) {
+      logger.warn(`[animateStaffLines] Staff-line count mismatch in block ${blockIndex}: FT=${ftLines.length}, DT=${dtLines.length}. FT extra lines remain at their AT positions.`)
+    }
   })
 }
 

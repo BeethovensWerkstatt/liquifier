@@ -281,7 +281,7 @@ function buildReadingOrderBlockMap (atDom) {
 
   const sections = atDom.querySelectorAll('section')
   sections.forEach(section => {
-    Array.from(section.children).forEach(node => {
+    Array.from(section.querySelectorAll('sb, measure')).forEach(node => {
       if (node.localName === 'sb') {
         startNewBlock = sawMeasure
         return
@@ -1324,6 +1324,118 @@ export function renderFluidTranscriptSvg ({ data, triple, verovio, pageDimension
 }
 
 /**
+ * Normalize a page reference value from pb attributes.
+ *
+ * @param {string} value - Raw pb attribute value.
+ * @returns {string|null} Normalized page reference, or null when empty.
+ */
+function normalizePbReference (value = '') {
+  const token = String(value).trim().split(/\s+/)[0]
+  if (!token) return null
+
+  const hashIndex = token.indexOf('#')
+  if (hashIndex >= 0 && hashIndex < token.length - 1) {
+    return token.slice(hashIndex + 1).trim()
+  }
+
+  return token
+}
+
+/**
+ * Collect DT page references from pb attributes.
+ *
+ * @param {Document} dom - MEI DOM to inspect.
+ * @returns {Set<string>} Normalized DT page references.
+ */
+function collectDtPageReferenceSet (dom) {
+  const values = new Set()
+  if (!dom) return values
+
+  dom.querySelectorAll('pb[target], pb[corresp]').forEach(pb => {
+    const targetRef = normalizePbReference(pb.getAttribute('target'))
+    const correspRef = normalizePbReference(pb.getAttribute('corresp'))
+    const pageRef = targetRef || correspRef
+    if (!pageRef) return
+    values.add(pageRef)
+  })
+
+  return values
+}
+
+/**
+ * Build AT block -> page reference mapping using section traversal order.
+ *
+ * @param {Document} atDom - Annotated transcript MEI DOM.
+ * @returns {Map<number, string>} Mapping from AT block index to normalized page reference.
+ */
+function buildAtBlockPageReferenceMap (atDom) {
+  const blockMap = buildReadingOrderBlockMap(atDom)
+  const pageByBlock = new Map()
+  if (!atDom || blockMap.size === 0) return pageByBlock
+
+  const sections = atDom.querySelectorAll('section')
+  sections.forEach(section => {
+    let currentPageReference = null
+
+    Array.from(section.querySelectorAll('pb, measure')).forEach(node => {
+      if (node.localName === 'pb') {
+        // AT usually stores page linkage on @corresp; keep @target as fallback.
+        const pageRef = normalizePbReference(node.getAttribute('corresp')) || normalizePbReference(node.getAttribute('target'))
+        currentPageReference = pageRef || null
+        return
+      }
+
+      if (node.localName !== 'measure') return
+      if (!currentPageReference) return
+
+      const measureId = node.getAttribute('xml:id')
+      const blockIndex = blockMap.get(measureId)
+      if (!Number.isFinite(blockIndex)) return
+
+      pageByBlock.set(blockIndex, currentPageReference)
+    })
+  })
+
+  return pageByBlock
+}
+
+/**
+ * Resolve AT blocks that belong to the currently rendered DT page context.
+ *
+ * @param {Document} atDom - Annotated transcript MEI DOM.
+ * @param {Document} dtDom - Diplomatic transcript MEI DOM.
+ * @param {{debug: Function, info: Function, warn: Function, error: Function}} logger - Logger instance.
+ * @returns {Set<number>|null} Matched block indices, or null when linkage data is unavailable.
+ */
+function resolveMatchedStaffLineBlocksForCurrentDt (atDom, dtDom, logger) {
+  const dtPageReferenceSet = collectDtPageReferenceSet(dtDom)
+  if (dtPageReferenceSet.size === 0) {
+    logger.warn('[renderFluidSystemsSvg] No pb@target or pb@corresp in DT; falling back to unfiltered staff-line matching.')
+    return null
+  }
+
+  const pageByBlock = buildAtBlockPageReferenceMap(atDom)
+  if (pageByBlock.size === 0) {
+    logger.warn('[renderFluidSystemsSvg] No AT block page mapping from pb attributes; falling back to unfiltered staff-line matching.')
+    return null
+  }
+
+  const matchedBlocks = new Set()
+  pageByBlock.forEach((pageReference, blockIndex) => {
+    if (dtPageReferenceSet.has(pageReference)) {
+      matchedBlocks.add(blockIndex)
+    }
+  })
+
+  if (matchedBlocks.size === 0) {
+    logger.warn('[renderFluidSystemsSvg] AT block mapping produced no DT page matches; falling back to unfiltered staff-line matching.')
+    return null
+  }
+
+  return matchedBlocks
+}
+
+/**
  * Render Fluid Systems SVG
  *
  * @param {Object} params - Rendering parameters
@@ -1370,6 +1482,7 @@ export async function renderFluidSystemsSvg ({ data, triple, verovio, pageDimens
     const regAtSvg = parser.parseFromString(regAtSvgString, 'image/svg+xml')
     const origAtSvg = parser.parseFromString(origAtSvgString, 'image/svg+xml')
     const choiceVerticalOffsets = extractChoiceVerticalOffsets(regAtSvg, origAtSvg, editedAtDom)
+    const matchedStaffLineBlocks = resolveMatchedStaffLineBlocksForCurrentDt(data.atDom, data.dtDom, logger)
 
     // Keep the canonical AT render as the geometry base to avoid side effects in clef handling.
     const atWithSbIndicators = addSbIndicators(null, data.atDom.cloneNode(true))
@@ -1379,7 +1492,8 @@ export async function renderFluidSystemsSvg ({ data, triple, verovio, pageDimens
 
     const fluidSvg = generateFluidTranscription(dtSvg, atSvg, data.atDom, logger, {
       stateModel: 'fluidSystems',
-      choiceVerticalOffsets
+      choiceVerticalOffsets,
+      matchedStaffLineBlocks
     })
     anchorFluidSystemsToAtLeft(fluidSvg)
     const thulemeierVersion = await getThulemeierVersion()

@@ -103,14 +103,14 @@ async function processData ({ data, triple, config, verovio, logger }) {
     }
 
     // Fluid Transcript rendering
-    if (config.types.indexOf('ft') >= 0) {
+    /* if (config.types.indexOf('ft') >= 0) {
       if (config.media.indexOf('svg') >= 0) {
         renderFluidTranscriptSvg(renderParams)
       }
       if (config.media.indexOf('html') >= 0) {
         renderFluidTranscriptHtml(renderParams)
       }
-    }
+    } */
 
     // Fluid Systems rendering
     if (config.types.indexOf('fluidSystems') >= 0) {
