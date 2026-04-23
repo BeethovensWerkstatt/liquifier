@@ -271,6 +271,9 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, l
   const matchedStaffLineBlocks = options.matchedStaffLineBlocks instanceof Set
     ? options.matchedStaffLineBlocks
     : null
+  const blockToDtSystemId = options.blockToDtSystemId instanceof Map
+    ? options.blockToDtSystemId
+    : null
 
   adjustAtStaffLines(ftSvg, atMeiDom, measureBlockMap)
   adjustDtStaffLines(dtSvgElement)
@@ -364,7 +367,7 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, l
   // Build the state-model-specific writer once, then pass through all liquify modules.
   const setAnimationForMode = createAnimationSetter(stateModel)
 
-  animateStaffLines(ftSvg, dtSvgElement, convertD, setAnimationForMode, logger, matchedStaffLineBlocks)
+  animateStaffLines(ftSvg, dtSvgElement, convertD, setAnimationForMode, logger, matchedStaffLineBlocks, blockToDtSystemId)
 
   const tools = {
     getNewPos,
@@ -530,16 +533,28 @@ function groupFtStaffLinesByBlock (staffLines) {
  *
  * @param {SVGElement|Document} dtSvg - Diplomatic transcript SVG.
  * @param {Set<number>} matchedBlocks - AT block indices that belong to the current DT context.
+ * @param {Map<number, string>|null} blockToDtSystemId - Explicit AT block -> DT system id mapping.
  * @param {{debug: Function, info: Function, warn: Function, error: Function}} logger - Logger instance.
  * @returns {Map<number, SVGElement[]>} DT staff lines grouped by matched AT block index.
  */
-function groupDtStaffLinesByMatchedBlocks (dtSvg, matchedBlocks, logger) {
+function groupDtStaffLinesByMatchedBlocks (dtSvg, matchedBlocks, blockToDtSystemId, logger) {
   const byBlock = new Map()
   if (!(matchedBlocks instanceof Set) || matchedBlocks.size === 0) return byBlock
+  if (!(blockToDtSystemId instanceof Map) || blockToDtSystemId.size === 0) {
+    logger.warn('[animateStaffLines] Missing strict AT block -> DT system mapping; skipping matched DT staff-line alignment.')
+    return byBlock
+  }
 
   const sortedBlocks = Array.from(matchedBlocks).sort((a, b) => a - b)
   const dtSystems = Array.from(dtSvg.querySelectorAll('g.system:not(.bounding-box)'))
   const rastrumLinesById = new Map()
+  const dtSystemById = new Map()
+
+  dtSystems.forEach(system => {
+    const systemId = system.getAttribute('data-id')
+    if (!systemId) return
+    dtSystemById.set(systemId, system)
+  })
 
   Array.from(dtSvg.querySelectorAll('g.rastrum[data-id]')).forEach(rastrum => {
     const classes = (rastrum.getAttribute('class') || '').split(/\s+/)
@@ -553,13 +568,13 @@ function groupDtStaffLinesByMatchedBlocks (dtSvg, matchedBlocks, logger) {
   })
 
   if (dtSystems.length > 0) {
-    if (dtSystems.length !== sortedBlocks.length) {
-      logger.warn(`[animateStaffLines] DT systems (${dtSystems.length}) and matched AT blocks (${sortedBlocks.length}) differ; pairing by index order.`)
-    }
-
-    dtSystems.forEach((system, index) => {
-      const blockIndex = sortedBlocks[index]
-      if (!Number.isFinite(blockIndex)) return
+    sortedBlocks.forEach(blockIndex => {
+      const systemId = blockToDtSystemId.get(blockIndex)
+      const system = systemId ? dtSystemById.get(systemId) : null
+      if (!system) {
+        logger.warn(`[animateStaffLines] Missing DT system '${systemId || 'unknown'}' for AT block ${blockIndex}.`)
+        return
+      }
 
       const nestedLines = Array.from(system.querySelectorAll('.rastrum:not(.bounding-box) > path'))
       if (nestedLines.length > 0) {
@@ -609,9 +624,10 @@ function groupDtStaffLinesByMatchedBlocks (dtSvg, matchedBlocks, logger) {
  * @param {Function} setAnimation - Function to create six-phase animations from descriptors
  * @param {{debug: Function, info: Function, warn: Function, error: Function}} logger - Logger instance
  * @param {Set<number>|null} matchedStaffLineBlocks - AT block indices in the current DT page context.
+ * @param {Map<number, string>|null} blockToDtSystemId - Explicit AT block -> DT system id mapping.
  * @returns {void} No return value.
  */
-const animateStaffLines = (ftSvg, dtSvg, convertD, setAnimation, logger, matchedStaffLineBlocks = null) => {
+const animateStaffLines = (ftSvg, dtSvg, convertD, setAnimation, logger, matchedStaffLineBlocks = null, blockToDtSystemId = null) => {
   const ftStaffLines = Array.from(ftSvg.querySelectorAll('path.rastrum'))
 
   if (ftStaffLines.length === 0) {
@@ -666,7 +682,7 @@ const animateStaffLines = (ftSvg, dtSvg, convertD, setAnimation, logger, matched
   }
 
   const ftByBlock = groupFtStaffLinesByBlock(ftStaffLines)
-  const dtByBlock = groupDtStaffLinesByMatchedBlocks(dtSvg, matchedStaffLineBlocks, logger)
+  const dtByBlock = groupDtStaffLinesByMatchedBlocks(dtSvg, matchedStaffLineBlocks, blockToDtSystemId, logger)
 
   const unmatchedBlocks = Array.from(ftByBlock.keys()).filter(blockIndex => !matchedStaffLineBlocks.has(blockIndex))
 

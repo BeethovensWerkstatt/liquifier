@@ -1342,6 +1342,50 @@ function normalizePbReference (value = '') {
 }
 
 /**
+ * Builds fluid systems error log path for the current output file.
+ *
+ * @param {string} fsSvgPath - Fluid systems output SVG path.
+ * @returns {string} Error log output path.
+ */
+function buildFluidSystemsErrorLogPath (fsSvgPath) {
+  const segments = fsSvgPath.split(path.sep)
+  const sourcesIndex = segments.indexOf('sources')
+  if (sourcesIndex >= 0) {
+    segments[sourcesIndex] = 'errorLogs'
+  } else {
+    segments.splice(Math.max(0, segments.length - 1), 0, 'errorLogs')
+  }
+
+  segments[segments.length - 1] = segments[segments.length - 1].replace(/_fs\.svg$/, '_fs.error.log')
+  return segments.join(path.sep)
+}
+
+/**
+ * Persists an error report for one fluidSystems file failure.
+ *
+ * @param {Object} params - Structured parameter bundle.
+ * @param {Object} params.triple - File tuple containing source/target paths.
+ * @param {Error|string} params.error - Error value to log.
+ * @returns {Promise<void>} Promise resolving after log write.
+ */
+async function writeFluidSystemsErrorLog ({ triple, error }) {
+  if (!triple?.fsSvgPath) return
+
+  const errorLogPath = buildFluidSystemsErrorLogPath(triple.fsSvgPath)
+  const reason = error instanceof Error ? error.message : String(error)
+  const lines = [
+    `timestamp=${new Date().toISOString()}`,
+    'type=fluidSystems',
+    `inputDt=${triple.dtFullPath || triple.dt || ''}`,
+    `inputAt=${triple.atFullPath || triple.at || ''}`,
+    `outputFs=${triple.fsSvgPath}`,
+    `reason=${reason}`
+  ]
+
+  await writeData(`${lines.join('\n')}\n`, errorLogPath)
+}
+
+/**
  * Collect DT page references from pb attributes.
  *
  * @param {Document} dom - MEI DOM to inspect.
@@ -1400,24 +1444,66 @@ function buildAtBlockPageReferenceMap (atDom) {
 }
 
 /**
- * Resolve AT blocks that belong to the currently rendered DT page context.
+ * Build AT block -> DT system id mapping from sb corresp/target attributes.
+ *
+ * @param {Document} atDom - Annotated transcript MEI DOM.
+ * @returns {Map<number, string>} Mapping from AT block index to DT system id.
+ */
+function buildAtBlockDtSystemMap (atDom) {
+  const blockMap = buildReadingOrderBlockMap(atDom)
+  const systemByBlock = new Map()
+  if (!atDom || blockMap.size === 0) return systemByBlock
+
+  const sections = atDom.querySelectorAll('section')
+  sections.forEach(section => {
+    let currentSystemId = null
+
+    Array.from(section.querySelectorAll('sb, measure')).forEach(node => {
+      if (node.localName === 'sb') {
+        // AT usually stores DT system linkage on @corresp; keep @target as fallback.
+        const systemId = getFirstDiplomaticCorrespId(node.getAttribute('corresp')) || getFirstDiplomaticCorrespId(node.getAttribute('target'))
+        currentSystemId = systemId || null
+        return
+      }
+
+      if (node.localName !== 'measure') return
+
+      const measureId = node.getAttribute('xml:id')
+      const blockIndex = blockMap.get(measureId)
+      if (!Number.isFinite(blockIndex)) return
+
+      if (currentSystemId && !systemByBlock.has(blockIndex)) {
+        systemByBlock.set(blockIndex, currentSystemId)
+      }
+    })
+  })
+
+  return systemByBlock
+}
+
+/**
+ * Resolve AT blocks that belong to the currently rendered DT page context,
+ * including strict block -> DT system id references from AT sb@corresp.
  *
  * @param {Document} atDom - Annotated transcript MEI DOM.
  * @param {Document} dtDom - Diplomatic transcript MEI DOM.
  * @param {{debug: Function, info: Function, warn: Function, error: Function}} logger - Logger instance.
- * @returns {Set<number>|null} Matched block indices, or null when linkage data is unavailable.
+ * @returns {{matchedStaffLineBlocks: Set<number>|null, blockToDtSystemId: Map<number, string>|null, errorMessage: string|null}}
+ * Strict resolution context or error details.
  */
-function resolveMatchedStaffLineBlocksForCurrentDt (atDom, dtDom, logger) {
+export function resolveMatchedStaffLineContextForCurrentDt (atDom, dtDom, logger) {
   const dtPageReferenceSet = collectDtPageReferenceSet(dtDom)
   if (dtPageReferenceSet.size === 0) {
-    logger.warn('[renderFluidSystemsSvg] No pb@target or pb@corresp in DT; falling back to unfiltered staff-line matching.')
-    return null
+    const errorMessage = '[renderFluidSystemsSvg] No pb@target or pb@corresp in DT; cannot resolve strict staff-line block mapping.'
+    logger.warn(errorMessage)
+    return { matchedStaffLineBlocks: null, blockToDtSystemId: null, errorMessage }
   }
 
   const pageByBlock = buildAtBlockPageReferenceMap(atDom)
   if (pageByBlock.size === 0) {
-    logger.warn('[renderFluidSystemsSvg] No AT block page mapping from pb attributes; falling back to unfiltered staff-line matching.')
-    return null
+    const errorMessage = '[renderFluidSystemsSvg] No AT block page mapping from pb attributes; cannot resolve strict staff-line block mapping.'
+    logger.warn(errorMessage)
+    return { matchedStaffLineBlocks: null, blockToDtSystemId: null, errorMessage }
   }
 
   const matchedBlocks = new Set()
@@ -1428,11 +1514,31 @@ function resolveMatchedStaffLineBlocksForCurrentDt (atDom, dtDom, logger) {
   })
 
   if (matchedBlocks.size === 0) {
-    logger.warn('[renderFluidSystemsSvg] AT block mapping produced no DT page matches; falling back to unfiltered staff-line matching.')
-    return null
+    const errorMessage = '[renderFluidSystemsSvg] AT block mapping produced no DT page matches; cannot resolve strict staff-line block mapping.'
+    logger.warn(errorMessage)
+    return { matchedStaffLineBlocks: null, blockToDtSystemId: null, errorMessage }
   }
 
-  return matchedBlocks
+  const systemByBlock = buildAtBlockDtSystemMap(atDom)
+  const blockToDtSystemId = new Map()
+  const missingSystemBlocks = []
+
+  Array.from(matchedBlocks).sort((a, b) => a - b).forEach(blockIndex => {
+    const systemId = systemByBlock.get(blockIndex)
+    if (!systemId) {
+      missingSystemBlocks.push(blockIndex)
+      return
+    }
+    blockToDtSystemId.set(blockIndex, systemId)
+  })
+
+  if (missingSystemBlocks.length > 0) {
+    const errorMessage = `[renderFluidSystemsSvg] Missing AT sb@corresp DT system mapping for matched blocks: ${missingSystemBlocks.join(', ')}.`
+    logger.warn(errorMessage)
+    return { matchedStaffLineBlocks: null, blockToDtSystemId: null, errorMessage }
+  }
+
+  return { matchedStaffLineBlocks: matchedBlocks, blockToDtSystemId, errorMessage: null }
 }
 
 /**
@@ -1482,7 +1588,26 @@ export async function renderFluidSystemsSvg ({ data, triple, verovio, pageDimens
     const regAtSvg = parser.parseFromString(regAtSvgString, 'image/svg+xml')
     const origAtSvg = parser.parseFromString(origAtSvgString, 'image/svg+xml')
     const choiceVerticalOffsets = extractChoiceVerticalOffsets(regAtSvg, origAtSvg, editedAtDom)
-    const matchedStaffLineBlocks = resolveMatchedStaffLineBlocksForCurrentDt(data.atDom, data.dtDom, logger)
+    const staffLineContext = resolveMatchedStaffLineContextForCurrentDt(data.atDom, data.dtDom, logger)
+    if (staffLineContext.errorMessage) {
+      throw new Error(staffLineContext.errorMessage)
+    }
+
+    const dtSystemIdsInSvg = new Set(
+      Array.from(dtSvg.querySelectorAll('g.system:not(.bounding-box)[data-id]'))
+        .map(system => system.getAttribute('data-id'))
+        .filter(Boolean)
+    )
+
+    const missingSvgSystems = Array.from(staffLineContext.blockToDtSystemId.values())
+      .filter(systemId => !dtSystemIdsInSvg.has(systemId))
+
+    if (missingSvgSystems.length > 0) {
+      const missingUnique = Array.from(new Set(missingSvgSystems))
+      const message = `[renderFluidSystemsSvg] AT sb@corresp references DT systems that are missing in DT SVG: ${missingUnique.join(', ')}.`
+      logger.warn(message)
+      throw new Error(message)
+    }
 
     // Keep the canonical AT render as the geometry base to avoid side effects in clef handling.
     const atWithSbIndicators = addSbIndicators(null, data.atDom.cloneNode(true))
@@ -1493,7 +1618,8 @@ export async function renderFluidSystemsSvg ({ data, triple, verovio, pageDimens
     const fluidSvg = generateFluidTranscription(dtSvg, atSvg, data.atDom, logger, {
       stateModel: 'fluidSystems',
       choiceVerticalOffsets,
-      matchedStaffLineBlocks
+      matchedStaffLineBlocks: staffLineContext.matchedStaffLineBlocks,
+      blockToDtSystemId: staffLineContext.blockToDtSystemId
     })
     anchorFluidSystemsToAtLeft(fluidSvg)
     const thulemeierVersion = await getThulemeierVersion()
@@ -1517,6 +1643,11 @@ export async function renderFluidSystemsSvg ({ data, triple, verovio, pageDimens
     logger.info('Fluid Systems generation complete: 1 succeeded, 0 failed')
   } catch (err) {
     logger.error(`Error rendering fluid systems: ${err.message}`)
+    try {
+      await writeFluidSystemsErrorLog({ triple, error: err })
+    } catch (logErr) {
+      logger.error(`Error writing fluid systems error log: ${logErr.message}`)
+    }
   }
 }
 

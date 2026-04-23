@@ -331,7 +331,8 @@ test('generateFluidTranscription fluidSystems resolves DT lines from staff data-
   const logger = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} }
   const outSvg = generateFluidTranscription(dtSvg, atSvg, atMei, logger, {
     stateModel: 'fluidSystems',
-    matchedStaffLineBlocks: new Set([0])
+    matchedStaffLineBlocks: new Set([0]),
+    blockToDtSystemId: new Map([[0, 's1']])
   })
 
   const blockLines = Array.from(outSvg.querySelectorAll('path.rastrum[data-bw-block="0"]'))
@@ -342,6 +343,62 @@ test('generateFluidTranscription fluidSystems resolves DT lines from staff data-
     assert.ok(dAnim)
     assert.equal(line.querySelector('animate[attributeName="opacity"]'), null)
   })
+})
+
+test('generateFluidTranscription fluidSystems honors explicit block-to-system mapping order', () => {
+  const atSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
+      <g class="system" data-id="sysA">
+        <g class="measure" data-id="m1"><g class="staff"><path d="M10 100 L90 100"/></g></g>
+        <g class="measure" data-id="m2"><g class="staff"><path d="M110 100 L190 100"/></g></g>
+      </g>
+    </svg>
+  `, 'image/svg+xml')
+
+  const dtSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
+      <g class="rastrum bounding-box"><rect x="0" y="90" width="200" height="40"/></g>
+      <g class="rastrum bounding-box"><rect x="0" y="190" width="200" height="40"/></g>
+      <g class="system" data-id="sTop">
+        <g class="rastrum"><path d="M0 100 L200 100"/></g>
+      </g>
+      <g class="system" data-id="sBottom">
+        <g class="rastrum"><path d="M0 200 L200 200"/></g>
+      </g>
+    </svg>
+  `, 'image/svg+xml')
+
+  const atMei = parser.parseFromString(`
+    <mei xmlns="http://www.music-encoding.org/ns/mei">
+      <music><body><mdiv><score><section>
+        <measure xml:id="m1"/>
+        <sb xml:id="sb2"/>
+        <measure xml:id="m2"/>
+      </section></score></mdiv></body></music>
+    </mei>
+  `, 'text/xml')
+
+  const logger = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} }
+
+  const outputNormal = generateFluidTranscription(dtSvg, atSvg, atMei, logger, {
+    stateModel: 'fluidSystems',
+    matchedStaffLineBlocks: new Set([0, 1]),
+    blockToDtSystemId: new Map([[0, 'sTop'], [1, 'sBottom']])
+  })
+
+  const outputReversed = generateFluidTranscription(dtSvg, atSvg, atMei, logger, {
+    stateModel: 'fluidSystems',
+    matchedStaffLineBlocks: new Set([0, 1]),
+    blockToDtSystemId: new Map([[0, 'sBottom'], [1, 'sTop']])
+  })
+
+  const normalBlock0 = outputNormal.querySelector('path.rastrum[data-bw-block="0"] animate[attributeName="d"]').getAttribute('values').split(';')[0]
+  const normalBlock1 = outputNormal.querySelector('path.rastrum[data-bw-block="1"] animate[attributeName="d"]').getAttribute('values').split(';')[0]
+  const reversedBlock0 = outputReversed.querySelector('path.rastrum[data-bw-block="0"] animate[attributeName="d"]').getAttribute('values').split(';')[0]
+  const reversedBlock1 = outputReversed.querySelector('path.rastrum[data-bw-block="1"] animate[attributeName="d"]').getAttribute('values').split(';')[0]
+
+  assert.equal(reversedBlock0, normalBlock1)
+  assert.equal(reversedBlock1, normalBlock0)
 })
 
 test('generateFluidTranscription fluidSystems keeps AT target in regulation and supplements', () => {
