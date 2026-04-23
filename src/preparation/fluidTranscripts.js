@@ -539,6 +539,18 @@ function groupDtStaffLinesByMatchedBlocks (dtSvg, matchedBlocks, logger) {
 
   const sortedBlocks = Array.from(matchedBlocks).sort((a, b) => a - b)
   const dtSystems = Array.from(dtSvg.querySelectorAll('g.system:not(.bounding-box)'))
+  const rastrumLinesById = new Map()
+
+  Array.from(dtSvg.querySelectorAll('g.rastrum[data-id]')).forEach(rastrum => {
+    const classes = (rastrum.getAttribute('class') || '').split(/\s+/)
+    if (classes.includes('bounding-box')) return
+
+    const rastrumId = rastrum.getAttribute('data-id')
+    if (!rastrumId) return
+
+    const lines = Array.from(rastrum.children).filter(child => child.localName === 'path')
+    rastrumLinesById.set(rastrumId, lines)
+  })
 
   if (dtSystems.length > 0) {
     if (dtSystems.length !== sortedBlocks.length) {
@@ -549,8 +561,26 @@ function groupDtStaffLinesByMatchedBlocks (dtSvg, matchedBlocks, logger) {
       const blockIndex = sortedBlocks[index]
       if (!Number.isFinite(blockIndex)) return
 
-      const lines = Array.from(system.querySelectorAll('.rastrum:not(.bounding-box) > path'))
-      byBlock.set(blockIndex, lines)
+      const nestedLines = Array.from(system.querySelectorAll('.rastrum:not(.bounding-box) > path'))
+      if (nestedLines.length > 0) {
+        byBlock.set(blockIndex, nestedLines)
+        return
+      }
+
+      // Some DT renders keep rastrum paths in a top-level group and reference them from staffs.
+      const seenRastrumIds = new Set()
+      const orderedRastrumIds = []
+      Array.from(system.querySelectorAll('g.staff[data-rastrum]')).forEach(staff => {
+        const rastrumRef = (staff.getAttribute('data-rastrum') || '').trim()
+        const rastrumId = rastrumRef.split(/\s+/)[0]
+        if (!rastrumId || seenRastrumIds.has(rastrumId)) return
+
+        seenRastrumIds.add(rastrumId)
+        orderedRastrumIds.push(rastrumId)
+      })
+
+      const referencedLines = orderedRastrumIds.flatMap(rastrumId => rastrumLinesById.get(rastrumId) || [])
+      byBlock.set(blockIndex, referencedLines)
     })
 
     return byBlock

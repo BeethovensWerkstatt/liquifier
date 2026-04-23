@@ -294,6 +294,56 @@ test('generateFluidTranscription fluidSystems clones AT staff lines to cover mul
   assert.equal(animatedLines.length, 4)
 })
 
+test('generateFluidTranscription fluidSystems resolves DT lines from staff data-rastrum references', () => {
+  const atSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
+      <g class="system" data-id="sysA">
+        <g class="measure" data-id="m1">
+          <g class="staff">
+            <path d="M10 100 L90 100"/>
+            <path d="M10 120 L90 120"/>
+          </g>
+        </g>
+      </g>
+    </svg>
+  `, 'image/svg+xml')
+
+  const dtSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
+      <g class="rastrum bounding-box"><rect x="0" y="90" width="200" height="40"/></g>
+      <g class="rastrums">
+        <g class="rastrum" data-id="r-a"><path d="M0 100 L200 100"/></g>
+        <g class="rastrum" data-id="r-b"><path d="M0 120 L200 120"/></g>
+      </g>
+      <g class="system" data-id="s1">
+        <g class="staff" data-rastrum="r-a"/>
+        <g class="staff" data-rastrum="r-b"/>
+      </g>
+    </svg>
+  `, 'image/svg+xml')
+
+  const atMei = parser.parseFromString(`
+    <mei xmlns="http://www.music-encoding.org/ns/mei">
+      <music><body><mdiv><score><section><measure xml:id="m1"/></section></score></mdiv></body></music>
+    </mei>
+  `, 'text/xml')
+
+  const logger = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} }
+  const outSvg = generateFluidTranscription(dtSvg, atSvg, atMei, logger, {
+    stateModel: 'fluidSystems',
+    matchedStaffLineBlocks: new Set([0])
+  })
+
+  const blockLines = Array.from(outSvg.querySelectorAll('path.rastrum[data-bw-block="0"]'))
+  assert.equal(blockLines.length, 2)
+
+  blockLines.forEach(line => {
+    const dAnim = line.querySelector('animate[attributeName="d"]')
+    assert.ok(dAnim)
+    assert.equal(line.querySelector('animate[attributeName="opacity"]'), null)
+  })
+})
+
 test('generateFluidTranscription fluidSystems keeps AT target in regulation and supplements', () => {
   const atSvg = parser.parseFromString(`
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
