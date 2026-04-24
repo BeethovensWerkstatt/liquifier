@@ -469,6 +469,69 @@ test('generateFluidTranscription fluidSystems keeps AT target in regulation and 
   assert.equal(values[5], '0 0')
 })
 
+test('generateFluidTranscription fluidSystems skips no-op note translate animation when all states are 0 0', () => {
+  const atSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
+      <g class="measure" data-id="m1">
+        <g class="staff">
+          <path d="M0 100 L300 100"/>
+          <path d="M0 110 L300 110"/>
+          <path d="M0 120 L300 120"/>
+          <path d="M0 130 L300 130"/>
+          <path d="M0 140 L300 140"/>
+        </g>
+        <g class="note" data-id="a1">
+          <g class="notehead"><use transform="translate(120,120)"/></g>
+        </g>
+      </g>
+    </svg>
+  `, 'image/svg+xml')
+
+  const dtSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
+      <g class="rastrum bounding-box"><rect x="0" y="100" width="300" height="40"/></g>
+      <g class="rastrum">
+        <path d="M0 100 L300 100"/>
+        <path d="M0 110 L300 110"/>
+        <path d="M0 120 L300 120"/>
+        <path d="M0 130 L300 130"/>
+        <path d="M0 140 L300 140"/>
+      </g>
+      <g class="note" data-id="d1">
+        <g class="notehead"><use x="120" y="120"/></g>
+      </g>
+    </svg>
+  `, 'image/svg+xml')
+
+  const atMei = parser.parseFromString(`
+    <mei xmlns="http://www.music-encoding.org/ns/mei">
+      <music>
+        <body>
+          <mdiv>
+            <score>
+              <section>
+                <measure xml:id="m1">
+                  <staff n="1">
+                    <layer>
+                      <note xml:id="a1" pname="c" oct="4" corresp="#d1"/>
+                    </layer>
+                  </staff>
+                </measure>
+              </section>
+            </score>
+          </mdiv>
+        </body>
+      </music>
+    </mei>
+  `, 'text/xml')
+
+  const logger = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} }
+  const outSvg = generateFluidTranscription(dtSvg, atSvg, atMei, logger, { stateModel: 'fluidSystems' })
+
+  const noteAnim = outSvg.querySelector('g.note[data-id="a1"] > animateTransform[type="translate"]')
+  assert.equal(noteAnim, null)
+})
+
 test('generateFluidTranscription fluidSystems applies vertical choice offsets in regulation and supplements only', () => {
   const atSvg = parser.parseFromString(`
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">

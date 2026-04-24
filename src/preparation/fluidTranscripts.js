@@ -837,6 +837,19 @@ const liquifyMusic = (ftSvg, dtSvg, atMeiDom, tools) => {
  * @returns {void} No return value.
  */
 const addTransformTranslate = (node, values = []) => {
+  if (values.length === 0) return
+
+  const hasOnlyZeroTranslateValues = values.every(value => {
+    const match = String(value || '').trim().match(/^([\d.-]+)[,\s]+([\d.-]+)$/)
+    if (!match) return false
+
+    const x = parseFloat(match[1])
+    const y = parseFloat(match[2])
+    return Number.isFinite(x) && Number.isFinite(y) && x === 0 && y === 0
+  })
+
+  if (hasOnlyZeroTranslateValues) return
+
   const anim = appendNewElement(node, 'animateTransform', 'http://www.w3.org/2000/svg')
   anim.setAttribute('attributeName', 'transform')
   anim.setAttribute('attributeType', 'XML')
