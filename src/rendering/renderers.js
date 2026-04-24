@@ -457,7 +457,7 @@ function renderFluidSystemsLike ({ data, triple, recreate, logger, sourceDir, so
       const atSystemSvg = parser.parseFromString(atSystemSvgString, 'image/svg+xml')
       const dtSystemSvg = parser.parseFromString(dtSystemSvgString, 'image/svg+xml')
 
-      const fluidSvg = generateFluidTranscription(dtSystemSvg, atSystemSvg, data.atDom, logger, generationOptions)
+      const fluidSvg = generateFluidTranscription(dtSystemSvg, atSystemSvg, data.atDom, data.sourceDom, logger, generationOptions)
 
       if (postProcessSvg) {
         postProcessSvg(fluidSvg, {
@@ -1028,7 +1028,7 @@ export async function renderFluidSystemsSvg ({ data, triple, verovio, pageDimens
     const atSvgString = renderContinuousAt(renderDom, verovio, 'annotated', pageDimensions)
     const atSvg = parser.parseFromString(atSvgString, 'image/svg+xml')
 
-    const fluidSvg = generateFluidTranscription(dtSvg, atSvg, data.atDom, logger, {
+    const fluidSvg = generateFluidTranscription(dtSvg, atSvg, data.atDom, data.sourceDom, logger, {
       stateModel: 'fluidSystems',
       choiceVerticalOffsets,
       matchedStaffLineBlocks: staffLineContext.matchedStaffLineBlocks,

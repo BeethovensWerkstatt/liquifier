@@ -250,7 +250,7 @@ const extractCorrespMappings = (atMeiDom) => {
  * @param {Object} options - Structured options object.
  * @returns {Object} Fluid transcription SVG DOM
  */
-export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, logger, options = {}) => {
+export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, sourceMeiDom, logger, options = {}) => {
   // Handle both document and element inputs
   const dtSvgElement = dtSystemSvg.documentElement || dtSystemSvg
   const atSvgElement = atSystemSvg.documentElement || atSystemSvg
