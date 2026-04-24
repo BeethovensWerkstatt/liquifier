@@ -955,6 +955,27 @@ export function resolveMatchedStaffLineContextForCurrentDt (atDom, dtDom, logger
 }
 
 /**
+ * Builds DT SVG from current DT/source DOM inputs for fluidSystems generation.
+ *
+ * @param {Object} params - Structured parameter bundle.
+ * @param {Document} params.dtDom - Diplomatic transcript MEI DOM.
+ * @param {Document} params.sourceDom - Source MEI DOM.
+ * @param {DOMParser} params.parser - XML parser used to build SVG DOM.
+ * @param {Function} [params.prepareDt] - Optional DI hook for DT preparation.
+ * @param {Function} [params.renderDt] - Optional DI hook for DT SVG rendering.
+ * @returns {Promise<SVGElement|Document>} Parsed DT SVG document.
+ */
+export async function buildCurrentDtSvgForFluidSystems ({ dtDom, sourceDom, parser, prepareDt = prepareDtForThulemeier, renderDt = renderDiplomaticTranscript }) {
+  const preparedDt = prepareDt({ dtDom, sourceDom })
+  if (!preparedDt) {
+    throw new Error('[renderFluidSystemsSvg] Could not prepare diplomatic transcript for fluid systems generation.')
+  }
+
+  const dtSvgString = await renderDt(preparedDt)
+  return parser.parseFromString(dtSvgString, 'image/svg+xml')
+}
+
+/**
  * Render Fluid Systems SVG
  *
  * @param {Object} params - Rendering parameters
@@ -967,7 +988,7 @@ export function resolveMatchedStaffLineContextForCurrentDt (atDom, dtDom, logger
  * @returns {Promise<void>} Promise resolving to the computed result.
  */
 export async function renderFluidSystemsSvg ({ data, triple, verovio, pageDimensions, recreate, logger }) {
-  const { atDate, dtDate, fsSvgPath, fsSvgDate, dtSvgPath } = triple
+  const { atDate, dtDate, fsSvgPath, fsSvgDate } = triple
 
   if (!shouldRender(recreate, [atDate, dtDate], fsSvgDate)) {
     logger.info('Skipping Fluid Systems for ' + fsSvgPath)
@@ -977,16 +998,15 @@ export async function renderFluidSystemsSvg ({ data, triple, verovio, pageDimens
   logger.info('Rendering Fluid Systems for system pairs...')
 
   try {
-    if (!fs.existsSync(dtSvgPath)) {
-      logger.warn(`Missing DT SVG for fluid systems generation (${dtSvgPath})`)
-      return
-    }
-
     const dom = new JSDOM()
     const parser = new dom.window.DOMParser()
     const serializer = new dom.window.XMLSerializer()
 
-    const dtSvg = parser.parseFromString(fs.readFileSync(dtSvgPath, 'utf8'), 'image/svg+xml')
+    const dtSvg = await buildCurrentDtSvgForFluidSystems({
+      dtDom: data.dtDom,
+      sourceDom: data.sourceDom,
+      parser
+    })
 
     // Derive per-element vertical offsets from editedAT choice rendering (reg vs orig).
     const editedAtDom = prepareEditedAtDom(data.atDom, data.dtDom)

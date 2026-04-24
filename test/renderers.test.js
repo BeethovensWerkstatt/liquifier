@@ -2,9 +2,56 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { JSDOM } from 'jsdom'
 
-import { resolveMatchedStaffLineContextForCurrentDt } from '../src/rendering/renderers.js'
+import { buildCurrentDtSvgForFluidSystems, resolveMatchedStaffLineContextForCurrentDt } from '../src/rendering/renderers.js'
 
 const parser = new (new JSDOM().window.DOMParser)()
+
+test('buildCurrentDtSvgForFluidSystems renders DT SVG from current input DOMs', async () => {
+  const dtDom = parser.parseFromString('<mei xmlns="http://www.music-encoding.org/ns/mei"/>', 'text/xml')
+  const sourceDom = parser.parseFromString('<mei xmlns="http://www.music-encoding.org/ns/mei"/>', 'text/xml')
+
+  const preparedToken = { prepared: true }
+  let prepareCallCount = 0
+  let renderCallCount = 0
+
+  const dtSvg = await buildCurrentDtSvgForFluidSystems({
+    dtDom,
+    sourceDom,
+    parser,
+    prepareDt: ({ dtDom: seenDtDom, sourceDom: seenSourceDom }) => {
+      prepareCallCount++
+      assert.equal(seenDtDom, dtDom)
+      assert.equal(seenSourceDom, sourceDom)
+      return preparedToken
+    },
+    renderDt: async (preparedDt) => {
+      renderCallCount++
+      assert.equal(preparedDt, preparedToken)
+      return '<svg xmlns="http://www.w3.org/2000/svg"><g class="system" data-id="s1"/></svg>'
+    }
+  })
+
+  assert.equal(prepareCallCount, 1)
+  assert.equal(renderCallCount, 1)
+  assert.equal(dtSvg.documentElement.localName, 'svg')
+  assert.equal(dtSvg.querySelector('g.system')?.getAttribute('data-id'), 's1')
+})
+
+test('buildCurrentDtSvgForFluidSystems throws when DT preparation fails', async () => {
+  const dtDom = parser.parseFromString('<mei xmlns="http://www.music-encoding.org/ns/mei"/>', 'text/xml')
+  const sourceDom = parser.parseFromString('<mei xmlns="http://www.music-encoding.org/ns/mei"/>', 'text/xml')
+
+  await assert.rejects(
+    buildCurrentDtSvgForFluidSystems({
+      dtDom,
+      sourceDom,
+      parser,
+      prepareDt: () => null,
+      renderDt: async () => '<svg xmlns="http://www.w3.org/2000/svg"/>'
+    }),
+    /Could not prepare diplomatic transcript for fluid systems generation/
+  )
+})
 
 test('resolveMatchedStaffLineContextForCurrentDt returns strict block-to-system mapping from sb@corresp', () => {
   const atDom = parser.parseFromString(`
