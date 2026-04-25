@@ -20,6 +20,9 @@ const main = async () => {
   // 3. Log configuration
   logger.info('Input directory: ' + config.inputDir)
   logger.info('Output directory: ' + config.outputDir)
+  if (config.contextDocument) {
+    logger.info('Context document: ' + config.contextDocument)
+  }
   logger.debug('types: ' + config.types + ', media: ' + config.media)
 
   // 4. Process files

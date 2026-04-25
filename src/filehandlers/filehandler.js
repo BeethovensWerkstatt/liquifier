@@ -10,6 +10,68 @@ import { JSDOM } from 'jsdom'
 const { DOMParser } = new JSDOM().window
 
 /**
+ * Resolves candidate paths for a configured context document.
+ *
+ * @param {string} contextDocument - Context document identifier or path.
+ * @param {string} inputDir - Base input directory.
+ * @returns {string[]} Candidate absolute file paths.
+ */
+function getContextDocumentCandidatePaths (contextDocument, inputDir = './') {
+  const raw = String(contextDocument || '').trim()
+  if (!raw) return []
+
+  const basename = path.basename(raw)
+  const hasXmlExtension = basename.endsWith('.xml')
+  const folderName = hasXmlExtension ? path.basename(path.dirname(raw)) : basename
+  const fileName = hasXmlExtension ? basename : `${basename}.xml`
+
+  const candidates = [
+    path.resolve(inputDir, raw),
+    path.resolve(inputDir, folderName, fileName),
+    path.resolve(inputDir, 'sources', folderName, fileName),
+    path.resolve('/data/sources', folderName, fileName)
+  ]
+
+  return Array.from(new Set(candidates))
+}
+
+/**
+ * Resolve context document path from configured contextDocument and inputDir.
+ *
+ * @param {string} contextDocument - Context document identifier or path.
+ * @param {string} inputDir - Base input directory.
+ * @returns {string} Resolved absolute context document path.
+ */
+export function resolveContextDocumentPath (contextDocument, inputDir = './') {
+  const candidates = getContextDocumentCandidatePaths(contextDocument, inputDir)
+
+  const found = candidates.find(candidate => {
+    try {
+      return fs.existsSync(candidate) && fs.statSync(candidate).isFile()
+    } catch {
+      return false
+    }
+  })
+
+  if (found) return found
+
+  throw new Error(`Context document not found for '${contextDocument}'. Tried: ${candidates.join(', ')}`)
+}
+
+/**
+ * Loads and parses context document XML once for reuse during processing.
+ *
+ * @param {string} contextDocument - Context document identifier or path.
+ * @param {string} inputDir - Base input directory.
+ * @returns {Promise<Document>} Parsed context document DOM.
+ */
+export async function loadContextDocumentDom (contextDocument, inputDir = './') {
+  const contextPath = resolveContextDocumentPath(contextDocument, inputDir)
+  const xml = await readFile(contextPath, { encoding: 'utf8' })
+  return new DOMParser().parseFromString(xml, 'text/xml')
+}
+
+/**
  * Extract page number from filename (e.g., "_p005_" -> "p005")
  *
  * @param {string} filename - Filename containing page pattern
@@ -331,13 +393,19 @@ export function getFilesObject (file, inputDir = './', outputDir = './cache') {
  * @param {Object} triple - File tuple containing source, target, and timestamp metadata.
  * @param {boolean} verbose - Flag that controls this function.
  * @param {string} inputDir - String input used by this function.
+ * @param {Object} options - Optional fetch behavior overrides.
+ * @param {string} options.contextDocument - Optional context document identifier/path.
+ * @param {Document} options.reconstructionDom - Optional preloaded context DOM.
  * @returns {Promise<*>} Promise resolving to the computed result.
  */
-export async function fetchData (triple, verbose = false, inputDir = './') {
+export async function fetchData (triple, verbose = false, inputDir = './', options = {}) {
   // Use full paths if available, otherwise join with inputDir
   const sourcePath = triple.sourceFullPath || path.join(inputDir, triple.source)
   const dtPath = triple.dtFullPath || path.join(inputDir, triple.dt)
   const atPath = triple.atFullPath || path.join(inputDir, triple.at)
+  const reconstructionDom = options.reconstructionDom || (options.contextDocument
+    ? await loadContextDocumentDom(options.contextDocument, inputDir)
+    : null)
 
   const parser = new DOMParser()
 
@@ -358,7 +426,8 @@ export async function fetchData (triple, verbose = false, inputDir = './') {
     return {
       sourceDom: parser.parseFromString(source, 'text/xml'),
       dtDom: parser.parseFromString(dt, 'text/xml'),
-      atDom: parser.parseFromString(at, 'text/xml')
+      atDom: parser.parseFromString(at, 'text/xml'),
+      reconstructionDom
     }
   } catch (err) {
     console.warn('Error in fetchData: ' + err, err)

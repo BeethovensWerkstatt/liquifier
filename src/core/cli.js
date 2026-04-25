@@ -9,6 +9,7 @@ import minimist from 'minimist'
  * @property {string[]} media - Media types to generate (svg, midi, html)
  * @property {string} inputDir - Base directory for input files
  * @property {string} outputDir - Base directory for output files
+ * @property {string|null} contextDocument - Optional context document identifier (e.g., Notirungsbuch_K)
  * @property {boolean} recreate - Force recreation of all files
  * @property {string[]} fileNames - List of files to process
  * @param {string[]} argv - Process argv array (e.g., process.argv.slice(2))
@@ -17,7 +18,7 @@ import minimist from 'minimist'
 export function parseCliArguments (argv) {
   const args = minimist(argv, {
     boolean: ['q', 'v', 'recreate'],
-    string: ['types', 'media', 'input-dir', 'i', 'output-dir', 'o']
+    string: ['types', 'media', 'input-dir', 'i', 'output-dir', 'o', 'context-document']
   })
 
   // Extract flags
@@ -32,6 +33,7 @@ export function parseCliArguments (argv) {
   // Directory paths with defaults
   const inputDir = args['input-dir'] || args.i || './'
   const outputDir = args['output-dir'] || args.o || './cache'
+  const contextDocument = args['context-document'] || null
 
   // Other flags
   const recreate = args.recreate || false
@@ -48,6 +50,7 @@ export function parseCliArguments (argv) {
     media,
     inputDir,
     outputDir,
+    contextDocument,
     recreate,
     fileNames
   }

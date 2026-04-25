@@ -1,12 +1,10 @@
-import { getFilesObject, fetchData } from '../filehandlers/filehandler.js'
+import { getFilesObject, fetchData, loadContextDocumentDom } from '../filehandlers/filehandler.js'
 import { getPageDimensions } from '../utils/utils.js'
 import {
   renderAnnotatedTranscriptSvg,
   renderAnnotatedTranscriptMidi,
   renderEditedAnnotatedTranscript,
   renderDiplomaticTranscriptSvg,
-  renderFluidTranscriptSvg,
-  renderFluidTranscriptHtml,
   renderFluidSystemsSvg
 } from '../rendering/renderers.js'
 
@@ -20,7 +18,7 @@ import {
  * @param {Object} params.logger - Logger instance
  * @returns {Promise<void>} Promise resolving to the computed result.
  */
-async function processFile ({ fileName, config, verovio, logger }) {
+async function processFile ({ fileName, config, verovio, logger, reconstructionDom = null }) {
   const triple = getFilesObject(fileName, config.inputDir, config.outputDir)
   logger.debug('File triple: ' + JSON.stringify(triple))
 
@@ -31,7 +29,10 @@ async function processFile ({ fileName, config, verovio, logger }) {
 
   try {
     // Fetch source data
-    const data = await fetchData(triple, config.verbose, config.inputDir)
+    const data = await fetchData(triple, config.verbose, config.inputDir, {
+      contextDocument: config.contextDocument,
+      reconstructionDom
+    })
     logger.debug('Fetched data: ' + JSON.stringify(data))
 
     // Process the data
@@ -141,8 +142,19 @@ export async function processFiles ({ fileNames, config, verovio, logger }) {
 
   logger.debug('Processing files: ' + fileNames)
 
+  let reconstructionDom = null
+  if (config.contextDocument) {
+    try {
+      reconstructionDom = await loadContextDocumentDom(config.contextDocument, config.inputDir)
+      logger.info(`Loaded context document: ${config.contextDocument}`)
+    } catch (err) {
+      logger.error('Failed to load context document: ' + err.message)
+      return
+    }
+  }
+
   // Process files sequentially to avoid resource exhaustion
   for (const fileName of fileNames) {
-    await processFile({ fileName, config, verovio, logger })
+    await processFile({ fileName, config, verovio, logger, reconstructionDom })
   }
 }

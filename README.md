@@ -65,7 +65,7 @@ The liquifier can also be run as a GitHub Action on a server. To set this up, fo
               run: mkdir -p cache
 
             - name: run Docker image
-              run: docker run --rm -v $(pwd)/data:/usr/src/app/data -v $(pwd)/cache:/usr/src/app/cache -v $(pwd)/.git:/usr/src/app/.git:ro ghcr.io/beethovenswerkstatt/liquifier:latest node index.js
+              run: docker run --rm -v $(pwd)/data:/usr/src/app/data -v $(pwd)/cache:/usr/src/app/cache -v $(pwd)/.git:/usr/src/app/.git:ro ghcr.io/beethovenswerkstatt/liquifier:latest node index.js --input-dir=/usr/src/app/data/sources --output-dir=/usr/src/app/cache --context-document=Notirungsbuch_K
 
             # check repo status before push to avoid overlapping commits
 
@@ -94,7 +94,7 @@ The liquifier node application will not make any commits itself!
 ## Command line arguments
 
 ```bash
-node index.js [-q] [--recreate] [--input-dir <path>] [--output-dir <path>] [fileNames*]
+node index.js [-q] [--recreate] [--input-dir <path>] [--output-dir <path>] [--context-document <id-or-path>] [fileNames*]
 ```
 
 The liquifier script can be run with the following command line arguments:
@@ -109,6 +109,7 @@ The liquifier script can be run with the following command line arguments:
 - `--media`: comma separated list of files to create (`svg`,`midi`,`html` | *default all*)
 - `--input-dir` (or `-i`): specifies the base directory for input files (default `./`)
 - `--output-dir` (or `-o`): specifies the base directory for output files (default `./cache`)
+- `--context-document`: optional context document identifier or path (for example `Notirungsbuch_K`). When set, it is loaded once and provided as `data.reconstructionDom` during processing.
 - `fileNames`: any number of file names to process, separated by spaces. If not provided, the files are selected by the most recently modified ones *(work in progress)*.
 
 ### Directory Configuration
@@ -125,10 +126,29 @@ node index.js --input-dir=../data/data/sources --output-dir=../data/cache diplom
 ```bash
 # When running in Docker with mounted volumes
 docker run --rm -v $(pwd)/data:/usr/src/app/data -v $(pwd)/cache:/usr/src/app/cache liquifier \
-  node index.js --input-dir=/usr/src/app/data/sources --output-dir=/usr/src/app/cache
+  node index.js --input-dir=/usr/src/app/data/sources --output-dir=/usr/src/app/cache --context-document=Notirungsbuch_K
 ```
 
 When using these parameters, file paths in the `fileNames` argument should be relative to the `--input-dir`. Output files will maintain the same directory structure within the `--output-dir`.
+
+### Context Document Configuration
+
+If your rendering path relies on reconstruction data, pass `--context-document`.
+
+The value can be either:
+- a short identifier such as `Notirungsbuch_K`
+- or a direct path to the XML file
+
+With `--input-dir=../data/data/sources`, the short identifier `Notirungsbuch_K` resolves to:
+- `../data/data/sources/Notirungsbuch_K/Notirungsbuch_K.xml`
+- `../data/data/sources/sources/Notirungsbuch_K/Notirungsbuch_K.xml`
+- `/data/sources/Notirungsbuch_K/Notirungsbuch_K.xml`
+
+Example command:
+
+```bash
+node index.js --types=editedAt,fluidSystems --recreate=true --input-dir=../data/data/sources --output-dir=../data/cache --context-document=Notirungsbuch_K D-BNba_MH_60_Engelmann/diplomaticTranscripts/D-BNba_MH_60_Engelmann_p017_wz01_dt.xml
+```
 
 Any filter options are ignored, when a list of files is given.
 
