@@ -68,6 +68,83 @@ function buildElementByIdMap (root, selector) {
 }
 
 /**
+ * Pushes one or more surface references from an attribute value.
+ *
+ * @param {string|null} value - Raw attribute value.
+ * @param {string[]} refs - Collected refs in traversal order.
+ * @returns {void} No return value.
+ */
+function pushSurfaceRefs (value, refs) {
+  const normalized = String(value || '').trim()
+  if (!normalized) return
+
+  normalized
+    .split(/\s+/)
+    .filter(Boolean)
+    .forEach(ref => refs.push(ref))
+}
+
+/**
+ * Traverses foliation structures and collects surface refs in canonical order.
+ *
+ * @param {Element} element - Current foliation element.
+ * @param {string[]} refs - Collected refs in traversal order.
+ * @returns {void} No return value.
+ */
+function collectFoliaSurfaceRefs (element, refs) {
+  if (!element) return
+
+  if (element.localName === 'bifolium') {
+    pushSurfaceRefs(element.getAttribute('outer.recto'), refs)
+    pushSurfaceRefs(element.getAttribute('inner.verso'), refs)
+
+    Array.from(element.children).forEach((child) => {
+      collectFoliaSurfaceRefs(child, refs)
+    })
+
+    pushSurfaceRefs(element.getAttribute('inner.recto'), refs)
+    pushSurfaceRefs(element.getAttribute('outer.verso'), refs)
+    return
+  }
+
+  if (element.localName === 'folium' || element.localName === 'unknownFoliation') {
+    pushSurfaceRefs(element.getAttribute('recto'), refs)
+    pushSurfaceRefs(element.getAttribute('verso'), refs)
+    return
+  }
+
+  Array.from(element.children).forEach((child) => {
+    collectFoliaSurfaceRefs(child, refs)
+  })
+}
+
+/**
+ * Resolves the 1-based foliation index for a surface from context document.
+ *
+ * @param {Document} contextDom - Context MEI document.
+ * @param {string} surfaceId - Surface xml:id to resolve.
+ * @returns {string} 1-based index as string; empty string if unresolved.
+ */
+function resolveSurfaceLabelFromContext (contextDom, surfaceId) {
+  const targetSurfaceId = normalizeId(surfaceId)
+  if (!contextDom || !targetSurfaceId) return ''
+
+  const foliaDesc = contextDom.querySelector('foliaDesc')
+  if (!foliaDesc) return ''
+
+  const refs = []
+  Array.from(foliaDesc.children).forEach((child) => {
+    collectFoliaSurfaceRefs(child, refs)
+  })
+
+  const expectedSuffix = '#' + targetSurfaceId
+  const matchIndex = refs.findIndex(ref => String(ref).trim().endsWith(expectedSuffix))
+
+  if (matchIndex === -1) return ''
+  return String(matchIndex + 1)
+}
+
+/**
  * improves display of <sb> and <pb> indicators in the SVG rendered from Verovio
  *
  * @param {SVGElement|Document} svgDom - Source document used by this function.
@@ -82,7 +159,6 @@ export function addSystemLabelBlocks (svgDom, atDom, sourceDom, contextDom, trip
   const doc = svgDom.ownerDocument || svgDom.documentElement?.ownerDocument || svgDom
   const atAnnotById = buildAnnotByIdMap(atDom)
   const sourceGenDescById = buildElementByIdMap(sourceDom, 'genDesc')
-  const sourceSurfaceById = buildElementByIdMap(sourceDom, 'surface')
 
   if (wzBegins.length === 0) {
     return svgDom
@@ -188,12 +264,10 @@ export function addSystemLabelBlocks (svgDom, atDom, sourceDom, contextDom, trip
         const wzLabel = gendescWZ.getAttribute('label')
 
         const surfaceId = normalizeId(gendescWZ.parentElement?.getAttribute('corresp'))
-        const surface = sourceSurfaceById.get(surfaceId)
-        if (!surface) {
-          throw new Error('Missing surface for writing zone id ' + wzId)
+        const surfaceLabel = resolveSurfaceLabelFromContext(contextDom, surfaceId)
+        if (!surfaceLabel) {
+          throw new Error('Missing context foliation label for surface id ' + surfaceId)
         }
-
-        const surfaceLabel = surface.getAttribute('label')
 
         const docName = triple?.dtFullPath || triple?.dt || ''
         box.setAttribute('data-dt-path', docName)

@@ -54,7 +54,7 @@ test('addSbIndicators appends sb indicator dir elements to following measures', 
   assert.equal(m3Dir.textContent, '⊤')
 })
 
-test('addSystemLabelBlocks resolves writing-zone annot by xml:id robustly', () => {
+test('addSystemLabelBlocks resolves writing-zone annot by xml:id and context foliation index', () => {
   const svgDom = parser.parseFromString(`
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 400">
       <g data-id="wz1" data-class="annot" class="annot"/>
@@ -108,6 +108,14 @@ test('addSystemLabelBlocks resolves writing-zone annot by xml:id robustly', () =
           </titleStmt>
         </fileDesc>
       </meiHead>
+      <sourceDesc>
+        <foliaDesc>
+          <folium recto="#surfX" verso="#surfY"/>
+          <bifolium outer.recto="../sources/foo.xml#surf1" inner.verso="#surfA" inner.recto="#surfB" outer.verso="#surfC">
+            <folium recto="#surfD" verso="#surfE"/>
+          </bifolium>
+        </foliaDesc>
+      </sourceDesc>
     </mei>
   `, 'text/xml')
 
@@ -117,5 +125,5 @@ test('addSystemLabelBlocks resolves writing-zone annot by xml:id robustly', () =
 
   const label = outSvg.querySelector('text.pageLabel')
   assert.ok(label)
-  assert.equal(label.textContent, 'NK 11r / 04')
+  assert.equal(label.textContent, 'NK 3 / 04')
 })
