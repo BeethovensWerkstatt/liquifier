@@ -1,5 +1,72 @@
 import { computeApproxBBox } from '../utils/svgGeometry.js'
 
+const XML_NS = 'http://www.w3.org/XML/1998/namespace'
+
+/**
+ * Normalizes id-like values used in cross-document references.
+ *
+ * @param {string|null} value - Potential id string.
+ * @returns {string} Normalized id value.
+ */
+function normalizeId (value) {
+  return String(value || '').trim().replace(/^#/, '')
+}
+
+/**
+ * Reads xml:id from an element using multiple access paths.
+ *
+ * @param {Element} element - Element inspected by this function.
+ * @returns {string} xml:id value when available.
+ */
+function getXmlId (element) {
+  if (!element) return ''
+
+  return normalizeId(
+    element.getAttribute('xml:id') ||
+    element.getAttributeNS(XML_NS, 'id') ||
+    element.getAttribute('id')
+  )
+}
+
+/**
+ * Builds a lookup map for annot elements by normalized xml:id.
+ *
+ * @param {Document} atDom - Annotated transcript DOM.
+ * @returns {Map<string, Element>} Lookup map keyed by xml:id.
+ */
+function buildAnnotByIdMap (atDom) {
+  const byId = new Map()
+
+  atDom.querySelectorAll('annot').forEach((annot) => {
+    const id = getXmlId(annot)
+    if (id && !byId.has(id)) {
+      byId.set(id, annot)
+    }
+  })
+
+  return byId
+}
+
+/**
+ * Builds a lookup map for arbitrary elements keyed by normalized xml:id.
+ *
+ * @param {Document|Element} root - Root node to search in.
+ * @param {string} selector - CSS selector for matching elements.
+ * @returns {Map<string, Element>} Lookup map keyed by xml:id.
+ */
+function buildElementByIdMap (root, selector) {
+  const byId = new Map()
+
+  root.querySelectorAll(selector).forEach((element) => {
+    const id = getXmlId(element)
+    if (id && !byId.has(id)) {
+      byId.set(id, element)
+    }
+  })
+
+  return byId
+}
+
 /**
  * improves display of <sb> and <pb> indicators in the SVG rendered from Verovio
  *
@@ -13,6 +80,9 @@ import { computeApproxBBox } from '../utils/svgGeometry.js'
 export function addSystemLabelBlocks (svgDom, atDom, sourceDom, contextDom, triple) {
   const wzBegins = svgDom.querySelectorAll('g[data-class="annot"]:not(.bounding-box)')
   const doc = svgDom.ownerDocument || svgDom.documentElement?.ownerDocument || svgDom
+  const atAnnotById = buildAnnotByIdMap(atDom)
+  const sourceGenDescById = buildElementByIdMap(sourceDom, 'genDesc')
+  const sourceSurfaceById = buildElementByIdMap(sourceDom, 'surface')
 
   if (wzBegins.length === 0) {
     return svgDom
@@ -99,23 +169,29 @@ export function addSystemLabelBlocks (svgDom, atDom, sourceDom, contextDom, trip
 
     parent.replaceChild(box, wzb)
 
-    const atWzBegin = atDom.querySelector('annot[*|id="' + wzb.getAttribute('data-id') + '"]')
+    const atWzBeginId = normalizeId(wzb.getAttribute('data-id'))
+    const atWzBegin = atAnnotById.get(atWzBeginId) || null
     let label = 'x'
 
     if (atWzBegin && atWzBegin.hasAttribute('corresp')) {
-      // console.log('911 getting in')
       try {
-        const wzId = atWzBegin.getAttribute('corresp').split('#')[1]
+        const wzId = normalizeId(atWzBegin.getAttribute('corresp').split('#')[1])
 
         box.setAttribute('data-wz-id', wzId)
 
         const sourceLabel = contextDom?.querySelector('meiHead > fileDesc > titleStmt > title[type="abbreviated"]')?.textContent || ''
+        const gendescWZ = sourceGenDescById.get(wzId)
+        if (!gendescWZ) {
+          throw new Error('Missing genDesc for writing zone id ' + wzId)
+        }
 
-        const gendescWZ = sourceDom.querySelector('genDesc[*|id="' + wzId + '"]')
         const wzLabel = gendescWZ.getAttribute('label')
 
-        const surfaceId = gendescWZ.parentElement.getAttribute('corresp').substring(1)
-        const surface = sourceDom.querySelector('surface[*|id="' + surfaceId + '"]')
+        const surfaceId = normalizeId(gendescWZ.parentElement?.getAttribute('corresp'))
+        const surface = sourceSurfaceById.get(surfaceId)
+        if (!surface) {
+          throw new Error('Missing surface for writing zone id ' + wzId)
+        }
 
         const surfaceLabel = surface.getAttribute('label')
 
@@ -138,6 +214,7 @@ export function addSystemLabelBlocks (svgDom, atDom, sourceDom, contextDom, trip
     rect.setAttribute('y', staffHeight * -2)
     rect.setAttribute('width', bbox.width - staffHeight / 4)
     rect.setAttribute('height', staffHeight)
+    rect.setAttribute('fill', '#e5e5e5')
     rect.classList.add('pageLabelBox')
 
     const text = doc.createElementNS('http://www.w3.org/2000/svg', 'text')
@@ -162,6 +239,7 @@ export function addSystemLabelBlocks (svgDom, atDom, sourceDom, contextDom, trip
       rect.setAttribute('y', staffHeight * -0.8)
       rect.setAttribute('width', sysBbox.width - staffHeight / 4)
       rect.setAttribute('height', staffHeight * 0.6)
+      rect.setAttribute('fill', '#e5e5e5')
       rect.classList.add('pageLabelBox')
 
       const systemLabels = []
@@ -268,7 +346,7 @@ export function addSbIndicators (svgDom, atDom) {
       if (measure) {
         const dir = doc.createElementNS('http://www.music-encoding.org/ns/mei', 'dir')
         const pb = sb.previousElementSibling.localName === 'pb'
-        dir.innerHTML = pb ? '⫪' : '⊤2'
+        dir.innerHTML = pb ? '⫪' : '⊤'
         dir.setAttribute('staff', 1)
         dir.setAttribute('tstamp', 0)
         dir.setAttribute('place', 'above')
