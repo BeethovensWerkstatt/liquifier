@@ -1,4 +1,4 @@
-import { addSbIndicators, prepareAtDomForRendering } from '../preparation/annotatedTranscripts.js'
+import { addSbIndicators, prepareAtDomForRendering, addSystemLabelBlocks } from '../preparation/annotatedTranscripts.js'
 import { prepareEditedAtDom } from '../preparation/editedAnnotatedTranscripts.js'
 import { prepareDtForThulemeier } from '../preparation/mei.js'
 import { serializeXmlCanonical } from '../utils/xml.js'
@@ -457,7 +457,12 @@ function renderFluidSystemsLike ({ data, triple, recreate, logger, sourceDir, so
       const atSystemSvg = parser.parseFromString(atSystemSvgString, 'image/svg+xml')
       const dtSystemSvg = parser.parseFromString(dtSystemSvgString, 'image/svg+xml')
 
-      const fluidSvg = generateFluidTranscription(dtSystemSvg, atSystemSvg, data.atDom, data.sourceDom, logger, generationOptions)
+      const effectiveGenerationOptions = {
+        currentDtReference: triple.dtFullPath || triple.dt || '',
+        ...generationOptions
+      }
+
+      const fluidSvg = generateFluidTranscription(dtSystemSvg, atSystemSvg, data.atDom, data.sourceDom, logger, effectiveGenerationOptions)
 
       if (postProcessSvg) {
         postProcessSvg(fluidSvg, {
@@ -979,7 +984,7 @@ export async function buildCurrentDtSvgForFluidSystems ({ dtDom, sourceDom, pars
  * Render Fluid Systems SVG
  *
  * @param {Object} params - Rendering parameters
- * @param {Object} params.data - Source data (atDom, dtDom, sourceDom)
+ * @param {Object} params.data - Source data (atDom, dtDom, sourceDom, reconstructionDom)
  * @param {Object} params.triple - File paths and dates
  * @param {Object} params.verovio - Verovio toolkit instance
  * @param {Object} params.pageDimensions - Page dimensions for rendering
@@ -1011,6 +1016,7 @@ export async function renderFluidSystemsSvg ({ data, triple, verovio, pageDimens
     // Derive per-element vertical offsets from editedAT choice rendering (reg vs orig).
     const editedAtDom = prepareEditedAtDom(data.atDom, data.dtDom)
     const editedAtWithSbIndicators = addSbIndicators(null, editedAtDom.cloneNode(true))
+
     const editedRenderDom = prepareAtDomForRendering(editedAtWithSbIndicators, data.dtDom, pageDimensions)
     const regAtSvgString = renderContinuousAt(editedRenderDom, verovio, 'annotated', pageDimensions, {
       choiceXPathQuery: ['./reg']
@@ -1048,8 +1054,11 @@ export async function renderFluidSystemsSvg ({ data, triple, verovio, pageDimens
     const atSvgString = renderContinuousAt(renderDom, verovio, 'annotated', pageDimensions)
     const atSvg = parser.parseFromString(atSvgString, 'image/svg+xml')
 
-    const fluidSvg = generateFluidTranscription(dtSvg, atSvg, data.atDom, data.sourceDom, logger, {
+    const atSvgWithSystemLabels = addSystemLabelBlocks(atSvg, data.atDom, data.sourceDom, data.reconstructionDom, triple)
+
+    const fluidSvg = generateFluidTranscription(dtSvg, atSvgWithSystemLabels, data.atDom, data.sourceDom, logger, {
       stateModel: 'fluidSystems',
+      currentDtReference: triple.dtFullPath || triple.dt || '',
       choiceVerticalOffsets,
       matchedStaffLineBlocks: staffLineContext.matchedStaffLineBlocks,
       blockToDtSystemId: staffLineContext.blockToDtSystemId

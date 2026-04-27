@@ -1339,7 +1339,7 @@ export const addSbIndicators = (meiDom) => {
       if (measure) {
         const dir = document.createElementNS('http://www.music-encoding.org/ns/mei', 'dir')
         const pb = sb.previousElementSibling.localName === 'pb'
-        dir.innerHTML = pb ? '⫪' : '⊤'
+        dir.innerHTML = pb ? '⫪' : '⊤3'
         dir.setAttribute('staff', 1)
         dir.setAttribute('tstamp', 0)
         dir.setAttribute('place', 'above')

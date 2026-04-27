@@ -32,7 +32,7 @@
  * @returns {number} Resulting numeric value.
  */
 export function liquifyHairpins (ftSvg, dtSvg, atMeiDom, tools) {
-  const { setAnimation, logger } = tools
+  const { correspMappings, setAnimation, applyUnmatchedClass, logger } = tools
 
   // Find all AT hairpin groups in FT SVG (system-specific)
   // Query SVG first (not MEI) to only get hairpins in this system
@@ -52,28 +52,13 @@ export function liquifyHairpins (ftSvg, dtSvg, atMeiDom, tools) {
       logger.warn(`[liquifyHairpins] Spanning hairpin ${atId} detected - this hairpin crosses system boundaries and may have incorrect DT correspondence data. This should be fixed in the source data.`)
     }
 
-    // Find corresponding MEI element
-    const atHairpin = atMeiDom.querySelector(`hairpin[xml\\:id="${atId}"]`)
-    if (!atHairpin) {
-      logger.warn(`[liquifyHairpins] AT hairpin ${atId} not found in MEI, skipping`)
+    const dtHairpinIds = correspMappings.get(atId)
+    if (!dtHairpinIds || dtHairpinIds.length === 0) {
+      // No correspondence in the current DT context (editorial or other Wz).
+      logger.debug(`[liquifyHairpins] AT hairpin ${atId} has no current-DT correspondence`)
+      handleEditorialHairpin(atHairpinGroup, atId, setAnimation, applyUnmatchedClass)
       return
     }
-
-    // Get correspondence to DT hairpin(s)
-    const correspAttr = atHairpin.getAttribute('corresp')
-    if (!correspAttr) {
-      // Editorial hairpin (no DT correspondence) - fade in from supplements
-      logger.debug(`[liquifyHairpins] AT hairpin ${atId} has no corresp (editorial)`)
-      handleEditorialHairpin(atHairpinGroup, setAnimation)
-      return
-    }
-
-    // Parse corresp: space-separated list of DT hairpin IDs
-    // Format: "#id" or "../path/file.xml#id" → extract just the ID
-    const dtHairpinIds = correspAttr.trim().split(/\s+/).map(id => {
-      const hashIndex = id.lastIndexOf('#')
-      return hashIndex >= 0 ? id.substring(hashIndex + 1) : id
-    })
 
     logger.debug(`[liquifyHairpins] AT hairpin ${atId} corresp: ${dtHairpinIds.join(', ')}`)
 
@@ -97,12 +82,12 @@ export function liquifyHairpins (ftSvg, dtSvg, atMeiDom, tools) {
  * @param {Function} setAnimation - Animation descriptor writer for phase transitions.
  * @returns {void} No return value.
  */
-function handleEditorialHairpin (atHairpinGroup, setAnimation) {
-  atHairpinGroup.classList.add('supplied')
+function handleEditorialHairpin (atHairpinGroup, atId, setAnimation, applyUnmatchedClass) {
+  applyUnmatchedClass(atHairpinGroup, atId)
 
   setAnimation({
     element: atHairpinGroup,
-    id: atHairpinGroup.getAttribute('data-id'),
+    id: atId,
     localName: 'hairpin',
     states: {
       finding: null,

@@ -38,7 +38,7 @@ import { computeTextDiff } from '../../utils/textDiff.js'
  * @returns {void} No return value.
  */
 export function liquifyDirs (ftSvg, dtSvg, atMeiDom, tools) {
-  const { getNewPos, correspMappings, setAnimation, logger } = tools
+  const { getNewPos, correspMappings, applyUnmatchedClass, setAnimation, logger } = tools
 
   // Find all AT <dir> elements
   const atDirs = atMeiDom.querySelectorAll('dir')
@@ -66,8 +66,7 @@ export function liquifyDirs (ftSvg, dtSvg, atMeiDom, tools) {
         return
       }
 
-      // Add "supplied" class to the dir group to mark it as editorial
-      atDirGroup.classList.add('supplied')
+      applyUnmatchedClass(atDirGroup, atId)
 
       // Find the text element and all its tspans to apply fade-in animation
       const textElement = atDirGroup.querySelector('text')
@@ -80,8 +79,7 @@ export function liquifyDirs (ftSvg, dtSvg, atMeiDom, tools) {
       const textTspans = textElement.querySelectorAll('tspan[data-class="text"]')
 
       textTspans.forEach((tspan, index) => {
-        // Add "supplied" class to mark this as editorial content
-        tspan.classList.add('supplied')
+        applyUnmatchedClass(tspan, atId)
 
         // Apply opacity animation (fade in from supplements)
         setAnimation({

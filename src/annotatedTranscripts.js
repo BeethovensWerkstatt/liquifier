@@ -250,7 +250,7 @@ export function addSbIndicators (svgDom, atDom) {
       if (measure) {
         const dir = document.createElementNS('http://www.music-encoding.org/ns/mei', 'dir')
         const pb = sb.previousElementSibling.localName === 'pb'
-        dir.innerHTML = pb ? '⫪' : '⊤'
+        dir.innerHTML = pb ? '⫪' : '⊤1'
         dir.setAttribute('staff', 1)
         dir.setAttribute('tstamp', 0)
         dir.setAttribute('place', 'above')

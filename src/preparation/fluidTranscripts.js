@@ -210,34 +210,114 @@ export const calculateScaleFactor = (dtSystemSvg, atSystemSvg) => {
 }
 
 /**
- * Extract corresp mappings from AT MEI document
+ * Normalizes a file reference to a basename for stable matching.
  *
- * @param {Document} atMeiDom - AT MEI DOM
- * @returns {Map} Map of atElementId -> dtElementId
+ * @param {string} value - Raw file reference value.
+ * @returns {string} Normalized basename.
  */
-const extractCorrespMappings = (atMeiDom) => {
-  const mappings = new Map()
+function normalizeFileBasename (value = '') {
+  const normalized = String(value).trim().replace(/\\/g, '/')
+  if (!normalized) return ''
+  const parts = normalized.split('/')
+  return parts[parts.length - 1] || ''
+}
 
-  // Find all elements with @corresp attribute
+/**
+ * Parses one corresp token into file reference and target id.
+ *
+ * @param {string} token - One corresp token.
+ * @returns {{fileRef: string, targetId: string}|null} Parsed token parts.
+ */
+function parseCorrespToken (token = '') {
+  const normalized = String(token).trim()
+  if (!normalized || !normalized.includes('#')) return null
+
+  const hashIndex = normalized.indexOf('#')
+  const fileRef = hashIndex > 0 ? normalized.slice(0, hashIndex).trim() : ''
+  const targetId = normalized.slice(hashIndex + 1).trim()
+  if (!targetId) return null
+
+  return { fileRef, targetId }
+}
+
+/**
+ * Returns whether a file reference points to a diplomatic transcription.
+ *
+ * @param {string} fileRef - File reference from a corresp token.
+ * @returns {boolean} Whether this token should be considered DT-linked.
+ */
+function isDiplomaticCorrespReference (fileRef = '') {
+  if (fileRef === '') return true
+  return fileRef.includes('/diplomaticTranscripts/') || fileRef.endsWith('_dt.xml')
+}
+
+/**
+ * Returns whether a corresp file reference points to the current DT file.
+ *
+ * @param {string} fileRef - File reference from corresp token.
+ * @param {string} currentDtBasename - Current DT basename for this run.
+ * @returns {boolean} Whether token belongs to current DT context.
+ */
+function isCurrentDtReference (fileRef = '', currentDtBasename = '') {
+  if (fileRef === '') return true
+  if (!currentDtBasename) return true
+  return normalizeFileBasename(fileRef) === currentDtBasename
+}
+
+/**
+ * Extract DT correspondence context from AT MEI.
+ *
+ * @param {Document} atMeiDom - AT MEI DOM.
+ * @param {Object} options - Context options.
+ * @param {string} options.currentDtReference - Current DT file reference/path.
+ * @returns {{correspMappings: Map<string, string[]>, unmatchedClassByAtId: Map<string, string>}}
+ * Mapping to current DT ids and unmatched-class hints for AT ids.
+ */
+function extractCorrespContext (atMeiDom, { currentDtReference = '' } = {}) {
+  const correspMappings = new Map()
+  const unmatchedClassByAtId = new Map()
+  const currentDtBasename = normalizeFileBasename(currentDtReference)
+
   const correspElements = atMeiDom.querySelectorAll('[corresp]')
 
   correspElements.forEach(element => {
     const atId = element.getAttribute('xml:id')
     const corresp = element.getAttribute('corresp')
+    if (!atId || !corresp) return
 
-    // Extract DT ID after the # (format: ../path/file.xml#dtId)
-    if (atId && corresp && corresp.includes('#')) {
-      const arr = corresp
-        .trim()
-        .replace(/\s+/g, ' ') // Replace multiple whitespaces with single space
-        .split(' ')
-        .map(corresp => corresp.split('#')[1])
-        .filter(id => id && id.length > 0) // Filter out empty strings
-      mappings.set(atId, arr)
+    const currentDtIds = []
+    let hasForeignDtReference = false
+
+    corresp
+      .trim()
+      .replace(/\s+/g, ' ')
+      .split(' ')
+      .forEach(token => {
+        const parsed = parseCorrespToken(token)
+        if (!parsed) return
+
+        const { fileRef, targetId } = parsed
+        if (!isDiplomaticCorrespReference(fileRef)) return
+
+        if (isCurrentDtReference(fileRef, currentDtBasename)) {
+          currentDtIds.push(targetId)
+        } else {
+          hasForeignDtReference = true
+        }
+      })
+
+    const uniqueCurrentDtIds = Array.from(new Set(currentDtIds))
+    if (uniqueCurrentDtIds.length > 0) {
+      correspMappings.set(atId, uniqueCurrentDtIds)
+      return
+    }
+
+    if (hasForeignDtReference) {
+      unmatchedClassByAtId.set(atId, 'otherWz')
     }
   })
 
-  return mappings
+  return { correspMappings, unmatchedClassByAtId }
 }
 
 /**
@@ -250,12 +330,26 @@ const extractCorrespMappings = (atMeiDom) => {
  * @param {Object} options - Structured options object.
  * @returns {Object} Fluid transcription SVG DOM
  */
-export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, sourceMeiDom, logger, options = {}) => {
+export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, sourceMeiDomOrLogger, loggerOrOptions, maybeOptions = {}) => {
+  // Backward compatibility:
+  // old signature: (dtSvg, atSvg, atMeiDom, logger, options)
+  // new signature: (dtSvg, atSvg, atMeiDom, sourceMeiDom, logger, options)
+  let logger = loggerOrOptions
+  let options = maybeOptions
+
+  if (sourceMeiDomOrLogger && typeof sourceMeiDomOrLogger.debug === 'function') {
+    logger = sourceMeiDomOrLogger
+    options = loggerOrOptions || {}
+  }
+
   // Handle both document and element inputs
   const dtSvgElement = dtSystemSvg.documentElement || dtSystemSvg
   const atSvgElement = atSystemSvg.documentElement || atSystemSvg
 
-  const correspMappings = extractCorrespMappings(atMeiDom)
+  const currentDtReference = options.currentDtReference || ''
+  const { correspMappings, unmatchedClassByAtId } = extractCorrespContext(atMeiDom, {
+    currentDtReference
+  })
 
   // Calculate scale factor
   const scaleFactor = calculateScaleFactor(dtSvgElement, atSvgElement)
@@ -364,8 +458,21 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, s
     return Number.isFinite(offset) ? offset : 0
   }
 
+  /**
+   * Applies the unmatched classification class for an AT element id.
+   *
+   * @param {Element} element - SVG element to classify.
+   * @param {string} atId - AT xml:id used for classification lookup.
+   * @returns {string} Applied class name.
+   */
+  const applyUnmatchedClass = (element, atId) => {
+    const className = unmatchedClassByAtId.get(atId) || 'supplied'
+    applyClassificationClass(element, className)
+    return className
+  }
+
   // Build the state-model-specific writer once, then pass through all liquify modules.
-  const setAnimationForMode = createAnimationSetter(stateModel)
+  const setAnimationForMode = createAnimationSetter(stateModel, unmatchedClassByAtId)
 
   animateStaffLines(ftSvg, dtSvgElement, convertD, setAnimationForMode, logger, matchedStaffLineBlocks, blockToDtSystemId)
 
@@ -376,11 +483,13 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, s
     correspMappings,
     stateModel,
     getChoiceVerticalOffset,
+    applyUnmatchedClass,
     setAnimation: setAnimationForMode,
     logger
   }
 
   liquifyMusic(ftSvg, dtSvgElement, atMeiDom, tools)
+  animateSystemLabels(ftSvg, setAnimationForMode, stateModel)
 
   // Adjust viewBox to encompass all animated content
   adjustViewBoxForContent(ftSvg, tools)
@@ -609,6 +718,66 @@ function groupDtStaffLinesByMatchedBlocks (dtSvg, matchedBlocks, blockToDtSystem
   }
 
   return byBlock
+}
+
+/**
+ * Animate system label overlays inserted into AT SVG so they become visible
+ * from readingOrder onward without starting a fade during normalization.
+ *
+ * @param {SVGElement} ftSvg - Fluid transcription SVG.
+ * @param {Function} setAnimation - Phase-aware animation descriptor writer.
+ * @param {string} stateModel - Active state model.
+ * @returns {void} No return value.
+ */
+function animateSystemLabels (ftSvg, setAnimation, stateModel) {
+  if (stateModel !== 'fluidSystems') return
+
+  // Default six-phase spacing is 20% per phase; compress label fade to 10% of that.
+  const phaseSpan = 1 / 5
+  const regulationStart = phaseSpan * 3
+  const transitionSpan = phaseSpan * 0.1
+  const readingOrderTransitionStart = regulationStart - transitionSpan
+  const labelKeyTimes = [
+    0,
+    phaseSpan,
+    readingOrderTransitionStart,
+    regulationStart,
+    phaseSpan * 4,
+    1
+  ].map(value => value.toFixed(2))
+
+  const labelSelector = [
+    'rect.pageLabelBox',
+    'text.pageLabel',
+    'rect.pageBg',
+    'rect.sysPreview',
+    'text.sysLabel'
+  ].join(', ')
+
+  const labelElements = Array.from(ftSvg.querySelectorAll(labelSelector))
+  labelElements.forEach((element, index) => {
+    element.setAttribute('opacity', '0')
+
+    setAnimation({
+      element,
+      id: `system-label-${index}`,
+      localName: 'system-label',
+      states: {
+        finding: { type: 'opacity', val: '0' },
+        normalization: { type: 'opacity', val: '0' },
+        readingOrder: { type: 'opacity', val: '0' },
+        regulation: { type: 'opacity', val: '1' },
+        supplements: { type: 'opacity', val: '1' },
+        interventions: { type: 'opacity', val: '1' }
+      }
+    })
+
+    const opacityAnimation = element.querySelector('animate[attributeName="opacity"]')
+    if (opacityAnimation) {
+      opacityAnimation.setAttribute('keyTimes', labelKeyTimes.join(';'))
+      opacityAnimation.setAttribute('calcMode', 'linear')
+    }
+  })
 }
 
 /**
@@ -884,6 +1053,57 @@ const addTransform = (node, attribute, values = []) => {
 }
 
 /**
+ * Resolves AT id for an animation target.
+ *
+ * @param {Element} element - Animated element.
+ * @param {string} fallbackId - Descriptor id fallback.
+ * @returns {string|null} Resolved AT id when available.
+ */
+function resolveAtIdForClassification (element, fallbackId) {
+  if (!element) return fallbackId || null
+
+  const ownId = element.getAttribute?.('data-id')
+  if (ownId) return ownId
+
+  const ancestorId = element.closest?.('[data-id]')?.getAttribute?.('data-id')
+  if (ancestorId) return ancestorId
+
+  return fallbackId || null
+}
+
+/**
+ * Applies one classification class while removing conflicting ones.
+ *
+ * @param {Element} element - SVG element to classify.
+ * @param {string} className - Classification class name.
+ * @returns {void} No return value.
+ */
+function applyClassificationClass (element, className) {
+  if (!element || !className) return
+
+  const classes = (element.getAttribute('class') || '')
+    .split(/\s+/)
+    .filter(Boolean)
+    .filter(classToken => classToken !== 'supplied' && classToken !== 'otherWz')
+
+  classes.push(className)
+  element.setAttribute('class', classes.join(' '))
+}
+
+/**
+ * Resolves unmatched class name for a descriptor.
+ *
+ * @param {Object} descriptor - Animation descriptor.
+ * @param {Map<string, string>} unmatchedClassByAtId - AT id to class mapping.
+ * @returns {string} Class to apply.
+ */
+function resolveUnmatchedClassForDescriptor (descriptor, unmatchedClassByAtId) {
+  const atId = resolveAtIdForClassification(descriptor.element, descriptor.id)
+  if (!atId) return 'supplied'
+  return unmatchedClassByAtId.get(atId) || 'supplied'
+}
+
+/**
  * Set animation for an element based on the six-phase sequence:
  * finding -> normalization -> readingOrder -> regulation -> supplements -> interventions.
  * This resolver is used for fluid transcript output. Missing states are filled with
@@ -908,7 +1128,7 @@ const addTransform = (node, attribute, values = []) => {
  * @param {Object} descriptor.states - State definitions for each phase
  * @returns {string} Resulting string.
  */
-const setAnimationFluidTranscript = (descriptor) => {
+const setAnimationFluidTranscript = (descriptor, unmatchedClassByAtId = new Map()) => {
   const { element, id, localName, states } = descriptor
 
   const finding = states.finding || null
@@ -927,10 +1147,15 @@ const setAnimationFluidTranscript = (descriptor) => {
     addTransform(element, 'opacity', opacityValues)
 
     if (finding === null || normalization === null) {
-      element.setAttribute('fill', '#009900')
-      element.setAttribute('stroke', '#009900')
-      const existingClasses = element.getAttribute('class') || ''
-      element.setAttribute('class', `${existingClasses} supplied`.trim())
+      const unmatchedClass = resolveUnmatchedClassForDescriptor(descriptor, unmatchedClassByAtId)
+      applyClassificationClass(element, unmatchedClass)
+      if (unmatchedClass === 'supplied') {
+        element.setAttribute('fill', '#999999')
+        element.setAttribute('stroke', '#999999')
+      } else if (unmatchedClass === 'otherWz') {
+        element.setAttribute('fill', '#555555')
+        element.setAttribute('stroke', '#555555')
+      }
     }
   }
 
@@ -1001,7 +1226,7 @@ export const resolveFluidSystemsStates = (states = {}) => {
  * @param {Element} descriptor - Element processed by this function.
  * @returns {string} Resulting string.
  */
-const setAnimationFluidSystems = (descriptor) => {
+const setAnimationFluidSystems = (descriptor, unmatchedClassByAtId = new Map()) => {
   const { element, id, localName, states } = descriptor
   const resolvedStates = resolveFluidSystemsStates(states)
   const { finding, normalization, readingOrder, regulation, supplements, interventions } = resolvedStates
@@ -1023,10 +1248,15 @@ const setAnimationFluidSystems = (descriptor) => {
     addTransform(element, 'opacity', opacityValues)
 
     if (finding === null || normalization === null) {
-      element.setAttribute('fill', '#009900')
-      element.setAttribute('stroke', '#009900')
-      const existingClasses = element.getAttribute('class') || ''
-      element.setAttribute('class', `${existingClasses} supplied`.trim())
+      const unmatchedClass = resolveUnmatchedClassForDescriptor(descriptor, unmatchedClassByAtId)
+      applyClassificationClass(element, unmatchedClass)
+      if (unmatchedClass === 'supplied') {
+        element.setAttribute('fill', '#999999')
+        element.setAttribute('stroke', '#999999')
+      } else if (unmatchedClass === 'otherWz') {
+        element.setAttribute('fill', '#555555')
+        element.setAttribute('stroke', '#555555')
+      }
     }
   }
 
@@ -1060,10 +1290,10 @@ const setAnimationFluidSystems = (descriptor) => {
  * @param {string} stateModel - State value used by this function.
  * @returns {void} No return value.
  */
-const createAnimationSetter = (stateModel) => {
+const createAnimationSetter = (stateModel, unmatchedClassByAtId = new Map()) => {
   if (stateModel === 'fluidSystems') {
-    return setAnimationFluidSystems
+    return descriptor => setAnimationFluidSystems(descriptor, unmatchedClassByAtId)
   }
 
-  return setAnimationFluidTranscript
+  return descriptor => setAnimationFluidTranscript(descriptor, unmatchedClassByAtId)
 }

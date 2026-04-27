@@ -403,9 +403,9 @@ export async function fetchData (triple, verbose = false, inputDir = './', optio
   const sourcePath = triple.sourceFullPath || path.join(inputDir, triple.source)
   const dtPath = triple.dtFullPath || path.join(inputDir, triple.dt)
   const atPath = triple.atFullPath || path.join(inputDir, triple.at)
-  const reconstructionDom = options.reconstructionDom || (options.contextDocument
-    ? await loadContextDocumentDom(options.contextDocument, inputDir)
-    : null)
+  const reconstructionPath = options.reconstructionDom
+    ? null
+    : (options.contextDocument ? resolveContextDocumentPath(options.contextDocument, inputDir) : null)
 
   const parser = new DOMParser()
 
@@ -414,14 +414,25 @@ export async function fetchData (triple, verbose = false, inputDir = './', optio
   }
 
   try {
-    const responses = await Promise.all([
+    const readOperations = [
       readFile(sourcePath, { encoding: 'utf8' }),
       readFile(dtPath, { encoding: 'utf8' }),
       readFile(atPath, { encoding: 'utf8' })
-    ])
+    ]
+
+    if (reconstructionPath) {
+      readOperations.push(readFile(reconstructionPath, { encoding: 'utf8' }))
+    }
+
+    const responses = await Promise.all(readOperations)
     const source = responses[0]
     const dt = responses[1]
     const at = responses[2]
+    const reconstructionXml = responses[3]
+
+    const reconstructionDom = options.reconstructionDom || (reconstructionXml
+      ? parser.parseFromString(reconstructionXml, 'text/xml')
+      : null)
 
     return {
       sourceDom: parser.parseFromString(source, 'text/xml'),

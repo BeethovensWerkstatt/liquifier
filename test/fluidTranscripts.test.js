@@ -430,7 +430,7 @@ test('generateFluidTranscription fluidSystems keeps AT target in regulation and 
         <path d="M0 140 L300 140"/>
       </g>
       <g class="note" data-id="d1">
-        <g class="notehead"><use x="120" y="120"/></g>
+        <g class="notehead"><use x="140" y="140"/></g>
       </g>
     </svg>
   `, 'image/svg+xml')
@@ -601,4 +601,145 @@ test('generateFluidTranscription fluidSystems applies vertical choice offsets in
   assert.equal(values[3], '0 -20')
   assert.equal(values[4], '0 -20')
   assert.equal(values[5], '0 0')
+})
+
+test('generateFluidTranscription classifies foreign-DT note corresp as otherWz', () => {
+  const atSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
+      <g class="measure" data-id="m1">
+        <g class="note" data-id="a1">
+          <g class="notehead"><use transform="translate(120,120)"/></g>
+        </g>
+      </g>
+    </svg>
+  `, 'image/svg+xml')
+
+  const dtSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
+      <g class="rastrum bounding-box"><rect x="0" y="100" width="300" height="40"/></g>
+      <g class="note" data-id="dForeign">
+        <g class="notehead"><use x="120" y="120"/></g>
+      </g>
+    </svg>
+  `, 'image/svg+xml')
+
+  const atMei = parser.parseFromString(`
+    <mei xmlns="http://www.music-encoding.org/ns/mei">
+      <music><body><mdiv><score><section>
+        <measure xml:id="m1">
+          <staff n="1"><layer>
+            <note xml:id="a1" corresp="../diplomaticTranscripts/other_piece_p001_wz01_dt.xml#dForeign"/>
+          </layer></staff>
+        </measure>
+      </section></score></mdiv></body></music>
+    </mei>
+  `, 'text/xml')
+
+  const logger = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} }
+  const outSvg = generateFluidTranscription(dtSvg, atSvg, atMei, logger, {
+    stateModel: 'fluidSystems',
+    currentDtReference: '../data/sources/D-BNba_MH_60_Engelmann/diplomaticTranscripts/D-BNba_MH_60_Engelmann_p017_wz01_dt.xml'
+  })
+
+  const note = outSvg.querySelector('g.note[data-id="a1"]')
+  const noteClass = note.getAttribute('class') || ''
+  assert.match(noteClass, /\botherWz\b/)
+  assert.ok(!/\bsupplied\b/.test(noteClass))
+})
+
+test('generateFluidTranscription classifies foreign-DT tempo corresp as otherWz', () => {
+  const atSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
+      <g class="tempo" data-id="t1">
+        <text x="100" y="100">Allegro</text>
+      </g>
+    </svg>
+  `, 'image/svg+xml')
+
+  const dtSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
+      <g class="rastrum bounding-box"><rect x="0" y="100" width="300" height="40"/></g>
+    </svg>
+  `, 'image/svg+xml')
+
+  const atMei = parser.parseFromString(`
+    <mei xmlns="http://www.music-encoding.org/ns/mei">
+      <music><body><mdiv><score><section>
+        <measure xml:id="m1">
+          <staff n="1"><layer>
+            <tempo xml:id="t1" corresp="../diplomaticTranscripts/other_piece_p001_wz01_dt.xml#dtTempo"/>
+          </layer></staff>
+        </measure>
+      </section></score></mdiv></body></music>
+    </mei>
+  `, 'text/xml')
+
+  const logger = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} }
+  const outSvg = generateFluidTranscription(dtSvg, atSvg, atMei, logger, {
+    stateModel: 'fluidSystems',
+    currentDtReference: '../data/sources/D-BNba_MH_60_Engelmann/diplomaticTranscripts/D-BNba_MH_60_Engelmann_p017_wz01_dt.xml'
+  })
+
+  const tempo = outSvg.querySelector('g.tempo[data-id="t1"]')
+  const tempoClass = tempo.getAttribute('class') || ''
+  assert.match(tempoClass, /\botherWz\b/)
+  assert.ok(!/\bsupplied\b/.test(tempoClass))
+})
+
+test('generateFluidTranscription fluidSystems animates system labels from readingOrder onward', () => {
+  const atSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
+      <g class="measure" data-id="m1">
+        <g class="staff">
+          <path d="M0 100 L300 100"/>
+          <path d="M0 110 L300 110"/>
+          <path d="M0 120 L300 120"/>
+          <path d="M0 130 L300 130"/>
+          <path d="M0 140 L300 140"/>
+        </g>
+      </g>
+      <text class="pageLabel" x="10" y="20">Label</text>
+    </svg>
+  `, 'image/svg+xml')
+
+  const dtSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
+      <g class="rastrum bounding-box"><rect x="0" y="100" width="300" height="40"/></g>
+      <g class="rastrum">
+        <path d="M0 100 L300 100"/>
+        <path d="M0 110 L300 110"/>
+        <path d="M0 120 L300 120"/>
+        <path d="M0 130 L300 130"/>
+        <path d="M0 140 L300 140"/>
+      </g>
+    </svg>
+  `, 'image/svg+xml')
+
+  const atMei = parser.parseFromString(`
+    <mei xmlns="http://www.music-encoding.org/ns/mei">
+      <music>
+        <body>
+          <mdiv>
+            <score>
+              <section>
+                <measure xml:id="m1"/>
+              </section>
+            </score>
+          </mdiv>
+        </body>
+      </music>
+    </mei>
+  `, 'text/xml')
+
+  const logger = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} }
+  const outSvg = generateFluidTranscription(dtSvg, atSvg, atMei, logger, { stateModel: 'fluidSystems' })
+
+  const label = outSvg.querySelector('text.pageLabel')
+  assert.ok(label)
+  assert.equal(label.getAttribute('opacity'), '0')
+
+  const opacityAnim = label.querySelector('animate[attributeName="opacity"]')
+  assert.ok(opacityAnim)
+  assert.equal(opacityAnim.getAttribute('values'), '0;0;0;1;1;1')
+  assert.equal(opacityAnim.getAttribute('keyTimes'), '0.00;0.20;0.58;0.60;0.80;1.00')
 })
