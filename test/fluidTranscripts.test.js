@@ -895,3 +895,92 @@ test('generateFluidTranscription animates chord ledger lines with related notehe
   assert.ok(ledgerAnim)
   assert.equal(ledgerAnim.getAttribute('values'), noteheadAnim.getAttribute('values'))
 })
+
+test('generateFluidTranscription fluidSystems hides unmatched subsequent-page measure via container animation', () => {
+  const atSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
+      <g class="system" data-id="sysA">
+        <g class="measure" data-id="m1">
+          <g class="staff"><path d="M0 100 L300 100"/></g>
+          <g class="note" data-id="a1">
+            <g class="notehead"><use transform="translate(120,120)"/></g>
+          </g>
+        </g>
+        <g class="measure" data-id="m2">
+          <g class="staff"><path d="M0 200 L300 200"/></g>
+          <g class="ledgerLines above">
+            <g class="lineDash" data-related="#a2"><path d="M95 185 L165 185"/></g>
+          </g>
+          <g class="note" data-id="a2">
+            <g class="notehead"><use transform="translate(120,190)"/></g>
+          </g>
+        </g>
+      </g>
+    </svg>
+  `, 'image/svg+xml')
+
+  const dtSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
+      <g class="rastrum bounding-box"><rect x="0" y="100" width="300" height="40"/></g>
+      <g class="rastrum"><path d="M0 100 L300 100"/></g>
+      <g class="system" data-id="dts1">
+        <g class="staff"><g class="rastrum"><path d="M0 100 L300 100"/></g></g>
+      </g>
+      <g class="note" data-id="d1">
+        <g class="notehead"><use x="140" y="130"/></g>
+      </g>
+    </svg>
+  `, 'image/svg+xml')
+
+  const atMei = parser.parseFromString(`
+    <mei xmlns="http://www.music-encoding.org/ns/mei">
+      <music>
+        <body>
+          <mdiv>
+            <score>
+              <section>
+                <measure xml:id="m1">
+                  <staff n="1"><layer>
+                    <note xml:id="a1" corresp="#d1"/>
+                  </layer></staff>
+                </measure>
+                <sb xml:id="sb2"/>
+                <measure xml:id="m2">
+                  <staff n="1"><layer>
+                    <note xml:id="a2" corresp="../diplomaticTranscripts/other_piece_p001_wz01_dt.xml#d2"/>
+                  </layer></staff>
+                </measure>
+              </section>
+            </score>
+          </mdiv>
+        </body>
+      </music>
+    </mei>
+  `, 'text/xml')
+
+  const logger = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} }
+  const outSvg = generateFluidTranscription(dtSvg, atSvg, atMei, logger, {
+    stateModel: 'fluidSystems',
+    matchedStaffLineBlocks: new Set([0]),
+    blockToDtSystemId: new Map([[0, 'dts1']]),
+    currentDtReference: '../data/sources/current_piece_p017_wz01_dt.xml'
+  })
+
+  const unmatchedMeasure = outSvg.querySelector('g.measure[data-id="m2"]')
+  assert.ok(unmatchedMeasure)
+  assert.equal(unmatchedMeasure.getAttribute('data-bw-unmatched-container'), 'true')
+
+  const measureOpacityAnim = unmatchedMeasure.querySelector(':scope > animate[attributeName="opacity"]')
+  assert.ok(measureOpacityAnim)
+  assert.equal(measureOpacityAnim.getAttribute('values'), '0;0;0;0;1;1')
+
+  const unmatchedNote = outSvg.querySelector('g.note[data-id="a2"]')
+  assert.ok(unmatchedNote)
+  assert.match(unmatchedNote.getAttribute('class') || '', /\botherWz\b/)
+  assert.equal(unmatchedNote.querySelector('animate[attributeName="opacity"]'), null)
+
+  const unmatchedLedger = outSvg.querySelector('g.measure[data-id="m2"] g.lineDash[data-related="#a2"]')
+  assert.ok(unmatchedLedger)
+  assert.equal(unmatchedLedger.querySelector('animate[attributeName="opacity"]'), null)
+  assert.equal(unmatchedLedger.querySelector('animateTransform[type="translate"]'), null)
+})

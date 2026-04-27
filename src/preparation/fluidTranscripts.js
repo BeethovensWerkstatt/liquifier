@@ -475,6 +475,13 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, s
   const setAnimationForMode = createAnimationSetter(stateModel, unmatchedClassByAtId)
 
   animateStaffLines(ftSvg, dtSvgElement, convertD, setAnimationForMode, logger, matchedStaffLineBlocks, blockToDtSystemId)
+  animateUnmatchedBlockContainers(
+    ftSvg,
+    measureBlockMap,
+    matchedStaffLineBlocks,
+    setAnimationForMode,
+    stateModel
+  )
 
   const tools = {
     getNewPos,
@@ -777,6 +784,100 @@ function animateSystemLabels (ftSvg, setAnimation, stateModel) {
       opacityAnimation.setAttribute('keyTimes', labelKeyTimes.join(';'))
       opacityAnimation.setAttribute('calcMode', 'linear')
     }
+  })
+}
+
+/**
+ * Hide AT content that belongs to unmatched reading-order blocks via container opacity.
+ * Prefers system-level containers when the whole system is unmatched, otherwise falls
+ * back to per-measure containers.
+ *
+ * @param {SVGElement} ftSvg - Fluid transcription SVG.
+ * @param {Map<string, number>} measureBlockMap - AT measure id -> block index map.
+ * @param {Set<number>|null} matchedStaffLineBlocks - Matched AT blocks for current DT page.
+ * @param {Function} setAnimation - Phase-aware animation descriptor writer.
+ * @param {string} stateModel - Active state model.
+ * @returns {void} No return value.
+ */
+function animateUnmatchedBlockContainers (ftSvg, measureBlockMap, matchedStaffLineBlocks, setAnimation, stateModel) {
+  if (stateModel !== 'fluidSystems') return
+  if (!(matchedStaffLineBlocks instanceof Set) || matchedStaffLineBlocks.size === 0) return
+  if (!(measureBlockMap instanceof Map) || measureBlockMap.size === 0) return
+
+  const unmatchedBlocks = new Set(
+    Array.from(new Set(measureBlockMap.values())).filter(block => !matchedStaffLineBlocks.has(block))
+  )
+
+  if (unmatchedBlocks.size === 0) return
+
+  const allMeasures = Array.from(ftSvg.querySelectorAll('g.measure:not(.bounding-box)'))
+  const unmatchedMeasures = allMeasures.filter(measure => {
+    const measureId = measure.getAttribute('data-id')
+    if (!measureId || !measureBlockMap.has(measureId)) return false
+    return unmatchedBlocks.has(measureBlockMap.get(measureId))
+  })
+
+  if (unmatchedMeasures.length === 0) return
+
+  const fullyUnmatchedSystems = new Set()
+
+  Array.from(ftSvg.querySelectorAll('g.system:not(.bounding-box)')).forEach(system => {
+    const systemMeasures = Array.from(system.querySelectorAll(':scope > g.measure:not(.bounding-box)'))
+    if (systemMeasures.length === 0) return
+
+    const hasMatchedMeasure = systemMeasures.some(measure => {
+      const measureId = measure.getAttribute('data-id')
+      if (!measureId || !measureBlockMap.has(measureId)) return false
+      return matchedStaffLineBlocks.has(measureBlockMap.get(measureId))
+    })
+
+    if (!hasMatchedMeasure) {
+      fullyUnmatchedSystems.add(system)
+    }
+  })
+
+  let containerIndex = 0
+
+  fullyUnmatchedSystems.forEach(system => {
+    system.setAttribute('data-bw-unmatched-container', 'true')
+    applyClassificationClass(system, 'otherWz')
+    system.setAttribute('opacity', '0')
+
+    setAnimation({
+      element: system,
+      id: `unmatched-system-${containerIndex++}`,
+      localName: 'system',
+      states: {
+        finding: { type: 'opacity', val: '0' },
+        normalization: { type: 'opacity', val: '0' },
+        readingOrder: { type: 'opacity', val: '0' },
+        regulation: { type: 'opacity', val: '0' },
+        supplements: { type: 'opacity', val: '1' },
+        interventions: { type: 'opacity', val: '1' }
+      }
+    })
+  })
+
+  unmatchedMeasures.forEach(measure => {
+    if (measure.closest('g.system[data-bw-unmatched-container="true"]')) return
+
+    measure.setAttribute('data-bw-unmatched-container', 'true')
+    applyClassificationClass(measure, 'otherWz')
+    measure.setAttribute('opacity', '0')
+
+    setAnimation({
+      element: measure,
+      id: `unmatched-measure-${containerIndex++}`,
+      localName: 'measure',
+      states: {
+        finding: { type: 'opacity', val: '0' },
+        normalization: { type: 'opacity', val: '0' },
+        readingOrder: { type: 'opacity', val: '0' },
+        regulation: { type: 'opacity', val: '0' },
+        supplements: { type: 'opacity', val: '1' },
+        interventions: { type: 'opacity', val: '1' }
+      }
+    })
   })
 }
 
@@ -1233,6 +1334,9 @@ const setAnimationFluidSystems = (descriptor, unmatchedClassByAtId = new Map()) 
 
   const allStates = [finding, normalization, readingOrder, regulation, supplements, interventions]
   const hasNullStates = allStates.some(state => state === null)
+  const unmatchedContainer = element?.closest?.('[data-bw-unmatched-container="true"]') || null
+  const isContainerItself = Boolean(unmatchedContainer && unmatchedContainer === element)
+  const isInsideUnmatchedContainer = Boolean(unmatchedContainer && !isContainerItself)
 
   if (hasNullStates) {
     let opacityValues = allStates.map(state => (state === null ? '0' : '1'))
@@ -1243,9 +1347,11 @@ const setAnimationFluidSystems = (descriptor, unmatchedClassByAtId = new Map()) 
       opacityValues = ['0', '0', '0', '0', '1', interventions === null ? '0' : '1']
     }
 
-    // Ensure the initial static frame already reflects the first animation state.
-    element.setAttribute('opacity', opacityValues[0])
-    addTransform(element, 'opacity', opacityValues)
+    if (!isInsideUnmatchedContainer) {
+      // Ensure the initial static frame already reflects the first animation state.
+      element.setAttribute('opacity', opacityValues[0])
+      addTransform(element, 'opacity', opacityValues)
+    }
 
     if (finding === null || normalization === null) {
       const unmatchedClass = resolveUnmatchedClassForDescriptor(descriptor, unmatchedClassByAtId)
