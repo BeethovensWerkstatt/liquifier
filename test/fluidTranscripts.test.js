@@ -743,3 +743,155 @@ test('generateFluidTranscription fluidSystems animates system labels from readin
   assert.equal(opacityAnim.getAttribute('values'), '0;0;0;1;1;1')
   assert.equal(opacityAnim.getAttribute('keyTimes'), '0.00;0.20;0.58;0.60;0.80;1.00')
 })
+
+test('generateFluidTranscription animates chord note augmentation dots with noteheads', () => {
+  const atSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
+      <g class="measure" data-id="m1">
+        <g class="staff">
+          <path d="M0 100 L300 100"/>
+          <path d="M0 110 L300 110"/>
+          <path d="M0 120 L300 120"/>
+          <path d="M0 130 L300 130"/>
+          <path d="M0 140 L300 140"/>
+        </g>
+        <g class="chord" data-id="ac1" data-stem.dir="up">
+          <g class="note" data-id="an1">
+            <g class="notehead"><use transform="translate(120,120)"/></g>
+            <g class="dots"><ellipse cx="140" cy="120" rx="4" ry="4"/></g>
+          </g>
+        </g>
+      </g>
+    </svg>
+  `, 'image/svg+xml')
+
+  const dtSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
+      <g class="rastrum bounding-box"><rect x="0" y="100" width="300" height="40"/></g>
+      <g class="rastrum">
+        <path d="M0 100 L300 100"/>
+        <path d="M0 110 L300 110"/>
+        <path d="M0 120 L300 120"/>
+        <path d="M0 130 L300 130"/>
+        <path d="M0 140 L300 140"/>
+      </g>
+      <g class="chord" data-id="dc1">
+        <g class="note" data-id="dn1">
+          <g class="notehead"><use x="140" y="130"/></g>
+        </g>
+      </g>
+    </svg>
+  `, 'image/svg+xml')
+
+  const atMei = parser.parseFromString(`
+    <mei xmlns="http://www.music-encoding.org/ns/mei">
+      <music>
+        <body>
+          <mdiv>
+            <score>
+              <section>
+                <measure xml:id="m1">
+                  <staff n="1">
+                    <layer>
+                      <chord xml:id="ac1" stem.dir="up" corresp="#dc1">
+                        <note xml:id="an1" pname="c" oct="4" dots="1"/>
+                      </chord>
+                    </layer>
+                  </staff>
+                </measure>
+              </section>
+            </score>
+          </mdiv>
+        </body>
+      </music>
+    </mei>
+  `, 'text/xml')
+
+  const logger = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} }
+  const outSvg = generateFluidTranscription(dtSvg, atSvg, atMei, logger, { stateModel: 'fluidSystems' })
+
+  const noteheadAnim = outSvg.querySelector('g.chord[data-id="ac1"] g.note[data-id="an1"] g.notehead > animateTransform[type="translate"]')
+  const dotsAnim = outSvg.querySelector('g.chord[data-id="ac1"] g.note[data-id="an1"] g.dots > animateTransform[type="translate"]')
+
+  assert.ok(noteheadAnim)
+  assert.ok(dotsAnim)
+  assert.equal(dotsAnim.getAttribute('values'), noteheadAnim.getAttribute('values'))
+})
+
+test('generateFluidTranscription animates chord ledger lines with related noteheads', () => {
+  const atSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
+      <g class="measure" data-id="m1">
+        <g class="staff">
+          <path d="M0 100 L300 100"/>
+          <path d="M0 110 L300 110"/>
+          <path d="M0 120 L300 120"/>
+          <path d="M0 130 L300 130"/>
+          <path d="M0 140 L300 140"/>
+        </g>
+        <g class="ledgerLines above">
+          <g class="lineDash" data-related="#an1">
+            <path d="M95 85 L165 85"/>
+          </g>
+        </g>
+        <g class="chord" data-id="ac1" data-stem.dir="up">
+          <g class="note" data-id="an1">
+            <g class="notehead"><use transform="translate(120,80)"/></g>
+          </g>
+        </g>
+      </g>
+    </svg>
+  `, 'image/svg+xml')
+
+  const dtSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
+      <g class="rastrum bounding-box"><rect x="0" y="100" width="300" height="40"/></g>
+      <g class="rastrum">
+        <path d="M0 100 L300 100"/>
+        <path d="M0 110 L300 110"/>
+        <path d="M0 120 L300 120"/>
+        <path d="M0 130 L300 130"/>
+        <path d="M0 140 L300 140"/>
+      </g>
+      <g class="chord" data-id="dc1">
+        <g class="note" data-id="dn1">
+          <g class="notehead"><use x="150" y="100"/></g>
+        </g>
+      </g>
+    </svg>
+  `, 'image/svg+xml')
+
+  const atMei = parser.parseFromString(`
+    <mei xmlns="http://www.music-encoding.org/ns/mei">
+      <music>
+        <body>
+          <mdiv>
+            <score>
+              <section>
+                <measure xml:id="m1">
+                  <staff n="1">
+                    <layer>
+                      <chord xml:id="ac1" stem.dir="up" corresp="#dc1">
+                        <note xml:id="an1" pname="c" oct="6"/>
+                      </chord>
+                    </layer>
+                  </staff>
+                </measure>
+              </section>
+            </score>
+          </mdiv>
+        </body>
+      </music>
+    </mei>
+  `, 'text/xml')
+
+  const logger = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} }
+  const outSvg = generateFluidTranscription(dtSvg, atSvg, atMei, logger, { stateModel: 'fluidSystems' })
+
+  const noteheadAnim = outSvg.querySelector('g.chord[data-id="ac1"] g.note[data-id="an1"] g.notehead > animateTransform[type="translate"]')
+  const ledgerAnim = outSvg.querySelector('g.ledgerLines g.lineDash[data-related="#an1"] > animateTransform[type="translate"]')
+
+  assert.ok(noteheadAnim)
+  assert.ok(ledgerAnim)
+  assert.equal(ledgerAnim.getAttribute('values'), noteheadAnim.getAttribute('values'))
+})

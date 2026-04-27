@@ -137,6 +137,24 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
               interventions: { type: 'translate', val: atVal }
             }
           })
+
+          // Keep augmentation dots synchronized with the animated notehead.
+          const dotGroups = atNote.querySelectorAll('.dots:not(.bounding-box)')
+          dotGroups.forEach((dotGroup, dotIndex) => {
+            setAnimation({
+              element: dotGroup,
+              id: `${atHead.id}-dots-${dotIndex}`,
+              localName: 'dots',
+              states: {
+                finding: { type: 'translate', val: dtVal },
+                normalization: { type: 'translate', val: dtVal },
+                // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
+                regulation: { type: 'translate', val: atVal },
+                supplements: { type: 'translate', val: atVal },
+                interventions: { type: 'translate', val: atVal }
+              }
+            })
+          })
         }
       })
 
