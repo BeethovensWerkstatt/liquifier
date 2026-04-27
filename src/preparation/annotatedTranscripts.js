@@ -210,12 +210,98 @@ function buildElementByIdMap (root, selector) {
 }
 
 /**
- * Builds a lookup map of source rastrum ids to 1-based sibling indices.
+ * Parses numeric attributes that may contain unit suffixes.
+ *
+ * @param {Element|null} element - Element carrying the attribute.
+ * @param {string} attrName - Attribute name to parse.
+ * @returns {number|null} Parsed numeric value or null.
+ */
+function parseNumericAttribute (element, attrName) {
+  if (!element) return null
+
+  const raw = String(element.getAttribute(attrName) || '').trim()
+  if (!raw) return null
+
+  const parsed = parseFloat(raw)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+/**
+ * Reports whether a foliation reference attribute points to a surface id.
+ *
+ * @param {string|null} value - Raw attribute value.
+ * @param {string} surfaceId - Surface id to match.
+ * @returns {boolean} True when reference points to surface id.
+ */
+function hasSurfaceRef (value, surfaceId) {
+  const targetId = normalizeId(surfaceId)
+  if (!targetId) return false
+
+  return String(value || '').trim().split(/\s+/).some((token) => {
+    const trimmed = String(token || '').trim()
+    if (!trimmed) return false
+
+    if (trimmed.endsWith('#' + targetId)) return true
+    return normalizeId(trimmed) === targetId
+  })
+}
+
+/**
+ * Returns reference attribute names for one foliation element.
+ *
+ * @param {Element} element - Foliation element.
+ * @returns {string[]} Relevant reference attributes.
+ */
+function getFoliationSurfaceRefAttributes (element) {
+  if (!element) return []
+
+  if (element.localName === 'bifolium') {
+    return ['outer.recto', 'inner.verso', 'inner.recto', 'outer.verso']
+  }
+
+  if (element.localName === 'folium' || element.localName === 'unknownFoliation') {
+    return ['recto', 'verso']
+  }
+
+  return []
+}
+
+/**
+ * Resolves width/height of a surface from context foliation description.
+ *
+ * @param {Document} contextDom - Context MEI document.
+ * @param {string} surfaceId - Surface xml:id to resolve.
+ * @returns {{width: number, height: number}|null} Dimensions when available.
+ */
+function resolveSurfaceDimensionsFromContext (contextDom, surfaceId) {
+  const targetSurfaceId = normalizeId(surfaceId)
+  if (!contextDom || !targetSurfaceId) return null
+
+  const foliaDesc = contextDom.querySelector('foliaDesc')
+  if (!foliaDesc) return null
+
+  const foliationElement = Array.from(foliaDesc.querySelectorAll('bifolium, folium, unknownFoliation'))
+    .find((element) => {
+      const refAttrs = getFoliationSurfaceRefAttributes(element)
+      return refAttrs.some(attrName => hasSurfaceRef(element.getAttribute(attrName), targetSurfaceId))
+    })
+
+  if (!foliationElement) return null
+
+  const width = parseNumericAttribute(foliationElement, 'width')
+  const height = parseNumericAttribute(foliationElement, 'height')
+  if (!Number.isFinite(width) || !Number.isFinite(height) || height === 0) return null
+
+  return { width, height }
+}
+
+/**
+ * Builds a lookup map of source rastrum ids to derived geometry metadata.
  *
  * @param {Document} sourceDom - Source document containing rastrum elements.
- * @returns {Map<string, number>} Rastrum index map keyed by xml:id.
+ * @returns {Map<string, {pos: number, left: number, top: number, width: number, systemHeight: number, rotate: number}>} Rastrum metadata keyed by xml:id.
  */
-function buildSourceRastrumIndexById (sourceDom) {
+function buildSourceRastrumMetaById (sourceDom) {
   const byId = new Map()
 
   sourceDom.querySelectorAll('rastrum').forEach((rastrum) => {
@@ -227,7 +313,20 @@ function buildSourceRastrumIndexById (sourceDom) {
 
     const index = siblingRastra.findIndex(child => child === rastrum)
     if (index >= 0) {
-      byId.set(rastrumId, index + 1)
+      const left = parseNumericAttribute(rastrum, 'system.leftmar')
+      const top = parseNumericAttribute(rastrum, 'system.topmar')
+      const width = parseNumericAttribute(rastrum, 'width')
+      const systemHeight = parseNumericAttribute(rastrum, 'system.height')
+      const rotate = parseNumericAttribute(rastrum, 'rotate') || 0
+
+      byId.set(rastrumId, {
+        pos: index + 1,
+        left,
+        top,
+        width,
+        systemHeight,
+        rotate
+      })
     }
   })
 
@@ -262,10 +361,10 @@ function resolveDtSystemById (dtDom, systemId) {
  *
  * @param {string} systemId - DT system identifier from data-system-id.
  * @param {Document} dtDom - Diplomatic transcript DOM.
- * @param {Map<string, number>} rastrumIndexById - Source rastrum index map.
- * @returns {Array<{pos: number}>} Ordered unique staff positions.
+ * @param {Map<string, {pos: number, left: number, top: number, width: number, systemHeight: number, rotate: number}>} rastrumMetaById - Source rastrum metadata map.
+ * @returns {Array<{pos: number, left: number, top: number, width: number, systemHeight: number, rotate: number}>} Ordered unique staff metadata.
  */
-function resolveSystemLabelsByDtSystem (systemId, dtDom, rastrumIndexById) {
+function resolveSystemLabelsByDtSystem (systemId, dtDom, rastrumMetaById) {
   const system = resolveDtSystemById(dtDom, systemId)
   if (!system) return []
 
@@ -275,7 +374,7 @@ function resolveSystemLabelsByDtSystem (systemId, dtDom, rastrumIndexById) {
       return localName === 'staffDef'
     })
 
-  const positions = []
+  const rastra = []
   staffDefs.forEach((staffDef) => {
     const decls = String(staffDef.getAttribute('decls') || '').trim()
     if (!decls) return
@@ -287,15 +386,108 @@ function resolveSystemLabelsByDtSystem (systemId, dtDom, rastrumIndexById) {
         return parsed ? parsed.targetId : normalizeId(ref)
       })
       .forEach((declId) => {
-        const pos = rastrumIndexById.get(declId)
-        if (Number.isFinite(pos)) {
-          positions.push(pos)
+        const rastrumMeta = rastrumMetaById.get(declId)
+        if (rastrumMeta && Number.isFinite(rastrumMeta.pos)) {
+          rastra.push(rastrumMeta)
         }
       })
   })
 
-  const uniquePositions = Array.from(new Set(positions))
-  return uniquePositions.map(pos => ({ pos }))
+  const uniqueByPos = new Map()
+  rastra.forEach((rastrumMeta) => {
+    if (!uniqueByPos.has(rastrumMeta.pos)) {
+      uniqueByPos.set(rastrumMeta.pos, rastrumMeta)
+    }
+  })
+
+  return Array.from(uniqueByPos.values()).sort((a, b) => a.pos - b.pos)
+}
+
+/**
+ * Computes an axis-aligned bbox for a rotated rectangle around top-left pivot.
+ *
+ * @param {number} left - Rectangle x position.
+ * @param {number} top - Rectangle y position.
+ * @param {number} width - Rectangle width.
+ * @param {number} height - Rectangle height.
+ * @param {number} rotate - Rotation angle in degrees.
+ * @returns {{x1: number, y1: number, x2: number, y2: number}|null} Rotated bbox.
+ */
+function computeRotatedRectBounds (left, top, width, height, rotate = 0) {
+  if (![left, top, width, height].every(Number.isFinite)) return null
+  if (width <= 0 || height <= 0) return null
+
+  const angle = rotate * Math.PI / 180
+  const cos = Math.cos(angle)
+  const sin = Math.sin(angle)
+
+  const corners = [
+    [0, 0],
+    [width, 0],
+    [width, height],
+    [0, height]
+  ].map(([dx, dy]) => {
+    return {
+      x: left + dx * cos - dy * sin,
+      y: top + dx * sin + dy * cos
+    }
+  })
+
+  const xs = corners.map(point => point.x)
+  const ys = corners.map(point => point.y)
+
+  return {
+    x1: Math.min(...xs),
+    y1: Math.min(...ys),
+    x2: Math.max(...xs),
+    y2: Math.max(...ys)
+  }
+}
+
+/**
+ * Computes normalized system-preview bounds from rastrum metadata.
+ *
+ * @param {Array<{left: number, top: number, width: number, systemHeight: number, rotate: number}>} rastra - Rastrum metadata for a system.
+ * @param {{width: number, height: number}|null} surfaceDimensions - Page dimensions from context.
+ * @returns {{x: number, y: number, w: number, h: number}|null} Normalized preview bounds.
+ */
+function computeSystemPreviewBounds (rastra, surfaceDimensions) {
+  if (!surfaceDimensions) return null
+  if (!Number.isFinite(surfaceDimensions.width) || !Number.isFinite(surfaceDimensions.height) || surfaceDimensions.width <= 0 || surfaceDimensions.height <= 0) {
+    return null
+  }
+
+  const bounds = rastra
+    .map((rastrumMeta) => {
+      return computeRotatedRectBounds(
+        rastrumMeta.left,
+        rastrumMeta.top,
+        rastrumMeta.width,
+        rastrumMeta.systemHeight,
+        rastrumMeta.rotate
+      )
+    })
+    .filter(Boolean)
+
+  if (bounds.length === 0) return null
+
+  const minX = Math.min(...bounds.map(b => b.x1))
+  const minY = Math.min(...bounds.map(b => b.y1))
+  const maxX = Math.max(...bounds.map(b => b.x2))
+  const maxY = Math.max(...bounds.map(b => b.y2))
+
+  const clamp01 = value => Math.max(0, Math.min(1, value))
+  const x1 = clamp01(minX / surfaceDimensions.width)
+  const y1 = clamp01(minY / surfaceDimensions.height)
+  const x2 = clamp01(maxX / surfaceDimensions.width)
+  const y2 = clamp01(maxY / surfaceDimensions.height)
+
+  return {
+    x: Math.min(x1, x2),
+    y: Math.min(y1, y2),
+    w: Math.abs(x2 - x1),
+    h: Math.abs(y2 - y1)
+  }
 }
 
 /**
@@ -394,7 +586,7 @@ export function addSystemLabelBlocks (svgDom, atDom, dtDom, sourceDom, contextDo
   const atAnnotById = buildAnnotByIdMap(atDom)
   const atSbById = buildElementByIdMap(atDom, 'sb')
   const sourceGenDescById = buildElementByIdMap(sourceDom, 'genDesc')
-  const rastrumIndexById = buildSourceRastrumIndexById(sourceDom)
+  const rastrumMetaById = buildSourceRastrumMetaById(sourceDom)
   const currentDtReference = triple?.dtFullPath || triple?.dt || ''
   const dtDomCache = new Map()
   const reportIssue = (issue) => {
@@ -499,6 +691,8 @@ export function addSystemLabelBlocks (svgDom, atDom, dtDom, sourceDom, contextDo
     const atWzBeginId = normalizeId(wzb.getAttribute('data-id'))
     const atWzBegin = atAnnotById.get(atWzBeginId) || null
     let label = 'x'
+    let surfaceId = ''
+    let surfaceDimensions = null
 
     if (atWzBegin && atWzBegin.hasAttribute('corresp')) {
       try {
@@ -514,11 +708,13 @@ export function addSystemLabelBlocks (svgDom, atDom, dtDom, sourceDom, contextDo
 
         const wzLabel = gendescWZ.getAttribute('label')
 
-        const surfaceId = normalizeId(gendescWZ.parentElement?.getAttribute('corresp'))
+        surfaceId = normalizeId(gendescWZ.parentElement?.getAttribute('corresp'))
         const surfaceLabel = resolveSurfaceLabelFromContext(contextDom, surfaceId)
         if (!surfaceLabel) {
           throw new Error('Missing context foliation label for surface id ' + surfaceId)
         }
+
+        surfaceDimensions = resolveSurfaceDimensionsFromContext(contextDom, surfaceId)
 
         const docName = triple?.dtFullPath || triple?.dt || ''
         box.setAttribute('data-dt-path', docName)
@@ -553,6 +749,15 @@ export function addSystemLabelBlocks (svgDom, atDom, dtDom, sourceDom, contextDo
 
     const sysBoxes = box.querySelectorAll('g.systemBegin')
 
+    if (!surfaceDimensions) {
+      reportIssue({
+        code: 'page-dimensions-unresolved',
+        surfaceId,
+        currentDtReference,
+        reason: 'Could not resolve surface width/height from context foliation metadata.'
+      })
+    }
+
     sysBoxes.forEach((sysBox) => {
       const sysBbox = computeApproxBBox(sysBox)
       if (!sysBbox) {
@@ -579,7 +784,7 @@ export function addSystemLabelBlocks (svgDom, atDom, dtDom, sourceDom, contextDo
           currentDtReference
         })
       }) || dtDom
-      const systemLabels = resolveSystemLabelsByDtSystem(systemId, dtDomForSystem, rastrumIndexById)
+      const systemLabels = resolveSystemLabelsByDtSystem(systemId, dtDomForSystem, rastrumMetaById)
 
       if (systemLabels.length === 0) {
         reportIssue({
@@ -593,8 +798,10 @@ export function addSystemLabelBlocks (svgDom, atDom, dtDom, sourceDom, contextDo
       }
 
       const pageHeight = staffHeight * 0.6 * 0.8
-      const previewRatio = Number.isFinite(systemLabels[0]?.ratio) ? systemLabels[0].ratio : 1
-      const pageWidth = systemLabels.length > 0 ? parseFloat((pageHeight * previewRatio).toFixed(2)) : 1
+      const pageAspectRatio = surfaceDimensions && Number.isFinite(surfaceDimensions.width) && Number.isFinite(surfaceDimensions.height) && surfaceDimensions.height > 0
+        ? surfaceDimensions.width / surfaceDimensions.height
+        : 1
+      const pageWidth = parseFloat((pageHeight * pageAspectRatio).toFixed(2))
 
       const previewPageBox = doc.createElementNS('http://www.w3.org/2000/svg', 'rect')
       previewPageBox.classList.add('pageBg')
@@ -603,35 +810,22 @@ export function addSystemLabelBlocks (svgDom, atDom, dtDom, sourceDom, contextDo
 
       previewPageBox.setAttribute('height', pageHeight)
       previewPageBox.setAttribute('width', pageWidth)
+      previewPageBox.setAttribute('fill', '#f5f5f5')
 
-      let x1 = 0
-      let y1 = 0
-      let x2 = 1
-      let y2 = 1
-      const previewLabels = systemLabels.filter((systemLabel) => {
-        return Number.isFinite(systemLabel.x) && Number.isFinite(systemLabel.y) &&
-          Number.isFinite(systemLabel.w) && Number.isFinite(systemLabel.h)
-      })
-      if (previewLabels.length > 0) {
-        x1 = 1
-        y1 = 1
-        x2 = 0
-        y2 = 0
-        previewLabels.forEach((systemLabel) => {
-          x1 = Math.min(x1, systemLabel.x)
-          y1 = Math.min(y1, systemLabel.y)
-          x2 = Math.max(x2, systemLabel.x + systemLabel.w)
-          y2 = Math.max(y2, systemLabel.y + systemLabel.h)
-        })
-      }
+      const previewBounds = computeSystemPreviewBounds(systemLabels, surfaceDimensions)
+      const x1 = previewBounds ? previewBounds.x : 0
+      const y1 = previewBounds ? previewBounds.y : 0
+      const previewWidthRatio = previewBounds ? previewBounds.w : 1
+      const previewHeightRatio = previewBounds ? previewBounds.h : 1
 
       const previewSystemBox = doc.createElementNS('http://www.w3.org/2000/svg', 'rect')
       previewSystemBox.classList.add('sysPreview')
       previewSystemBox.setAttribute('x', sysBbox.x + staffHeight / 8 + pageHeight * 0.1 + pageWidth * x1)
       previewSystemBox.setAttribute('y', staffHeight * -0.8 + pageHeight * 0.1 + pageHeight * y1)
 
-      previewSystemBox.setAttribute('height', pageHeight * (y2 - y1))
-      previewSystemBox.setAttribute('width', pageWidth * (x2 - x1))
+      previewSystemBox.setAttribute('height', pageHeight * previewHeightRatio)
+      previewSystemBox.setAttribute('width', pageWidth * previewWidthRatio)
+      previewSystemBox.setAttribute('fill', '#ff3333')
 
       const text = doc.createElementNS('http://www.w3.org/2000/svg', 'text')
       text.setAttribute('x', sysBbox.x + staffHeight / 8 + parseFloat(pageHeight * 0.5) + parseFloat(pageWidth))

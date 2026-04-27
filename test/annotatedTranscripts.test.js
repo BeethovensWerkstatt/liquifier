@@ -112,9 +112,9 @@ test('addSystemLabelBlocks resolves writing-zone annot by xml:id and context fol
       </notesStmt>
       <workDesc>
         <annot>
-          <rastrum xml:id="r1"/>
-          <rastrum xml:id="r2"/>
-          <rastrum xml:id="r3"/>
+          <rastrum xml:id="r1" system.leftmar="0" system.topmar="0" width="80" system.height="10" rotate="0"/>
+          <rastrum xml:id="r2" system.leftmar="10" system.topmar="20" width="50" system.height="10" rotate="0"/>
+          <rastrum xml:id="r3" system.leftmar="20" system.topmar="40" width="30" system.height="20" rotate="0"/>
         </annot>
       </workDesc>
     </mei>
@@ -153,7 +153,7 @@ test('addSystemLabelBlocks resolves writing-zone annot by xml:id and context fol
       <sourceDesc>
         <foliaDesc>
           <folium recto="#surfX" verso="#surfY"/>
-          <bifolium outer.recto="../sources/foo.xml#surf1" inner.verso="#surfA" inner.recto="#surfB" outer.verso="#surfC">
+            <bifolium outer.recto="../sources/foo.xml#surf1" inner.verso="#surfA" inner.recto="#surfB" outer.verso="#surfC" width="200" height="100">
             <folium recto="#surfD" verso="#surfE"/>
           </bifolium>
         </foliaDesc>
@@ -172,6 +172,29 @@ test('addSystemLabelBlocks resolves writing-zone annot by xml:id and context fol
   const sysLabel = outSvg.querySelector('text.sysLabel')
   assert.ok(sysLabel)
   assert.equal(sysLabel.textContent, 'Staves 2, 3')
+
+  const pageBg = outSvg.querySelector('rect.pageBg')
+  const sysPreview = outSvg.querySelector('rect.sysPreview')
+  assert.ok(pageBg)
+  assert.ok(sysPreview)
+
+  const pageBgX = parseFloat(pageBg.getAttribute('x'))
+  const pageBgY = parseFloat(pageBg.getAttribute('y'))
+  const pageBgWidth = parseFloat(pageBg.getAttribute('width'))
+  const pageBgHeight = parseFloat(pageBg.getAttribute('height'))
+
+  const previewX = parseFloat(sysPreview.getAttribute('x'))
+  const previewY = parseFloat(sysPreview.getAttribute('y'))
+  const previewWidth = parseFloat(sysPreview.getAttribute('width'))
+  const previewHeight = parseFloat(sysPreview.getAttribute('height'))
+
+  const approxEqual = (actual, expected, tolerance = 0.02) => Math.abs(actual - expected) <= tolerance
+
+  assert.ok(approxEqual(pageBgWidth / pageBgHeight, 2))
+  assert.ok(approxEqual((previewX - pageBgX) / pageBgWidth, 0.05))
+  assert.ok(approxEqual((previewY - pageBgY) / pageBgHeight, 0.2))
+  assert.ok(approxEqual(previewWidth / pageBgWidth, 0.25))
+  assert.ok(approxEqual(previewHeight / pageBgHeight, 0.4))
 })
 
 test('addSystemLabelBlocks loads external dtDom referenced by sb corresp', () => {
