@@ -298,3 +298,109 @@ test('addSystemLabelBlocks loads external dtDom referenced by sb corresp', () =>
     rmSync(tmpRoot, { recursive: true, force: true })
   }
 })
+
+test('addSystemLabelBlocks reports issues when external dtDom cannot be loaded', () => {
+  const tmpRoot = mkdtempSync(path.join(os.tmpdir(), 'liquifier-dt-ref-fail-'))
+
+  try {
+    const dtDir = path.join(tmpRoot, 'diplomaticTranscripts')
+    const currentDtPath = path.join(dtDir, 'current_dt.xml')
+
+    mkdirSync(dtDir, { recursive: true })
+    writeFileSync(currentDtPath, '<mei xmlns="http://www.music-encoding.org/ns/mei"/>', { encoding: 'utf8' })
+
+    const svgDom = parser.parseFromString(`
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 400">
+        <g data-id="wz1" data-class="annot" class="annot"/>
+        <g data-id="m1" data-class="measure" class="measure">
+          <g class="staff">
+            <path d="M0 100 L300 100"/>
+            <path d="M0 110 L300 110"/>
+            <path d="M0 120 L300 120"/>
+            <path d="M0 130 L300 130"/>
+            <path d="M0 140 L300 140"/>
+          </g>
+        </g>
+        <g data-id="sb1" data-class="sb" class="sb"/>
+        <g data-id="m2" data-class="measure" class="measure">
+          <g class="staff">
+            <path d="M400 100 L700 100"/>
+            <path d="M400 110 L700 110"/>
+            <path d="M400 120 L700 120"/>
+            <path d="M400 130 L700 130"/>
+            <path d="M400 140 L700 140"/>
+          </g>
+        </g>
+      </svg>
+    `, 'image/svg+xml')
+
+    const atDom = parser.parseFromString(`
+      <mei xmlns="http://www.music-encoding.org/ns/mei">
+        <music>
+          <body>
+            <mdiv>
+              <score>
+                <section>
+                  <annot xml:id="wz1" class="#bw_writingZoneBegin" corresp="../sources/foo.xml#wz04"/>
+                  <sb xml:id="sb1" corresp="missing_dt.xml#sysMissing"/>
+                </section>
+              </score>
+            </mdiv>
+          </body>
+        </music>
+      </mei>
+    `, 'text/xml')
+
+    const sourceDom = parser.parseFromString(`
+      <mei xmlns="http://www.music-encoding.org/ns/mei">
+        <notesStmt>
+          <annot corresp="#surf1">
+            <genDesc xml:id="wz04" label="04"/>
+          </annot>
+        </notesStmt>
+        <workDesc>
+          <annot>
+            <rastrum xml:id="r1"/>
+          </annot>
+        </workDesc>
+      </mei>
+    `, 'text/xml')
+
+    const dtDom = parser.parseFromString(`
+      <mei xmlns="http://www.music-encoding.org/ns/mei" xmlns:bw="https://beethovens-werkstatt.de/ns/bw">
+        <music><body><mdiv><score><section/></score></mdiv></body></music>
+      </mei>
+    `, 'text/xml')
+
+    const contextDom = parser.parseFromString(`
+      <mei xmlns="http://www.music-encoding.org/ns/mei">
+        <meiHead>
+          <fileDesc>
+            <titleStmt>
+              <title type="abbreviated">NK</title>
+            </titleStmt>
+          </fileDesc>
+        </meiHead>
+        <sourceDesc>
+          <foliaDesc>
+            <folium recto="#surf1" verso="#surf2"/>
+          </foliaDesc>
+        </sourceDesc>
+      </mei>
+    `, 'text/xml')
+
+    const issues = []
+    addSystemLabelBlocks(svgDom, atDom, dtDom, sourceDom, contextDom, {
+      dtFullPath: currentDtPath
+    }, {
+      onIssue: (issue) => {
+        issues.push(issue)
+      }
+    })
+
+    assert.ok(issues.some(issue => issue.code === 'external-dt-load-failed'))
+    assert.ok(issues.some(issue => issue.code === 'system-label-unresolved'))
+  } finally {
+    rmSync(tmpRoot, { recursive: true, force: true })
+  }
+})

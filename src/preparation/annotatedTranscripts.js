@@ -150,9 +150,10 @@ function resolveReferencedDtPath (fileRef, currentDtReference) {
  * @param {Document} currentDtDom - DT DOM passed into addSystemLabelBlocks.
  * @param {string} currentDtReference - Current DT file path/reference.
  * @param {Map<string, Document|null>} dtDomCache - Cache of loaded DT DOMs.
+ * @param {Function|null} onIssue - Optional callback for non-fatal issue reporting.
  * @returns {Document|null} DT DOM containing the target system, or null.
  */
-function resolveDtDomForSystemRef (dtSystemRef, currentDtDom, currentDtReference, dtDomCache) {
+function resolveDtDomForSystemRef (dtSystemRef, currentDtDom, currentDtReference, dtDomCache, onIssue = null) {
   if (!dtSystemRef || !dtSystemRef.fileRef) {
     return currentDtDom
   }
@@ -174,7 +175,15 @@ function resolveDtDomForSystemRef (dtSystemRef, currentDtDom, currentDtReference
     const dom = new DOMParser().parseFromString(xml, 'text/xml')
     dtDomCache.set(dtPath, dom)
     return dom
-  } catch {
+  } catch (err) {
+    if (typeof onIssue === 'function') {
+      onIssue({
+        code: 'external-dt-load-failed',
+        fileRef: dtSystemRef.fileRef,
+        resolvedPath: dtPath,
+        reason: err instanceof Error ? err.message : String(err)
+      })
+    }
     dtDomCache.set(dtPath, null)
     return null
   }
@@ -375,9 +384,11 @@ function resolveSurfaceLabelFromContext (contextDom, surfaceId) {
  * @param {Document} sourceDom - Source document used by this function.
  * @param {Document} contextDom - Context document used by this function; this might be a reconstructed document, where sourceDom is the modern document that was once part of this one.
  * @param {Object} triple - File paths and dates related to the current processing context, used for logging and data retrieval within this function.
+ * @param {Object} options - Optional behavior flags and callbacks.
+ * @param {Function} options.onIssue - Callback receiving non-fatal issue descriptors.
  * @returns {Object} Resulting object.
  */
-export function addSystemLabelBlocks (svgDom, atDom, dtDom, sourceDom, contextDom, triple) {
+export function addSystemLabelBlocks (svgDom, atDom, dtDom, sourceDom, contextDom, triple, options = {}) {
   const wzBegins = svgDom.querySelectorAll('g[data-class="annot"]:not(.bounding-box)')
   const doc = svgDom.ownerDocument || svgDom.documentElement?.ownerDocument || svgDom
   const atAnnotById = buildAnnotByIdMap(atDom)
@@ -386,6 +397,11 @@ export function addSystemLabelBlocks (svgDom, atDom, dtDom, sourceDom, contextDo
   const rastrumIndexById = buildSourceRastrumIndexById(sourceDom)
   const currentDtReference = triple?.dtFullPath || triple?.dt || ''
   const dtDomCache = new Map()
+  const reportIssue = (issue) => {
+    if (typeof options?.onIssue === 'function') {
+      options.onIssue(issue)
+    }
+  }
 
   const currentDtAbsolutePath = String(currentDtReference || '').trim() ? path.resolve(String(currentDtReference).trim()) : ''
   if (currentDtAbsolutePath) {
@@ -555,8 +571,26 @@ export function addSystemLabelBlocks (svgDom, atDom, dtDom, sourceDom, contextDo
       const dtSystemRef = resolveDtSystemRefFromSb(sbId, atSbById, currentDtReference)
       const mappedSystemId = dtSystemRef?.targetId || ''
       const systemId = mappedSystemId || sbId || normalizeId(sysBox.getAttribute('data-system-id'))
-      const dtDomForSystem = resolveDtDomForSystemRef(dtSystemRef, dtDom, currentDtReference, dtDomCache) || dtDom
+      const dtDomForSystem = resolveDtDomForSystemRef(dtSystemRef, dtDom, currentDtReference, dtDomCache, (issue) => {
+        reportIssue({
+          ...issue,
+          sbId,
+          systemId,
+          currentDtReference
+        })
+      }) || dtDom
       const systemLabels = resolveSystemLabelsByDtSystem(systemId, dtDomForSystem, rastrumIndexById)
+
+      if (systemLabels.length === 0) {
+        reportIssue({
+          code: 'system-label-unresolved',
+          sbId,
+          systemId,
+          dtFileRef: dtSystemRef?.fileRef || '',
+          currentDtReference,
+          reason: 'No system labels could be resolved for the requested DT system.'
+        })
+      }
 
       const pageHeight = staffHeight * 0.6 * 0.8
       const previewRatio = Number.isFinite(systemLabels[0]?.ratio) ? systemLabels[0].ratio : 1

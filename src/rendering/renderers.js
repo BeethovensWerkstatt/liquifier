@@ -779,26 +779,53 @@ function buildFluidSystemsErrorLogPath (fsSvgPath) {
 }
 
 /**
- * Persists an error report for one fluidSystems file failure.
+ * Produces a stable one-line summary for one fluid systems issue object.
+ *
+ * @param {Object} issue - Structured issue descriptor.
+ * @returns {string} Flattened single-line summary.
+ */
+function formatFluidSystemsIssueLine (issue) {
+  return Object.entries(issue || {})
+    .map(([key, value]) => `${key}=${String(value ?? '').replace(/\s+/g, ' ').trim()}`)
+    .join(';')
+}
+
+/**
+ * Persists a fluidSystems error/warning report for one output file.
  *
  * @param {Object} params - Structured parameter bundle.
  * @param {Object} params.triple - File tuple containing source/target paths.
  * @param {Error|string} params.error - Error value to log.
+ * @param {Array<Object>} params.issues - Non-fatal issue details to include.
+ * @param {string} params.severity - Severity marker (`error` or `warning`).
  * @returns {Promise<void>} Promise resolving after log write.
  */
-async function writeFluidSystemsErrorLog ({ triple, error }) {
+async function writeFluidSystemsErrorLog ({ triple, error, issues = [], severity = 'error' }) {
   if (!triple?.fsSvgPath) return
+  if (!error && issues.length === 0) return
 
   const errorLogPath = buildFluidSystemsErrorLogPath(triple.fsSvgPath)
-  const reason = error instanceof Error ? error.message : String(error)
+  const reason = error instanceof Error ? error.message : String(error || '')
+  const uniqueIssueLines = Array.from(new Set(issues.map(formatFluidSystemsIssueLine).filter(Boolean)))
   const lines = [
     `timestamp=${new Date().toISOString()}`,
     'type=fluidSystems',
+    `severity=${severity}`,
     `inputDt=${triple.dtFullPath || triple.dt || ''}`,
     `inputAt=${triple.atFullPath || triple.at || ''}`,
-    `outputFs=${triple.fsSvgPath}`,
-    `reason=${reason}`
+    `outputFs=${triple.fsSvgPath}`
   ]
+
+  if (reason) {
+    lines.push(`reason=${reason}`)
+  }
+
+  if (uniqueIssueLines.length > 0) {
+    lines.push(`issueCount=${uniqueIssueLines.length}`)
+    uniqueIssueLines.forEach((issueLine, index) => {
+      lines.push(`issue.${index + 1}=${issueLine}`)
+    })
+  }
 
   await writeData(`${lines.join('\n')}\n`, errorLogPath)
 }
@@ -994,6 +1021,7 @@ export async function buildCurrentDtSvgForFluidSystems ({ dtDom, sourceDom, pars
  */
 export async function renderFluidSystemsSvg ({ data, triple, verovio, pageDimensions, recreate, logger }) {
   const { atDate, dtDate, fsSvgPath, fsSvgDate } = triple
+  const systemLabelIssues = []
 
   if (!shouldRender(recreate, [atDate, dtDate], fsSvgDate)) {
     logger.info('Skipping Fluid Systems for ' + fsSvgPath)
@@ -1054,7 +1082,11 @@ export async function renderFluidSystemsSvg ({ data, triple, verovio, pageDimens
     const atSvgString = renderContinuousAt(renderDom, verovio, 'annotated', pageDimensions)
     const atSvg = parser.parseFromString(atSvgString, 'image/svg+xml')
 
-    const atSvgWithSystemLabels = addSystemLabelBlocks(atSvg, data.atDom, data.dtDom, data.sourceDom, data.reconstructionDom, triple)
+    const atSvgWithSystemLabels = addSystemLabelBlocks(atSvg, data.atDom, data.dtDom, data.sourceDom, data.reconstructionDom, triple, {
+      onIssue: (issue) => {
+        systemLabelIssues.push(issue)
+      }
+    })
 
     const fluidSvg = generateFluidTranscription(dtSvg, atSvgWithSystemLabels, data.atDom, data.sourceDom, logger, {
       stateModel: 'fluidSystems',
@@ -1067,11 +1099,27 @@ export async function renderFluidSystemsSvg ({ data, triple, verovio, pageDimens
 
     const fluidSvgString = serializer.serializeToString(fluidSvg)
     await writeData(fluidSvgString, fsSvgPath)
+
+    if (systemLabelIssues.length > 0) {
+      const warningMessage = `[renderFluidSystemsSvg] Non-fatal system label issues detected (${systemLabelIssues.length}); see fluid systems error log for details.`
+      logger.warn(warningMessage)
+      try {
+        await writeFluidSystemsErrorLog({
+          triple,
+          error: warningMessage,
+          issues: systemLabelIssues,
+          severity: 'warning'
+        })
+      } catch (logErr) {
+        logger.error(`Error writing fluid systems warning log: ${logErr.message}`)
+      }
+    }
+
     logger.info('Fluid Systems generation complete: 1 succeeded, 0 failed')
   } catch (err) {
     logger.error(`Error rendering fluid systems: ${err.message}`)
     try {
-      await writeFluidSystemsErrorLog({ triple, error: err })
+      await writeFluidSystemsErrorLog({ triple, error: err, issues: systemLabelIssues, severity: 'error' })
     } catch (logErr) {
       logger.error(`Error writing fluid systems error log: ${logErr.message}`)
     }
