@@ -887,7 +887,7 @@ export function addSbIndicators (svgDom, atDom) {
     return null
   }
 
-  sbs.forEach((sb, i) => {
+  /* sbs.forEach((sb, i) => {
     if (i > 0) {
       const measure = getMeasure(sb)
       if (measure) {
@@ -903,7 +903,7 @@ export function addSbIndicators (svgDom, atDom) {
         measure.append(dir)
       }
     }
-  })
+  }) */
 
   return atDom
 }
