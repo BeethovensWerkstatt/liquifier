@@ -1,5 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import os from 'node:os'
+import path from 'node:path'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { JSDOM } from 'jsdom'
 
 import { addSbIndicators, addSystemLabelBlocks } from '../src/preparation/annotatedTranscripts.js'
@@ -67,6 +70,16 @@ test('addSystemLabelBlocks resolves writing-zone annot by xml:id and context fol
           <path d="M0 140 L300 140"/>
         </g>
       </g>
+      <g data-id="sb1" data-class="sb" class="sb"/>
+      <g data-id="m2" data-class="measure" class="measure">
+        <g class="staff">
+          <path d="M400 100 L700 100"/>
+          <path d="M400 110 L700 110"/>
+          <path d="M400 120 L700 120"/>
+          <path d="M400 130 L700 130"/>
+          <path d="M400 140 L700 140"/>
+        </g>
+      </g>
     </svg>
   `, 'image/svg+xml')
 
@@ -78,6 +91,7 @@ test('addSystemLabelBlocks resolves writing-zone annot by xml:id and context fol
             <score>
               <section>
                 <annot xml:id="wz1" class="#bw_writingZoneBegin" corresp="../sources/foo.xml#wz04"/>
+                <sb xml:id="sb1" corresp="../diplomaticTranscripts/example_dt.xml#sys1"/>
               </section>
             </score>
           </mdiv>
@@ -96,6 +110,34 @@ test('addSystemLabelBlocks resolves writing-zone annot by xml:id and context fol
           <genDesc xml:id="wz04" label="04"/>
         </annot>
       </notesStmt>
+      <workDesc>
+        <annot>
+          <rastrum xml:id="r1"/>
+          <rastrum xml:id="r2"/>
+          <rastrum xml:id="r3"/>
+        </annot>
+      </workDesc>
+    </mei>
+  `, 'text/xml')
+
+  const dtDom = parser.parseFromString(`
+    <mei xmlns="http://www.music-encoding.org/ns/mei" xmlns:bw="https://beethovens-werkstatt.de/ns/bw">
+      <music>
+        <body>
+          <mdiv>
+            <score>
+              <section>
+                <bw:system xml:id="sys1">
+                  <staffGrp>
+                    <staffDef xml:id="sd1" decls="../D-BNba_MH_60_Engelmann.xml#r2"/>
+                    <staffDef xml:id="sd2" decls="../D-BNba_MH_60_Engelmann.xml#r3"/>
+                  </staffGrp>
+                </bw:system>
+              </section>
+            </score>
+          </mdiv>
+        </body>
+      </music>
     </mei>
   `, 'text/xml')
 
@@ -119,11 +161,140 @@ test('addSystemLabelBlocks resolves writing-zone annot by xml:id and context fol
     </mei>
   `, 'text/xml')
 
-  const outSvg = addSystemLabelBlocks(svgDom, atDom, sourceDom, contextDom, {
+  const outSvg = addSystemLabelBlocks(svgDom, atDom, dtDom, sourceDom, contextDom, {
     dt: 'D-BNba_MH_60_Engelmann/diplomaticTranscripts/D-BNba_MH_60_Engelmann_p017_wz01_dt.xml'
   })
 
   const label = outSvg.querySelector('text.pageLabel')
   assert.ok(label)
   assert.equal(label.textContent, 'NK 3 / 04')
+
+  const sysLabel = outSvg.querySelector('text.sysLabel')
+  assert.ok(sysLabel)
+  assert.equal(sysLabel.textContent, 'Staves 2, 3')
+})
+
+test('addSystemLabelBlocks loads external dtDom referenced by sb corresp', () => {
+  const tmpRoot = mkdtempSync(path.join(os.tmpdir(), 'liquifier-dt-ref-'))
+
+  try {
+    const dtDir = path.join(tmpRoot, 'diplomaticTranscripts')
+    const currentDtPath = path.join(dtDir, 'current_dt.xml')
+    const otherDtPath = path.join(dtDir, 'other_dt.xml')
+
+    mkdirSync(dtDir, { recursive: true })
+    writeFileSync(currentDtPath, '<mei xmlns="http://www.music-encoding.org/ns/mei"/>', { encoding: 'utf8' })
+    writeFileSync(otherDtPath, `
+      <mei xmlns="http://www.music-encoding.org/ns/mei" xmlns:bw="https://beethovens-werkstatt.de/ns/bw">
+        <music>
+          <body>
+            <mdiv>
+              <score>
+                <section>
+                  <bw:system xml:id="sysExternal">
+                    <staffGrp>
+                      <staffDef decls="../D-BNba_MH_60_Engelmann.xml#r1"/>
+                      <staffDef decls="../D-BNba_MH_60_Engelmann.xml#r3"/>
+                    </staffGrp>
+                  </bw:system>
+                </section>
+              </score>
+            </mdiv>
+          </body>
+        </music>
+      </mei>
+    `, { encoding: 'utf8' })
+
+    const svgDom = parser.parseFromString(`
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 400">
+        <g data-id="wz1" data-class="annot" class="annot"/>
+        <g data-id="m1" data-class="measure" class="measure">
+          <g class="staff">
+            <path d="M0 100 L300 100"/>
+            <path d="M0 110 L300 110"/>
+            <path d="M0 120 L300 120"/>
+            <path d="M0 130 L300 130"/>
+            <path d="M0 140 L300 140"/>
+          </g>
+        </g>
+        <g data-id="sb1" data-class="sb" class="sb"/>
+        <g data-id="m2" data-class="measure" class="measure">
+          <g class="staff">
+            <path d="M400 100 L700 100"/>
+            <path d="M400 110 L700 110"/>
+            <path d="M400 120 L700 120"/>
+            <path d="M400 130 L700 130"/>
+            <path d="M400 140 L700 140"/>
+          </g>
+        </g>
+      </svg>
+    `, 'image/svg+xml')
+
+    const atDom = parser.parseFromString(`
+      <mei xmlns="http://www.music-encoding.org/ns/mei">
+        <music>
+          <body>
+            <mdiv>
+              <score>
+                <section>
+                  <annot xml:id="wz1" class="#bw_writingZoneBegin" corresp="../sources/foo.xml#wz04"/>
+                  <sb xml:id="sb1" corresp="other_dt.xml#sysExternal"/>
+                </section>
+              </score>
+            </mdiv>
+          </body>
+        </music>
+      </mei>
+    `, 'text/xml')
+
+    const sourceDom = parser.parseFromString(`
+      <mei xmlns="http://www.music-encoding.org/ns/mei">
+        <notesStmt>
+          <annot corresp="#surf1">
+            <genDesc xml:id="wz04" label="04"/>
+          </annot>
+        </notesStmt>
+        <workDesc>
+          <annot>
+            <rastrum xml:id="r1"/>
+            <rastrum xml:id="r2"/>
+            <rastrum xml:id="r3"/>
+          </annot>
+        </workDesc>
+      </mei>
+    `, 'text/xml')
+
+    const dtDom = parser.parseFromString(`
+      <mei xmlns="http://www.music-encoding.org/ns/mei" xmlns:bw="https://beethovens-werkstatt.de/ns/bw">
+        <music><body><mdiv><score><section/></score></mdiv></body></music>
+      </mei>
+    `, 'text/xml')
+
+    const contextDom = parser.parseFromString(`
+      <mei xmlns="http://www.music-encoding.org/ns/mei">
+        <meiHead>
+          <fileDesc>
+            <titleStmt>
+              <title type="abbreviated">NK</title>
+            </titleStmt>
+          </fileDesc>
+        </meiHead>
+        <sourceDesc>
+          <foliaDesc>
+            <folium recto="#surf1" verso="#surf2"/>
+          </foliaDesc>
+        </sourceDesc>
+      </mei>
+    `, 'text/xml')
+
+    const outSvg = addSystemLabelBlocks(svgDom, atDom, dtDom, sourceDom, contextDom, {
+      dtFullPath: currentDtPath
+    })
+
+    const sysLabel = outSvg.querySelector('text.sysLabel')
+    assert.ok(sysLabel)
+    assert.equal(sysLabel.textContent, 'Staves 1, 3')
+  } finally {
+    rmSync(tmpRoot, { recursive: true, force: true })
+  }
 })

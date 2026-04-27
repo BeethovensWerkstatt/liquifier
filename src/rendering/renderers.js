@@ -1054,7 +1054,7 @@ export async function renderFluidSystemsSvg ({ data, triple, verovio, pageDimens
     const atSvgString = renderContinuousAt(renderDom, verovio, 'annotated', pageDimensions)
     const atSvg = parser.parseFromString(atSvgString, 'image/svg+xml')
 
-    const atSvgWithSystemLabels = addSystemLabelBlocks(atSvg, data.atDom, data.sourceDom, data.reconstructionDom, triple)
+    const atSvgWithSystemLabels = addSystemLabelBlocks(atSvg, data.atDom, data.dtDom, data.sourceDom, data.reconstructionDom, triple)
 
     const fluidSvg = generateFluidTranscription(dtSvg, atSvgWithSystemLabels, data.atDom, data.sourceDom, logger, {
       stateModel: 'fluidSystems',

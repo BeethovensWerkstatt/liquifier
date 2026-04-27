@@ -1,6 +1,10 @@
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { JSDOM } from 'jsdom'
 import { computeApproxBBox } from '../utils/svgGeometry.js'
 
 const XML_NS = 'http://www.w3.org/XML/1998/namespace'
+const { DOMParser } = new JSDOM().window
 
 /**
  * Normalizes id-like values used in cross-document references.
@@ -48,6 +52,135 @@ function buildAnnotByIdMap (atDom) {
 }
 
 /**
+ * Normalizes a file reference to its basename.
+ *
+ * @param {string|null} value - File reference value.
+ * @returns {string} Basename-only representation.
+ */
+function normalizeFileBasename (value) {
+  const normalized = String(value || '').trim().replace(/\\/g, '/')
+  if (!normalized) return ''
+
+  const parts = normalized.split('/')
+  return parts[parts.length - 1] || ''
+}
+
+/**
+ * Parses one corresp token into optional file ref and target id.
+ *
+ * @param {string} token - One token from @corresp.
+ * @returns {{fileRef: string, targetId: string}|null} Parsed token.
+ */
+function parseCorrespToken (token) {
+  const normalized = String(token || '').trim()
+  if (!normalized || !normalized.includes('#')) return null
+
+  const hashIndex = normalized.indexOf('#')
+  const fileRef = hashIndex > 0 ? normalized.slice(0, hashIndex).trim() : ''
+  const targetId = normalizeId(normalized.slice(hashIndex + 1))
+  if (!targetId) return null
+
+  return { fileRef, targetId }
+}
+
+/**
+ * Resolves DT system reference referenced by an AT sb element.
+ *
+ * @param {string} sbId - AT sb xml:id.
+ * @param {Map<string, Element>} atSbById - AT sb lookup map.
+ * @param {string} currentDtReference - Current DT path/reference.
+ * @returns {{fileRef: string, targetId: string}|null} Resolved reference, null when unresolved.
+ */
+function resolveDtSystemRefFromSb (sbId, atSbById, currentDtReference) {
+  const sb = atSbById.get(normalizeId(sbId))
+  if (!sb) return null
+
+  const corresp = String(sb.getAttribute('corresp') || '').trim()
+  if (!corresp) return null
+
+  const currentDtBasename = normalizeFileBasename(currentDtReference)
+  let fallbackRef = null
+
+  const tokens = corresp.split(/\s+/)
+  for (const token of tokens) {
+    const parsed = parseCorrespToken(token)
+    if (!parsed) continue
+
+    const { fileRef, targetId } = parsed
+    const candidateRef = { fileRef, targetId }
+
+    if (!fileRef) {
+      return candidateRef
+    }
+
+    if (!fallbackRef) fallbackRef = candidateRef
+
+    if (!currentDtBasename || normalizeFileBasename(fileRef) === currentDtBasename) {
+      return candidateRef
+    }
+  }
+
+  return fallbackRef
+}
+
+/**
+ * Resolves an external DT reference to an absolute file path.
+ *
+ * @param {string} fileRef - Referenced DT file path from corresp.
+ * @param {string} currentDtReference - Current DT file path.
+ * @returns {string} Absolute DT file path, empty when unresolved.
+ */
+function resolveReferencedDtPath (fileRef, currentDtReference) {
+  const normalizedRef = String(fileRef || '').trim()
+  if (!normalizedRef) return ''
+
+  if (path.isAbsolute(normalizedRef)) {
+    return path.normalize(normalizedRef)
+  }
+
+  const normalizedCurrent = String(currentDtReference || '').trim()
+  const baseDir = normalizedCurrent ? path.dirname(normalizedCurrent) : process.cwd()
+  return path.resolve(baseDir, normalizedRef)
+}
+
+/**
+ * Resolves the DT DOM to use for a system reference, loading external DTs on demand.
+ *
+ * @param {{fileRef: string, targetId: string}|null} dtSystemRef - Resolved DT reference.
+ * @param {Document} currentDtDom - DT DOM passed into addSystemLabelBlocks.
+ * @param {string} currentDtReference - Current DT file path/reference.
+ * @param {Map<string, Document|null>} dtDomCache - Cache of loaded DT DOMs.
+ * @returns {Document|null} DT DOM containing the target system, or null.
+ */
+function resolveDtDomForSystemRef (dtSystemRef, currentDtDom, currentDtReference, dtDomCache) {
+  if (!dtSystemRef || !dtSystemRef.fileRef) {
+    return currentDtDom
+  }
+
+  const currentDtBasename = normalizeFileBasename(currentDtReference)
+  if (currentDtBasename && normalizeFileBasename(dtSystemRef.fileRef) === currentDtBasename) {
+    return currentDtDom
+  }
+
+  const dtPath = resolveReferencedDtPath(dtSystemRef.fileRef, currentDtReference)
+  if (!dtPath) return null
+
+  if (dtDomCache.has(dtPath)) {
+    return dtDomCache.get(dtPath)
+  }
+
+  try {
+    const xml = readFileSync(dtPath, { encoding: 'utf8' })
+    const dom = new DOMParser().parseFromString(xml, 'text/xml')
+    dtDomCache.set(dtPath, dom)
+    return dom
+  } catch {
+    dtDomCache.set(dtPath, null)
+    return null
+  }
+}
+
+/**
  * Builds a lookup map for arbitrary elements keyed by normalized xml:id.
  *
  * @param {Document|Element} root - Root node to search in.
@@ -65,6 +198,95 @@ function buildElementByIdMap (root, selector) {
   })
 
   return byId
+}
+
+/**
+ * Builds a lookup map of source rastrum ids to 1-based sibling indices.
+ *
+ * @param {Document} sourceDom - Source document containing rastrum elements.
+ * @returns {Map<string, number>} Rastrum index map keyed by xml:id.
+ */
+function buildSourceRastrumIndexById (sourceDom) {
+  const byId = new Map()
+
+  sourceDom.querySelectorAll('rastrum').forEach((rastrum) => {
+    const rastrumId = getXmlId(rastrum)
+    if (!rastrumId || !rastrum.parentElement) return
+
+    const siblingRastra = Array.from(rastrum.parentElement.children)
+      .filter(child => child.localName === 'rastrum')
+
+    const index = siblingRastra.findIndex(child => child === rastrum)
+    if (index >= 0) {
+      byId.set(rastrumId, index + 1)
+    }
+  })
+
+  return byId
+}
+
+/**
+ * Resolves a DT system element by xml:id, preferring bw:system when available.
+ *
+ * @param {Document} dtDom - Diplomatic transcript DOM.
+ * @param {string} systemId - Target DT system id.
+ * @returns {Element|null} Matched DT system element.
+ */
+function resolveDtSystemById (dtDom, systemId) {
+  const targetId = normalizeId(systemId)
+  if (!dtDom || !targetId) return null
+
+  const allSystems = Array.from(dtDom.getElementsByTagName('*'))
+    .filter((element) => {
+      const localName = element.localName || String(element.tagName || '').split(':').pop()
+      return localName === 'system' && getXmlId(element) === targetId
+    })
+
+  if (allSystems.length === 0) return null
+
+  const bwSystem = allSystems.find(element => element.prefix === 'bw' || element.tagName.toLowerCase().startsWith('bw:'))
+  return bwSystem || allSystems[0]
+}
+
+/**
+ * Resolves human-readable staff labels for one DT system.
+ *
+ * @param {string} systemId - DT system identifier from data-system-id.
+ * @param {Document} dtDom - Diplomatic transcript DOM.
+ * @param {Map<string, number>} rastrumIndexById - Source rastrum index map.
+ * @returns {Array<{pos: number}>} Ordered unique staff positions.
+ */
+function resolveSystemLabelsByDtSystem (systemId, dtDom, rastrumIndexById) {
+  const system = resolveDtSystemById(dtDom, systemId)
+  if (!system) return []
+
+  const staffDefs = Array.from(system.getElementsByTagName('*'))
+    .filter((child) => {
+      const localName = child.localName || String(child.tagName || '').split(':').pop()
+      return localName === 'staffDef'
+    })
+
+  const positions = []
+  staffDefs.forEach((staffDef) => {
+    const decls = String(staffDef.getAttribute('decls') || '').trim()
+    if (!decls) return
+
+    decls
+      .split(/\s+/)
+      .map((ref) => {
+        const parsed = parseCorrespToken(ref)
+        return parsed ? parsed.targetId : normalizeId(ref)
+      })
+      .forEach((declId) => {
+        const pos = rastrumIndexById.get(declId)
+        if (Number.isFinite(pos)) {
+          positions.push(pos)
+        }
+      })
+  })
+
+  const uniquePositions = Array.from(new Set(positions))
+  return uniquePositions.map(pos => ({ pos }))
 }
 
 /**
@@ -149,16 +371,26 @@ function resolveSurfaceLabelFromContext (contextDom, surfaceId) {
  *
  * @param {SVGElement|Document} svgDom - Source document used by this function.
  * @param {Document} atDom - Encoding of the annotated transcript.
+ * @param {Document} dtDom - Diplomatic transcript document used by this function.
  * @param {Document} sourceDom - Source document used by this function.
  * @param {Document} contextDom - Context document used by this function; this might be a reconstructed document, where sourceDom is the modern document that was once part of this one.
  * @param {Object} triple - File paths and dates related to the current processing context, used for logging and data retrieval within this function.
  * @returns {Object} Resulting object.
  */
-export function addSystemLabelBlocks (svgDom, atDom, sourceDom, contextDom, triple) {
+export function addSystemLabelBlocks (svgDom, atDom, dtDom, sourceDom, contextDom, triple) {
   const wzBegins = svgDom.querySelectorAll('g[data-class="annot"]:not(.bounding-box)')
   const doc = svgDom.ownerDocument || svgDom.documentElement?.ownerDocument || svgDom
   const atAnnotById = buildAnnotByIdMap(atDom)
+  const atSbById = buildElementByIdMap(atDom, 'sb')
   const sourceGenDescById = buildElementByIdMap(sourceDom, 'genDesc')
+  const rastrumIndexById = buildSourceRastrumIndexById(sourceDom)
+  const currentDtReference = triple?.dtFullPath || triple?.dt || ''
+  const dtDomCache = new Map()
+
+  const currentDtAbsolutePath = String(currentDtReference || '').trim() ? path.resolve(String(currentDtReference).trim()) : ''
+  if (currentDtAbsolutePath) {
+    dtDomCache.set(currentDtAbsolutePath, dtDom)
+  }
 
   if (wzBegins.length === 0) {
     return svgDom
@@ -213,11 +445,14 @@ export function addSystemLabelBlocks (svgDom, atDom, sourceDom, contextDom, trip
       if (next.classList.contains('sb')) {
         // console.log(912, 'found sb', next)
 
+        const sbDataId = normalizeId(next.getAttribute('data-id'))
+        const sbCorrespId = normalizeId(next.getAttribute('data-corresp'))
+
         const sysBox = doc.createElementNS('http://www.w3.org/2000/svg', 'g')
         sysBox.setAttribute('class', 'systemBegin')
         sysBox.setAttribute('data-class', 'systemBegin')
-        sysBox.setAttribute('data-id', next.getAttribute('data-id'))
-        sysBox.setAttribute('data-system-id', next.hasAttribute('data-corresp') ? next.getAttribute('data-corresp').split('#')[1] : '')
+        sysBox.setAttribute('data-id', sbDataId)
+        sysBox.setAttribute('data-system-id', sbCorrespId || sbDataId)
 
         content.push(sysBox)
         const sysBoxContent = []
@@ -316,10 +551,16 @@ export function addSystemLabelBlocks (svgDom, atDom, sourceDom, contextDom, trip
       rect.setAttribute('fill', '#e5e5e5')
       rect.classList.add('pageLabelBox')
 
-      const systemLabels = []
+      const sbId = normalizeId(sysBox.getAttribute('data-id'))
+      const dtSystemRef = resolveDtSystemRefFromSb(sbId, atSbById, currentDtReference)
+      const mappedSystemId = dtSystemRef?.targetId || ''
+      const systemId = mappedSystemId || sbId || normalizeId(sysBox.getAttribute('data-system-id'))
+      const dtDomForSystem = resolveDtDomForSystemRef(dtSystemRef, dtDom, currentDtReference, dtDomCache) || dtDom
+      const systemLabels = resolveSystemLabelsByDtSystem(systemId, dtDomForSystem, rastrumIndexById)
 
       const pageHeight = staffHeight * 0.6 * 0.8
-      const pageWidth = systemLabels.length > 0 ? parseFloat((pageHeight * systemLabels[0].ratio).toFixed(2)) : 1
+      const previewRatio = Number.isFinite(systemLabels[0]?.ratio) ? systemLabels[0].ratio : 1
+      const pageWidth = systemLabels.length > 0 ? parseFloat((pageHeight * previewRatio).toFixed(2)) : 1
 
       const previewPageBox = doc.createElementNS('http://www.w3.org/2000/svg', 'rect')
       previewPageBox.classList.add('pageBg')
@@ -333,12 +574,16 @@ export function addSystemLabelBlocks (svgDom, atDom, sourceDom, contextDom, trip
       let y1 = 0
       let x2 = 1
       let y2 = 1
-      if (systemLabels.length > 0) {
+      const previewLabels = systemLabels.filter((systemLabel) => {
+        return Number.isFinite(systemLabel.x) && Number.isFinite(systemLabel.y) &&
+          Number.isFinite(systemLabel.w) && Number.isFinite(systemLabel.h)
+      })
+      if (previewLabels.length > 0) {
         x1 = 1
         y1 = 1
         x2 = 0
         y2 = 0
-        systemLabels.forEach((systemLabel) => {
+        previewLabels.forEach((systemLabel) => {
           x1 = Math.min(x1, systemLabel.x)
           y1 = Math.min(y1, systemLabel.y)
           x2 = Math.max(x2, systemLabel.x + systemLabel.w)
