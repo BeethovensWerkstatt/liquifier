@@ -20,6 +20,7 @@ import { liquifyDirs } from './liquify/dirs.js'
 import { liquifyHairpins } from './liquify/hairpins.js'
 import { liquifyTupletNums } from './liquify/tupletNums.js'
 import { liquifyTremolos } from './liquify/tremolos.js'
+import { liquifyStaffGrpBraces } from './liquify/staffGrpBraces.js'
 import { adjustViewBoxForContent } from './liquify/viewbox.js'
 
 const duration = '5s'
@@ -1078,6 +1079,7 @@ const liquifyMusic = (ftSvg, dtSvg, atMeiDom, tools) => {
   liquifyArtics(ftSvg, dtSvg, atMeiDom, tools)
   liquifyTupletNums(ftSvg, dtSvg, atMeiDom, tools)
   liquifyTremolos(ftSvg, dtSvg, atMeiDom, tools)
+  liquifyStaffGrpBraces(ftSvg, dtSvg, atMeiDom, tools)
 
   // controlevents
   liquifyBeams(ftSvg, dtSvg, atMeiDom, tools)

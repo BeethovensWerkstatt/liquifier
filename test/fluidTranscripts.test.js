@@ -1472,6 +1472,71 @@ test('generateFluidTranscription expands tremolo glyph use to inline strokes and
   })
 })
 
+test('generateFluidTranscription animates staffGrp braces visible from supplements only', () => {
+  const atSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 400">
+      <g class="system" data-id="sys1">
+        <g class="measure" data-id="m1">
+          <g class="staff">
+            <path d="M0 100 L300 100"/>
+            <path d="M0 110 L300 110"/>
+            <path d="M0 120 L300 120"/>
+            <path d="M0 130 L300 130"/>
+            <path d="M0 140 L300 140"/>
+          </g>
+        </g>
+      </g>
+      <path data-id="brace1" d="M20 90 C5 150 5 250 20 310"/>
+      <g class="other"/>
+      <path data-id="notBrace" d="M800 10 L900 10"/>
+    </svg>
+  `, 'image/svg+xml')
+
+  const dtSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 400">
+      <g class="rastrum bounding-box"><rect x="0" y="100" width="300" height="40"/></g>
+      <g class="rastrum">
+        <path d="M0 100 L300 100"/>
+        <path d="M0 110 L300 110"/>
+        <path d="M0 120 L300 120"/>
+        <path d="M0 130 L300 130"/>
+        <path d="M0 140 L300 140"/>
+      </g>
+    </svg>
+  `, 'image/svg+xml')
+
+  const atMei = parser.parseFromString(`
+    <mei xmlns="http://www.music-encoding.org/ns/mei">
+      <music>
+        <body>
+          <mdiv>
+            <score>
+              <section>
+                <measure xml:id="m1"/>
+              </section>
+            </score>
+          </mdiv>
+        </body>
+      </music>
+    </mei>
+  `, 'text/xml')
+
+  const logger = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} }
+  const outSvg = generateFluidTranscription(dtSvg, atSvg, atMei, logger, { stateModel: 'fluidSystems' })
+
+  const brace = outSvg.querySelector('path[data-id="brace1"]')
+  assert.ok(brace)
+  assert.equal(brace.getAttribute('opacity'), '0')
+
+  const opacityAnim = brace.querySelector('animate[attributeName="opacity"]')
+  assert.ok(opacityAnim, 'staffGrp brace should receive opacity animation')
+  assert.equal(opacityAnim.getAttribute('values'), '0;0;0;0;1;1')
+
+  const nonBrace = outSvg.querySelector('path[data-id="notBrace"]')
+  assert.ok(nonBrace)
+  assert.equal(nonBrace.querySelector('animate[attributeName="opacity"]'), null, 'non-selector path must stay untouched')
+})
+
 function parsePoints (pointsStr) {
   return pointsStr.trim().split(/\s+/).map(pair => {
     const [x, y] = pair.split(',').map(Number)
