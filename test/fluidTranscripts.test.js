@@ -984,3 +984,450 @@ test('generateFluidTranscription fluidSystems hides unmatched subsequent-page me
   assert.equal(unmatchedLedger.querySelector('animate[attributeName="opacity"]'), null)
   assert.equal(unmatchedLedger.querySelector('animateTransform[type="translate"]'), null)
 })
+
+test('generateFluidTranscription animates bTrem tremolo symbol from DT line corresp', () => {
+  const atSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
+      <g class="measure" data-id="m1">
+        <g class="staff">
+          <path d="M0 100 L300 100"/>
+          <path d="M0 110 L300 110"/>
+          <path d="M0 120 L300 120"/>
+          <path d="M0 130 L300 130"/>
+          <path d="M0 140 L300 140"/>
+        </g>
+        <g class="bTrem" data-id="atTrem1">
+          <use href="#E222" transform="translate(120,100) scale(0.72,0.72)"/>
+          <g class="chord" data-id="atChord1" data-stem.dir="down"/>
+        </g>
+      </g>
+    </svg>
+  `, 'image/svg+xml')
+
+  const dtSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
+      <g class="rastrum bounding-box"><rect x="0" y="100" width="300" height="40"/></g>
+      <g class="rastrum">
+        <path d="M0 100 L300 100"/>
+        <path d="M0 110 L300 110"/>
+        <path d="M0 120 L300 120"/>
+        <path d="M0 130 L300 130"/>
+        <path d="M0 140 L300 140"/>
+      </g>
+      <g class="line bTrem" data-id="dtLine1">
+        <polygon points="200,100 240,70 240,80 200,110"/>
+      </g>
+      <g class="line bTrem" data-id="dtLine2">
+        <polygon points="205,120 245,90 245,100 205,130"/>
+      </g>
+    </svg>
+  `, 'image/svg+xml')
+
+  const atMei = parser.parseFromString(`
+    <mei xmlns="http://www.music-encoding.org/ns/mei">
+      <music>
+        <body>
+          <mdiv>
+            <score>
+              <section>
+                <measure xml:id="m1">
+                  <staff n="1">
+                    <layer>
+                      <bTrem xml:id="atTrem1" corresp="#dtLine1 #dtLine2" dur="2" unitdur="32">
+                        <chord xml:id="atChord1" dur="2" stem.dir="down">
+                          <note xml:id="atNote1" pname="c" oct="4"/>
+                        </chord>
+                      </bTrem>
+                    </layer>
+                  </staff>
+                </measure>
+              </section>
+            </score>
+          </mdiv>
+        </body>
+      </music>
+    </mei>
+  `, 'text/xml')
+
+  const logger = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} }
+  const outSvg = generateFluidTranscription(dtSvg, atSvg, atMei, logger, { stateModel: 'fluidSystems' })
+
+  // AT glyph: hidden in DT phases (opacity 0), visible in AT phases (opacity 1)
+  const tremUse = outSvg.querySelector('g.bTrem[data-id="atTrem1"] > use')
+  assert.ok(tremUse, 'AT glyph use element must exist')
+  assert.equal(tremUse.getAttribute('opacity'), '0', 'AT glyph starts hidden (DT phase)')
+
+  const glyphOpacity = tremUse.querySelector('animate[attributeName="opacity"]')
+  assert.ok(glyphOpacity, 'AT glyph must have opacity animation')
+  const glyphValues = glyphOpacity.getAttribute('values').split(';')
+  assert.equal(glyphValues.length, 6)
+  assert.equal(glyphValues[0], '0') // finding: hidden
+  assert.equal(glyphValues[1], '0') // normalization: hidden
+  assert.equal(glyphValues[2], '0') // readingOrder: hidden
+  assert.equal(glyphValues[3], '1') // regulation: visible
+  assert.equal(glyphValues[4], '1') // supplements: visible
+  assert.equal(glyphValues[5], '1') // interventions: visible
+
+  // No translate animation on the glyph (avoids scale collapse)
+  assert.equal(tremUse.querySelector('animateTransform[type="translate"]'), null)
+
+  // Two DT stroke polygons added – one per DT corresp line
+  const dtStrokes = outSvg.querySelectorAll('g.bTrem[data-id="atTrem1"] > polygon.bw-trem-stroke')
+  assert.equal(dtStrokes.length, 2, 'one polygon per DT stroke')
+
+  dtStrokes.forEach(poly => {
+    const strokeOpacity = poly.querySelector('animate[attributeName="opacity"]')
+    assert.ok(strokeOpacity, 'DT stroke polygon must have opacity animation')
+    const sv = strokeOpacity.getAttribute('values').split(';')
+    assert.equal(sv[0], '1') // finding: visible
+    assert.equal(sv[3], '0') // regulation: hidden
+  })
+})
+
+test('generateFluidTranscription aligns bTrem symbol with nested note animation', () => {
+  const atSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
+      <g class="measure" data-id="m1">
+        <g class="staff">
+          <path d="M0 100 L300 100"/>
+          <path d="M0 110 L300 110"/>
+          <path d="M0 120 L300 120"/>
+          <path d="M0 130 L300 130"/>
+          <path d="M0 140 L300 140"/>
+        </g>
+        <g class="bTrem" data-id="atTremNested1">
+          <use href="#E222" transform="translate(120,100) scale(0.72,0.72)"/>
+          <g class="note" data-id="atNestedNote1">
+            <g class="notehead"><use transform="translate(120,120)"/></g>
+          </g>
+        </g>
+      </g>
+    </svg>
+  `, 'image/svg+xml')
+
+  const dtSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
+      <g class="rastrum bounding-box"><rect x="0" y="100" width="300" height="40"/></g>
+      <g class="rastrum">
+        <path d="M0 100 L300 100"/>
+        <path d="M0 110 L300 110"/>
+        <path d="M0 120 L300 120"/>
+        <path d="M0 130 L300 130"/>
+        <path d="M0 140 L300 140"/>
+      </g>
+      <g class="line bTrem" data-id="dtNestedLine1">
+        <polygon points="260,90 300,60 300,70 260,100"/>
+      </g>
+      <g class="note" data-id="dtNestedNote1">
+        <g class="notehead"><use x="180" y="130"/></g>
+      </g>
+    </svg>
+  `, 'image/svg+xml')
+
+  const atMei = parser.parseFromString(`
+    <mei xmlns="http://www.music-encoding.org/ns/mei">
+      <music>
+        <body>
+          <mdiv>
+            <score>
+              <section>
+                <measure xml:id="m1">
+                  <staff n="1">
+                    <layer>
+                      <bTrem xml:id="atTremNested1" corresp="#dtNestedLine1" dur="2" unitdur="32">
+                        <note xml:id="atNestedNote1" corresp="#dtNestedNote1" pname="c" oct="4" dur="4"/>
+                      </bTrem>
+                    </layer>
+                  </staff>
+                </measure>
+              </section>
+            </score>
+          </mdiv>
+        </body>
+      </music>
+    </mei>
+  `, 'text/xml')
+
+  const logger = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} }
+  const outSvg = generateFluidTranscription(dtSvg, atSvg, atMei, logger, { stateModel: 'fluidSystems' })
+
+  // Nested note still gets its own translate animation from liquifyNotes
+  const noteAnim = outSvg.querySelector('g.note[data-id="atNestedNote1"] > animateTransform[type="translate"]')
+  assert.ok(noteAnim, 'nested note must have translate animation')
+
+  // AT glyph gets opacity animation (no translate), independent of note movement
+  const tremUse = outSvg.querySelector('g.bTrem[data-id="atTremNested1"] > use')
+  assert.ok(tremUse, 'AT glyph use element must exist')
+  assert.equal(tremUse.querySelector('animateTransform[type="translate"]'), null, 'AT glyph must not have translate animation')
+
+  const glyphOpacity = tremUse.querySelector('animate[attributeName="opacity"]')
+  assert.ok(glyphOpacity, 'AT glyph must have opacity animation')
+  const gv = glyphOpacity.getAttribute('values').split(';')
+  assert.equal(gv[0], '0') // finding: hidden
+  assert.equal(gv[3], '1') // regulation: visible
+
+  // One DT stroke polygon added for the single DT corresp line
+  const dtStroke = outSvg.querySelector('g.bTrem[data-id="atTremNested1"] > polygon.bw-trem-stroke')
+  assert.ok(dtStroke, 'DT stroke polygon must be added')
+  const strokeOpacity = dtStroke.querySelector('animate[attributeName="opacity"]')
+  assert.ok(strokeOpacity, 'DT stroke must have opacity animation')
+  const sv = strokeOpacity.getAttribute('values').split(';')
+  assert.equal(sv[0], '1') // finding: visible
+  assert.equal(sv[3], '0') // regulation: hidden
+})
+
+test('generateFluidTranscription animates fTrem tremolo symbol from DT line corresp', () => {
+  const atSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
+      <g class="measure" data-id="m1">
+        <g class="staff">
+          <path d="M0 100 L300 100"/>
+          <path d="M0 110 L300 110"/>
+          <path d="M0 120 L300 120"/>
+          <path d="M0 130 L300 130"/>
+          <path d="M0 140 L300 140"/>
+        </g>
+        <g class="fTrem" data-id="atTremF1">
+          <use href="#E220" transform="translate(140,120) scale(0.72,0.72)"/>
+        </g>
+      </g>
+    </svg>
+  `, 'image/svg+xml')
+
+  const dtSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
+      <g class="rastrum bounding-box"><rect x="0" y="100" width="300" height="40"/></g>
+      <g class="rastrum">
+        <path d="M0 100 L300 100"/>
+        <path d="M0 110 L300 110"/>
+        <path d="M0 120 L300 120"/>
+        <path d="M0 130 L300 130"/>
+        <path d="M0 140 L300 140"/>
+      </g>
+      <g class="line fTrem" data-id="dtFLine1">
+        <polygon points="220,120 260,90 260,100 220,130"/>
+      </g>
+    </svg>
+  `, 'image/svg+xml')
+
+  const atMei = parser.parseFromString(`
+    <mei xmlns="http://www.music-encoding.org/ns/mei">
+      <music>
+        <body>
+          <mdiv>
+            <score>
+              <section>
+                <measure xml:id="m1">
+                  <staff n="1">
+                    <layer>
+                      <fTrem xml:id="atTremF1" corresp="#dtFLine1"/>
+                    </layer>
+                  </staff>
+                </measure>
+              </section>
+            </score>
+          </mdiv>
+        </body>
+      </music>
+    </mei>
+  `, 'text/xml')
+
+  const logger = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} }
+  const outSvg = generateFluidTranscription(dtSvg, atSvg, atMei, logger, { stateModel: 'fluidSystems' })
+
+  // AT glyph: hidden in DT phases, visible in AT phases
+  const tremUse = outSvg.querySelector('g.fTrem[data-id="atTremF1"] > use')
+  assert.ok(tremUse, 'AT fTrem glyph use element must exist')
+  assert.equal(tremUse.getAttribute('opacity'), '0', 'AT glyph starts hidden (DT phase)')
+
+  const glyphOpacity = tremUse.querySelector('animate[attributeName="opacity"]')
+  assert.ok(glyphOpacity, 'AT fTrem glyph must have opacity animation')
+  const glyphValues = glyphOpacity.getAttribute('values').split(';')
+  assert.equal(glyphValues.length, 6)
+  assert.equal(glyphValues[0], '0') // finding: hidden
+  assert.equal(glyphValues[3], '1') // regulation: visible
+
+  assert.equal(tremUse.querySelector('animateTransform[type="translate"]'), null)
+
+  // One DT stroke polygon added
+  const dtStroke = outSvg.querySelector('g.fTrem[data-id="atTremF1"] > polygon.bw-trem-stroke')
+  assert.ok(dtStroke, 'DT stroke polygon must be added')
+  const strokeOpacity = dtStroke.querySelector('animate[attributeName="opacity"]')
+  assert.ok(strokeOpacity)
+  const sv = strokeOpacity.getAttribute('values').split(';')
+  assert.equal(sv[0], '1') // finding: visible
+  assert.equal(sv[3], '0') // regulation: hidden
+})
+
+test('generateFluidTranscription countermeasures inherited bTrem translate to avoid stacking', () => {
+  const atSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
+      <g class="measure" data-id="m1">
+        <g class="staff">
+          <path d="M0 100 L300 100"/>
+          <path d="M0 110 L300 110"/>
+          <path d="M0 120 L300 120"/>
+          <path d="M0 130 L300 130"/>
+          <path d="M0 140 L300 140"/>
+        </g>
+        <g class="bTrem" data-id="atTremCounter1">
+          <animateTransform attributeName="transform" attributeType="XML" type="translate" values="100 200;100 200;100 200;0 0;0 0;0 0" repeatCount="indefinite" dur="5s"/>
+          <use href="#E222" transform="translate(120,100) scale(0.72,0.72)"/>
+          <g class="note" data-id="atCounterNote1">
+            <g class="notehead"><use transform="translate(120,120)"/></g>
+          </g>
+        </g>
+      </g>
+    </svg>
+  `, 'image/svg+xml')
+
+  const dtSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
+      <g class="rastrum bounding-box"><rect x="0" y="100" width="300" height="40"/></g>
+      <g class="rastrum">
+        <path d="M0 100 L300 100"/>
+        <path d="M0 110 L300 110"/>
+        <path d="M0 120 L300 120"/>
+        <path d="M0 130 L300 130"/>
+        <path d="M0 140 L300 140"/>
+      </g>
+      <g class="line bTrem" data-id="dtCounterLine1">
+        <polygon points="220,120 260,90 260,100 220,130"/>
+      </g>
+      <g class="note" data-id="dtCounterNote1">
+        <g class="notehead"><use x="220" y="320"/></g>
+      </g>
+    </svg>
+  `, 'image/svg+xml')
+
+  const atMei = parser.parseFromString(`
+    <mei xmlns="http://www.music-encoding.org/ns/mei">
+      <music>
+        <body>
+          <mdiv>
+            <score>
+              <section>
+                <measure xml:id="m1">
+                  <staff n="1">
+                    <layer>
+                      <bTrem xml:id="atTremCounter1" corresp="#dtCounterLine1" dur="2" unitdur="32">
+                        <note xml:id="atCounterNote1" corresp="#dtCounterNote1" pname="c" oct="4" dur="4"/>
+                      </bTrem>
+                    </layer>
+                  </staff>
+                </measure>
+              </section>
+            </score>
+          </mdiv>
+        </body>
+      </music>
+    </mei>
+  `, 'text/xml')
+
+  const logger = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} }
+  const outSvg = generateFluidTranscription(dtSvg, atSvg, atMei, logger, { stateModel: 'fluidSystems' })
+
+  // Nested note still gets its translate animation
+  const noteAnim = outSvg.querySelector('g.note[data-id="atCounterNote1"] > animateTransform[type="translate"]')
+  assert.ok(noteAnim)
+  assert.equal(noteAnim.getAttribute('values'), '100 200;100 200;100 200;0 0;0 0;0 0')
+
+  // The glyph use must NOT have a translate animation (opacity only – no stacking)
+  const tremTranslate = outSvg.querySelector('g.bTrem[data-id="atTremCounter1"] > use > animateTransform[type="translate"]')
+  assert.equal(tremTranslate, null, 'glyph must not inherit stacking translate animation')
+
+  // The glyph must instead have opacity animation
+  const tremUse = outSvg.querySelector('g.bTrem[data-id="atTremCounter1"] > use')
+  const glyphOpacity = tremUse.querySelector('animate[attributeName="opacity"]')
+  assert.ok(glyphOpacity, 'glyph must have opacity animation instead of translate')
+})
+
+test('generateFluidTranscription expands tremolo glyph use to inline strokes and animates points', () => {
+  const atSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
+      <defs>
+        <g id="E222">
+          <path transform="scale(1,-1)" d="M-163 -200l326 150v-100l-326 -150v100zM-163 150l326 150v-100l-326 -150v100zM-163 -25l326 150v-100l-326 -150v100z"/>
+        </g>
+      </defs>
+      <g class="measure" data-id="m1">
+        <g class="staff">
+          <path d="M0 100 L300 100"/>
+          <path d="M0 110 L300 110"/>
+          <path d="M0 120 L300 120"/>
+          <path d="M0 130 L300 130"/>
+          <path d="M0 140 L300 140"/>
+        </g>
+        <g class="bTrem" data-id="atInline1">
+          <use href="#E222" transform="translate(120,100) scale(0.72,0.72)"/>
+          <g class="chord" data-id="atInlineChord1" data-stem.dir="down"/>
+        </g>
+      </g>
+    </svg>
+  `, 'image/svg+xml')
+
+  const dtSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
+      <g class="rastrum bounding-box"><rect x="0" y="100" width="300" height="40"/></g>
+      <g class="rastrum">
+        <path d="M0 100 L300 100"/>
+        <path d="M0 110 L300 110"/>
+        <path d="M0 120 L300 120"/>
+        <path d="M0 130 L300 130"/>
+        <path d="M0 140 L300 140"/>
+      </g>
+      <g class="line bTrem" data-id="dtInlineLine1">
+        <polygon points="200,100 240,70 240,80 200,110"/>
+      </g>
+      <g class="line bTrem" data-id="dtInlineLine2">
+        <polygon points="205,120 245,90 245,100 205,130"/>
+      </g>
+      <g class="line bTrem" data-id="dtInlineLine3">
+        <polygon points="210,140 250,110 250,120 210,150"/>
+      </g>
+    </svg>
+  `, 'image/svg+xml')
+
+  const atMei = parser.parseFromString(`
+    <mei xmlns="http://www.music-encoding.org/ns/mei">
+      <music>
+        <body>
+          <mdiv>
+            <score>
+              <section>
+                <measure xml:id="m1">
+                  <staff n="1">
+                    <layer>
+                      <bTrem xml:id="atInline1" corresp="#dtInlineLine1 #dtInlineLine2 #dtInlineLine3" dur="2" unitdur="32">
+                        <chord xml:id="atInlineChord1" dur="2" stem.dir="down">
+                          <note xml:id="atInlineNote1" pname="c" oct="4"/>
+                        </chord>
+                      </bTrem>
+                    </layer>
+                  </staff>
+                </measure>
+              </section>
+            </score>
+          </mdiv>
+        </body>
+      </music>
+    </mei>
+  `, 'text/xml')
+
+  const logger = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} }
+  const outSvg = generateFluidTranscription(dtSvg, atSvg, atMei, logger, { stateModel: 'fluidSystems' })
+
+  const trem = outSvg.querySelector('g.bTrem[data-id="atInline1"]')
+  assert.equal(trem.querySelector(':scope > use'), null, 'glyph use should be replaced when defs are available')
+
+  const inlineStrokes = trem.querySelectorAll(':scope > polygon.bw-trem-inline')
+  assert.equal(inlineStrokes.length, 3, 'expected three inline AT tremolo strokes from glyph path')
+
+  inlineStrokes.forEach((poly, i) => {
+    const animatePoints = poly.querySelector('animate[attributeName="points"]')
+    assert.ok(animatePoints, `inline stroke ${i} should animate points`)
+    const values = animatePoints.getAttribute('values').split(';')
+    assert.equal(values.length, 6)
+    assert.notEqual(values[0], values[3], 'DT and AT geometry should differ between phases')
+  })
+})
