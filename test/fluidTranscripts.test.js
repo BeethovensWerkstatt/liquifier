@@ -1434,41 +1434,46 @@ test('generateFluidTranscription expands tremolo glyph use to inline strokes and
     const values = animatePoints.getAttribute('values').split(';')
     assert.equal(values.length, 6)
     assert.notEqual(values[0], values[1], 'DT and AT geometry should differ between finding and normalization')
-    assert.notEqual(values[1], values[2], 'normalization and readingOrder should differ by position')
-    assert.equal(values[2], values[3], 'readingOrder and regulation should share AT position and shape')
+    assert.equal(values[1], values[2], 'normalization and readingOrder should currently be identical')
+    assert.notEqual(values[2], values[3], 'readingOrder and regulation should differ by position')
+    assert.equal(values[3], values[4], 'regulation and supplements should share AT position and shape')
   })
 
-  // Normalization keeps one shared group offset relative to AT: same line spacing and x alignment.
+  // Normalization/readingOrder keep one shared group offset relative to AT: same line spacing and x alignment.
   const parsedFrames = Array.from(inlineStrokes).map(poly => {
     const values = poly.querySelector('animate[attributeName="points"]').getAttribute('values').split(';')
     return {
       normalization: parsePoints(values[1]),
-      readingOrder: parsePoints(values[2])
+      readingOrder: parsePoints(values[2]),
+      regulation: parsePoints(values[3])
     }
   })
 
   const normCenters = parsedFrames.map(frame => centerOf(frame.normalization))
   const readCenters = parsedFrames.map(frame => centerOf(frame.readingOrder))
+  const regCenters = parsedFrames.map(frame => centerOf(frame.regulation))
 
   // All lines must have identical x at normalization, like AT glyph layout.
   const normXSpread = Math.max(...normCenters.map(c => c.x)) - Math.min(...normCenters.map(c => c.x))
   assert.ok(normXSpread < 0.0001, 'all normalization lines should share identical x center')
 
-  // Vertical spacing should match AT layout (readingOrder), i.e., rigid translation only.
+  // Vertical spacing should match AT layout across phases, i.e., rigid translation only.
   const normDy = normCenters[1].y - normCenters[0].y
   const readDy = readCenters[1].y - readCenters[0].y
+  const regDy = regCenters[1].y - regCenters[0].y
   assert.ok(Math.abs(normDy - readDy) < 0.0001, 'normalization vertical spacing must match AT spacing')
+  assert.ok(Math.abs(readDy - regDy) < 0.0001, 'regulation vertical spacing must match AT spacing')
 
-  // The normalization->readingOrder shift must be identical for each line.
+  // The readingOrder->regulation shift must be identical for each line.
   const shifts = parsedFrames.map(frame => {
-    const cNorm = centerOf(frame.normalization)
     const cRead = centerOf(frame.readingOrder)
-    return { dx: cRead.x - cNorm.x, dy: cRead.y - cNorm.y }
+    const cReg = centerOf(frame.regulation)
+    return { dx: cReg.x - cRead.x, dy: cReg.y - cRead.y }
   })
 
   shifts.forEach((shift, i) => {
-    assert.ok(Math.abs(shift.dx - shifts[0].dx) < 0.0001, `line ${i} should share normalization->readingOrder dx`)
-    assert.ok(Math.abs(shift.dy - shifts[0].dy) < 0.0001, `line ${i} should share normalization->readingOrder dy`)
+    assert.ok(Math.abs(shift.dx - shifts[0].dx) < 0.0001, `line ${i} should share readingOrder->regulation dx`)
+    assert.ok(Math.abs(shift.dy - shifts[0].dy) < 0.0001, `line ${i} should share readingOrder->regulation dy`)
   })
 })
 
