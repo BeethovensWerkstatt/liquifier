@@ -491,6 +491,8 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, s
     scaleFactor,
     correspMappings,
     stateModel,
+    matchedStaffLineBlocks,
+    measureBlockMap,
     getChoiceVerticalOffset,
     applyUnmatchedClass,
     setAnimation: setAnimationForMode,

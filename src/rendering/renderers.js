@@ -217,6 +217,9 @@ function extractChoiceVerticalOffsets (regAtSvg, origAtSvg, editedAtDom) {
 function anchorFluidSystemsToAtLeft (fluidSvgDocument) {
   const rootSvg = fluidSvgDocument.documentElement || fluidSvgDocument
   const displaySvg = rootSvg.querySelector('svg.definition-scale') || rootSvg
+  if (displaySvg.getAttribute('data-bw-focused-viewbox') === 'true') {
+    return null
+  }
   const viewBox = parseViewBox(displaySvg.getAttribute('viewBox'))
   if (!viewBox) return null
 

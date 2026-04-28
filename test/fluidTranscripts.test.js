@@ -3,8 +3,16 @@ import assert from 'node:assert/strict'
 import { JSDOM } from 'jsdom'
 
 import { generateFluidTranscription, resolveFluidSystemsStates } from '../src/preparation/fluidTranscripts.js'
+import { adjustViewBoxForContent } from '../src/preparation/liquify/viewbox.js'
 
 const parser = new (new JSDOM().window.DOMParser)()
+
+const noopLogger = {
+  debug: () => {},
+  info: () => {},
+  warn: () => {},
+  error: () => {}
+}
 
 test('resolveFluidSystemsStates moves non-supplied material in regulation', () => {
   const finding = { type: 'translate', val: '10 20' }
@@ -52,6 +60,39 @@ test('resolveFluidSystemsStates honors explicit fluidSystems keys', () => {
     supplements,
     interventions
   })
+})
+
+test('adjustViewBoxForContent focuses fluidSystems viewBox to matched blocks', () => {
+  const svg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg">
+      <svg class="definition-scale" viewBox="0 0 10000 2000">
+        <g class="page-margin" transform="translate(1000,3000)">
+          <g class="bw-system-rastrum" data-bw-block="0">
+            <path class="rastrum" data-bw-block="0" d="M0 100 L200 100"/>
+          </g>
+          <g class="measure" data-id="m1">
+            <path d="M0 120 L220 120"/>
+          </g>
+          <g class="measure" data-id="m2" data-bw-unmatched-container="true">
+            <path d="M5000 120 L5200 120"/>
+          </g>
+        </g>
+      </svg>
+    </svg>
+  `, 'image/svg+xml').documentElement
+
+  adjustViewBoxForContent(svg, {
+    logger: noopLogger,
+    stateModel: 'fluidSystems',
+    matchedStaffLineBlocks: new Set([0]),
+    measureBlockMap: new Map([
+      ['m1', 0],
+      ['m2', 4]
+    ])
+  })
+
+  const definitionScale = svg.querySelector('svg.definition-scale')
+  assert.equal(definitionScale.getAttribute('viewBox'), '950 3050 320 120')
 })
 
 test('generateFluidTranscription fluidSystems keeps AT-only note hidden through regulation', () => {

@@ -9,7 +9,7 @@
  * @returns {number} Resulting numeric value.
  */
 export const adjustViewBoxForContent = (svg, tools) => {
-  const { logger } = tools
+  const { logger, stateModel, matchedStaffLineBlocks, measureBlockMap } = tools
 
   logger.info('[adjustViewBoxForContent] Analyzing animated content bounds...')
 
@@ -36,6 +36,29 @@ export const adjustViewBoxForContent = (svg, tools) => {
   const currentMaxY = currentMinY + currentHeight
 
   logger.debug(`[adjustViewBoxForContent] Current viewBox: ${currentMinX} ${currentMinY} ${currentWidth} ${currentHeight}`)
+
+  const focusedBounds = stateModel === 'fluidSystems'
+    ? getFocusedFluidSystemsBounds(svg, matchedStaffLineBlocks, measureBlockMap)
+    : null
+
+  if (focusedBounds) {
+    const padding = 50
+    const minX = focusedBounds.minX - padding
+    const minY = focusedBounds.minY - padding
+    const maxX = focusedBounds.maxX + padding
+    const maxY = focusedBounds.maxY + padding
+    const width = maxX - minX
+    const height = maxY - minY
+
+    logger.info(`[adjustViewBoxForContent] Focused fluidSystems bounds: (${minX.toFixed(0)}, ${minY.toFixed(0)}) to (${maxX.toFixed(0)}, ${maxY.toFixed(0)})`)
+    logger.info(`[adjustViewBoxForContent] Focused fluidSystems viewBox: ${minX.toFixed(0)} ${minY.toFixed(0)} ${width.toFixed(0)} ${height.toFixed(0)}`)
+
+    targetSvg.setAttribute('data-bw-focused-viewbox', 'true')
+    targetSvg.setAttribute('viewBox', `${minX} ${minY} ${width} ${height}`)
+    return
+  }
+
+  targetSvg.removeAttribute('data-bw-focused-viewbox')
 
   // Find all elements with animations
   const animatedElements = svg.querySelectorAll('animate[attributeName], animateTransform[attributeName="transform"]')
@@ -119,6 +142,238 @@ export const adjustViewBoxForContent = (svg, tools) => {
 
   // Update viewBox on the target SVG (either root or nested)
   targetSvg.setAttribute('viewBox', `${minX} ${minY} ${width} ${height}`)
+}
+
+/**
+ * Compute a tighter focus box for the currently matched fluidSystems block set.
+ * This intentionally ignores unmatched containers so the current writing-zone
+ * context is framed instead of the full AT page width.
+ *
+ * @param {SVGElement} svg - The fluid SVG root.
+ * @param {Set<number>|null} matchedStaffLineBlocks - Blocks matched to current DT context.
+ * @param {Map<string, number>|null} measureBlockMap - AT measure -> block map.
+ * @returns {{minX: number, minY: number, maxX: number, maxY: number}|null} Focus bounds.
+ */
+const getFocusedFluidSystemsBounds = (svg, matchedStaffLineBlocks, measureBlockMap) => {
+  if (!(matchedStaffLineBlocks instanceof Set) || matchedStaffLineBlocks.size === 0) return null
+
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+
+  const rastrumLines = Array.from(svg.querySelectorAll('path.rastrum[data-bw-block]')).filter(line => {
+    const blockIndex = Number.parseInt(line.getAttribute('data-bw-block') || '', 10)
+    return Number.isFinite(blockIndex) && matchedStaffLineBlocks.has(blockIndex)
+  })
+
+  rastrumLines.forEach(line => {
+    expandBounds(minMaxFromLinePath(line), line)
+  })
+
+  if (measureBlockMap instanceof Map) {
+    const matchedMeasures = Array.from(svg.querySelectorAll('g.measure[data-id]')).filter(measure => {
+      if (measure.closest('[data-bw-unmatched-container="true"]')) return false
+      const measureId = measure.getAttribute('data-id')
+      const blockIndex = measureBlockMap.get(measureId)
+      return Number.isFinite(blockIndex) && matchedStaffLineBlocks.has(blockIndex)
+    })
+
+    matchedMeasures.forEach(measure => {
+      expandBounds(getElementBounds(measure), measure)
+    })
+  }
+
+  if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) {
+    return null
+  }
+
+  return { minX, minY, maxX, maxY }
+
+  function expandBounds (localBounds, element) {
+    if (!localBounds) return
+    const offset = getCumulativeTranslate(element, svg)
+    minX = Math.min(minX, localBounds.minX + offset.x)
+    minY = Math.min(minY, localBounds.minY + offset.y)
+    maxX = Math.max(maxX, localBounds.maxX + offset.x)
+    maxY = Math.max(maxY, localBounds.maxY + offset.y)
+  }
+}
+
+/**
+ * Collect bounds for a container by inspecting its geometric descendants.
+ *
+ * @param {Element} container - Container to inspect.
+ * @returns {{minX: number, minY: number, maxX: number, maxY: number}|null} Bounds.
+ */
+const getElementBounds = (container) => {
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+
+  const elements = [container, ...container.querySelectorAll('*')]
+  elements.forEach(element => {
+    const localBounds = getLocalGeometryBounds(element)
+    if (!localBounds) return
+    const offset = getCumulativeTranslate(element, container)
+    minX = Math.min(minX, localBounds.minX + offset.x)
+    minY = Math.min(minY, localBounds.minY + offset.y)
+    maxX = Math.max(maxX, localBounds.maxX + offset.x)
+    maxY = Math.max(maxY, localBounds.maxY + offset.y)
+  })
+
+  if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) {
+    return null
+  }
+
+  return { minX, minY, maxX, maxY }
+}
+
+/**
+ * Extract local geometry bounds from a single SVG element.
+ *
+ * @param {Element} element - SVG element to inspect.
+ * @returns {{minX: number, minY: number, maxX: number, maxY: number}|null} Bounds.
+ */
+const getLocalGeometryBounds = (element) => {
+  if (!element?.getAttribute) return null
+
+  if (element.localName === 'path') {
+    const d = element.getAttribute('d')
+    return minMaxFromCoords(parsePathD(d))
+  }
+
+  if (element.localName === 'polygon' || element.localName === 'polyline') {
+    return minMaxFromCoords(parsePoints(element.getAttribute('points')))
+  }
+
+  if (element.localName === 'use') {
+    const offset = parseTranslateAttribute(element.getAttribute('transform'))
+    if (!offset) return null
+    return { minX: offset.x, minY: offset.y, maxX: offset.x, maxY: offset.y }
+  }
+
+  if (element.localName === 'rect') {
+    const x = parseFloat(element.getAttribute('x') || '0')
+    const y = parseFloat(element.getAttribute('y') || '0')
+    const width = parseFloat(element.getAttribute('width') || '0')
+    const height = parseFloat(element.getAttribute('height') || '0')
+    return { minX: x, minY: y, maxX: x + width, maxY: y + height }
+  }
+
+  if (element.localName === 'line') {
+    const x1 = parseFloat(element.getAttribute('x1') || '0')
+    const y1 = parseFloat(element.getAttribute('y1') || '0')
+    const x2 = parseFloat(element.getAttribute('x2') || '0')
+    const y2 = parseFloat(element.getAttribute('y2') || '0')
+    return {
+      minX: Math.min(x1, x2),
+      minY: Math.min(y1, y2),
+      maxX: Math.max(x1, x2),
+      maxY: Math.max(y1, y2)
+    }
+  }
+
+  if (element.localName === 'circle') {
+    const cx = parseFloat(element.getAttribute('cx') || '0')
+    const cy = parseFloat(element.getAttribute('cy') || '0')
+    const r = parseFloat(element.getAttribute('r') || '0')
+    return { minX: cx - r, minY: cy - r, maxX: cx + r, maxY: cy + r }
+  }
+
+  if (element.localName === 'ellipse') {
+    const cx = parseFloat(element.getAttribute('cx') || '0')
+    const cy = parseFloat(element.getAttribute('cy') || '0')
+    const rx = parseFloat(element.getAttribute('rx') || '0')
+    const ry = parseFloat(element.getAttribute('ry') || '0')
+    return { minX: cx - rx, minY: cy - ry, maxX: cx + rx, maxY: cy + ry }
+  }
+
+  return null
+}
+
+/**
+ * Convert coordinates into min/max bounds.
+ *
+ * @param {Array<{x: number, y: number}>} coords - Coordinates to reduce.
+ * @returns {{minX: number, minY: number, maxX: number, maxY: number}|null} Bounds.
+ */
+const minMaxFromCoords = (coords) => {
+  if (!Array.isArray(coords) || coords.length === 0) return null
+
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+
+  coords.forEach(coord => {
+    minX = Math.min(minX, coord.x)
+    minY = Math.min(minY, coord.y)
+    maxX = Math.max(maxX, coord.x)
+    maxY = Math.max(maxY, coord.y)
+  })
+
+  return { minX, minY, maxX, maxY }
+}
+
+/**
+ * Extract bounds from a straight-line path.
+ *
+ * @param {Element} path - Path element.
+ * @returns {{minX: number, minY: number, maxX: number, maxY: number}|null} Bounds.
+ */
+const minMaxFromLinePath = (path) => {
+  const d = path?.getAttribute?.('d') || ''
+  return minMaxFromCoords(parsePathD(d))
+}
+
+/**
+ * Sum translate transforms from an element up to a stop node.
+ *
+ * @param {Element} element - Starting element.
+ * @param {Element} stopAt - Ancestor at which to stop.
+ * @returns {{x: number, y: number}} Translate offset.
+ */
+const getCumulativeTranslate = (element, stopAt) => {
+  let x = 0
+  let y = 0
+  let current = element
+
+  while (current && current !== stopAt) {
+    const offset = parseTranslateAttribute(current.getAttribute?.('transform'))
+    if (offset) {
+      x += offset.x
+      y += offset.y
+    }
+    current = current.parentElement
+  }
+
+  return { x, y }
+}
+
+/**
+ * Parse a translate transform string.
+ *
+ * @param {string|null} transform - Transform attribute.
+ * @returns {{x: number, y: number}|null} Parsed translate.
+ */
+const parseTranslateAttribute = (transform) => {
+  if (!transform) return null
+
+  let totalX = 0
+  let totalY = 0
+  let matched = false
+  const pattern = /translate\(([-\d.]+)(?:[ ,]+([-\d.]+))?\)/g
+  let match
+
+  while ((match = pattern.exec(transform)) !== null) {
+    matched = true
+    totalX += parseFloat(match[1])
+    totalY += parseFloat(match[2] || '0')
+  }
+
+  return matched ? { x: totalX, y: totalY } : null
 }
 
 /**
