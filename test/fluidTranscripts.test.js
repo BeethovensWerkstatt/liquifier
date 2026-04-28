@@ -1063,7 +1063,7 @@ test('generateFluidTranscription animates bTrem tremolo symbol from DT line corr
   assert.equal(glyphValues.length, 6)
   assert.equal(glyphValues[0], '0') // finding: hidden
   assert.equal(glyphValues[1], '0') // normalization: hidden
-  assert.equal(glyphValues[2], '0') // readingOrder: hidden
+  assert.equal(glyphValues[2], '1') // readingOrder: visible
   assert.equal(glyphValues[3], '1') // regulation: visible
   assert.equal(glyphValues[4], '1') // supplements: visible
   assert.equal(glyphValues[5], '1') // interventions: visible
@@ -1080,7 +1080,8 @@ test('generateFluidTranscription animates bTrem tremolo symbol from DT line corr
     assert.ok(strokeOpacity, 'DT stroke polygon must have opacity animation')
     const sv = strokeOpacity.getAttribute('values').split(';')
     assert.equal(sv[0], '1') // finding: visible
-    assert.equal(sv[3], '0') // regulation: hidden
+    assert.equal(sv[1], '1') // normalization: visible
+    assert.equal(sv[2], '0') // readingOrder: hidden
   })
 })
 
@@ -1164,7 +1165,8 @@ test('generateFluidTranscription aligns bTrem symbol with nested note animation'
   assert.ok(glyphOpacity, 'AT glyph must have opacity animation')
   const gv = glyphOpacity.getAttribute('values').split(';')
   assert.equal(gv[0], '0') // finding: hidden
-  assert.equal(gv[3], '1') // regulation: visible
+  assert.equal(gv[1], '0') // normalization: hidden
+  assert.equal(gv[2], '1') // readingOrder: visible
 
   // One DT stroke polygon added for the single DT corresp line
   const dtStroke = outSvg.querySelector('g.bTrem[data-id="atTremNested1"] > polygon.bw-trem-stroke')
@@ -1173,7 +1175,8 @@ test('generateFluidTranscription aligns bTrem symbol with nested note animation'
   assert.ok(strokeOpacity, 'DT stroke must have opacity animation')
   const sv = strokeOpacity.getAttribute('values').split(';')
   assert.equal(sv[0], '1') // finding: visible
-  assert.equal(sv[3], '0') // regulation: hidden
+  assert.equal(sv[1], '1') // normalization: visible
+  assert.equal(sv[2], '0') // readingOrder: hidden
 })
 
 test('generateFluidTranscription animates fTrem tremolo symbol from DT line corresp', () => {
@@ -1245,7 +1248,8 @@ test('generateFluidTranscription animates fTrem tremolo symbol from DT line corr
   const glyphValues = glyphOpacity.getAttribute('values').split(';')
   assert.equal(glyphValues.length, 6)
   assert.equal(glyphValues[0], '0') // finding: hidden
-  assert.equal(glyphValues[3], '1') // regulation: visible
+  assert.equal(glyphValues[1], '0') // normalization: hidden
+  assert.equal(glyphValues[2], '1') // readingOrder: visible
 
   assert.equal(tremUse.querySelector('animateTransform[type="translate"]'), null)
 
@@ -1256,7 +1260,8 @@ test('generateFluidTranscription animates fTrem tremolo symbol from DT line corr
   assert.ok(strokeOpacity)
   const sv = strokeOpacity.getAttribute('values').split(';')
   assert.equal(sv[0], '1') // finding: visible
-  assert.equal(sv[3], '0') // regulation: hidden
+  assert.equal(sv[1], '1') // normalization: visible
+  assert.equal(sv[2], '0') // readingOrder: hidden
 })
 
 test('generateFluidTranscription countermeasures inherited bTrem translate to avoid stacking', () => {
@@ -1428,6 +1433,53 @@ test('generateFluidTranscription expands tremolo glyph use to inline strokes and
     assert.ok(animatePoints, `inline stroke ${i} should animate points`)
     const values = animatePoints.getAttribute('values').split(';')
     assert.equal(values.length, 6)
-    assert.notEqual(values[0], values[3], 'DT and AT geometry should differ between phases')
+    assert.notEqual(values[0], values[1], 'DT and AT geometry should differ between finding and normalization')
+    assert.notEqual(values[1], values[2], 'normalization and readingOrder should differ by position')
+    assert.equal(values[2], values[3], 'readingOrder and regulation should share AT position and shape')
+  })
+
+  // Normalization keeps one shared group offset relative to AT: same line spacing and x alignment.
+  const parsedFrames = Array.from(inlineStrokes).map(poly => {
+    const values = poly.querySelector('animate[attributeName="points"]').getAttribute('values').split(';')
+    return {
+      normalization: parsePoints(values[1]),
+      readingOrder: parsePoints(values[2])
+    }
+  })
+
+  const normCenters = parsedFrames.map(frame => centerOf(frame.normalization))
+  const readCenters = parsedFrames.map(frame => centerOf(frame.readingOrder))
+
+  // All lines must have identical x at normalization, like AT glyph layout.
+  const normXSpread = Math.max(...normCenters.map(c => c.x)) - Math.min(...normCenters.map(c => c.x))
+  assert.ok(normXSpread < 0.0001, 'all normalization lines should share identical x center')
+
+  // Vertical spacing should match AT layout (readingOrder), i.e., rigid translation only.
+  const normDy = normCenters[1].y - normCenters[0].y
+  const readDy = readCenters[1].y - readCenters[0].y
+  assert.ok(Math.abs(normDy - readDy) < 0.0001, 'normalization vertical spacing must match AT spacing')
+
+  // The normalization->readingOrder shift must be identical for each line.
+  const shifts = parsedFrames.map(frame => {
+    const cNorm = centerOf(frame.normalization)
+    const cRead = centerOf(frame.readingOrder)
+    return { dx: cRead.x - cNorm.x, dy: cRead.y - cNorm.y }
+  })
+
+  shifts.forEach((shift, i) => {
+    assert.ok(Math.abs(shift.dx - shifts[0].dx) < 0.0001, `line ${i} should share normalization->readingOrder dx`)
+    assert.ok(Math.abs(shift.dy - shifts[0].dy) < 0.0001, `line ${i} should share normalization->readingOrder dy`)
   })
 })
+
+function parsePoints (pointsStr) {
+  return pointsStr.trim().split(/\s+/).map(pair => {
+    const [x, y] = pair.split(',').map(Number)
+    return { x, y }
+  })
+}
+
+function centerOf (points) {
+  const sum = points.reduce((acc, point) => ({ x: acc.x + point.x, y: acc.y + point.y }), { x: 0, y: 0 })
+  return { x: sum.x / points.length, y: sum.y / points.length }
+}

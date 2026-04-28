@@ -3,8 +3,10 @@
  *
  * Preferred strategy:
  * - Expand AT tremolo glyph `<use>` into inline `<polygon>` strokes when possible
- * - Animate each stroke's `points` from DT geometry (finding/normalization/readingOrder)
- *   to AT geometry (regulation/supplements/interventions)
+ * - Animate each stroke with three distinct geometric states:
+ *   1. finding: DT shape at DT position
+ *   2. normalization: AT shape at DT position
+ *   3. readingOrder+: AT shape at AT position
  *
  * Fallback strategy:
  * - Keep the glyph `<use>` and use opacity crossfade (previous behavior) when glyph
@@ -43,10 +45,13 @@ export const liquifyTremolos = (ftSvg, dtSvg, atMeiDom, tools) => {
     const sortedDt = dtStrokes.slice().sort((a, b) => a.avgY - b.avgY)
     const minCount = Math.min(sortedAt.length, sortedDt.length)
 
+    const normalizationOffset = getNormalizationOffset(sortedAt, sortedDt, minCount, getNewPos)
+
     for (let i = 0; i < minCount; i++) {
       const atPoly = sortedAt[i]
       const atPoints = atPoly.getAttribute('points') || ''
       const findingsPoints = convertDtPointsToFtPoints(sortedDt[i].points, getNewPos)
+      const normalizationPoints = applyOffsetToPoints(atPoints, normalizationOffset)
 
       setAnimation({
         element: atPoly,
@@ -54,7 +59,8 @@ export const liquifyTremolos = (ftSvg, dtSvg, atMeiDom, tools) => {
         localName: 'tremolo-stroke',
         states: {
           finding: { type: 'points', val: findingsPoints },
-          normalization: { type: 'points', val: findingsPoints },
+          normalization: { type: 'points', val: normalizationPoints },
+          readingOrder: { type: 'points', val: normalizationPoints },
           regulation: { type: 'points', val: atPoints },
           supplements: { type: 'points', val: atPoints },
           interventions: { type: 'points', val: atPoints }
@@ -64,13 +70,15 @@ export const liquifyTremolos = (ftSvg, dtSvg, atMeiDom, tools) => {
 
     for (let i = minCount; i < sortedAt.length; i++) {
       const atPoints = sortedAt[i].getAttribute('points') || ''
+      const normalizationPoints = applyOffsetToPoints(atPoints, normalizationOffset)
       setAnimation({
         element: sortedAt[i],
         id: `${atId}-stroke-${i}`,
         localName: 'tremolo-stroke',
         states: {
           finding: null,
-          normalization: null,
+          normalization: { type: 'points', val: normalizationPoints },
+          readingOrder: { type: 'points', val: atPoints },
           regulation: { type: 'points', val: atPoints },
           supplements: { type: 'points', val: atPoints },
           interventions: { type: 'points', val: atPoints }
@@ -132,7 +140,7 @@ function applyOpacityFallback (trem, atId, dtStrokes, getNewPos, setAnimation) {
       states: {
         finding: { type: 'opacity', val: '0' },
         normalization: { type: 'opacity', val: '0' },
-        readingOrder: { type: 'opacity', val: '0' },
+        readingOrder: { type: 'opacity', val: '1' },
         regulation: { type: 'opacity', val: '1' },
         supplements: { type: 'opacity', val: '1' },
         interventions: { type: 'opacity', val: '1' }
@@ -156,7 +164,7 @@ function applyOpacityFallback (trem, atId, dtStrokes, getNewPos, setAnimation) {
       states: {
         finding: { type: 'opacity', val: '1' },
         normalization: { type: 'opacity', val: '1' },
-        readingOrder: { type: 'opacity', val: '1' },
+        readingOrder: { type: 'opacity', val: '0' },
         regulation: { type: 'opacity', val: '0' },
         supplements: { type: 'opacity', val: '0' },
         interventions: { type: 'opacity', val: '0' }
@@ -285,7 +293,7 @@ function createDtOnlyStroke (trem, atId, index, dtPoints, getNewPos, setAnimatio
     states: {
       finding: { type: 'opacity', val: '1' },
       normalization: { type: 'opacity', val: '1' },
-      readingOrder: { type: 'opacity', val: '1' },
+      readingOrder: { type: 'opacity', val: '0' },
       regulation: { type: 'opacity', val: '0' },
       supplements: { type: 'opacity', val: '0' },
       interventions: { type: 'opacity', val: '0' }
@@ -317,6 +325,65 @@ function sortPolygonsByVerticalCenter (polygons) {
 function convertDtPointsToFtPoints (dtPoints, getNewPos) {
   const points = dtPoints.map(pt => getNewPos({ x: 0, y: 0 }, pt))
   return points.map(pt => `${pt.x},${pt.y}`).join(' ')
+}
+
+/**
+ * Compute one shared normalization offset for all AT tremolo strokes in a group.
+ * This preserves AT-internal layout (same x alignment and vertical spacing) while
+ * keeping the whole tremolo group at a DT-aligned position until readingOrder.
+ *
+ * @param {SVGPolygonElement[]} sortedAt - AT polygons sorted top->bottom.
+ * @param {Array<{points:Array<{x:number,y:number}>}>} sortedDt - DT polygons sorted top->bottom.
+ * @param {number} minCount - Number of matched lines.
+ * @param {Function} getNewPos - Coordinate converter.
+ * @returns {{dx:number,dy:number}} Shared translation offset.
+ */
+function getNormalizationOffset (sortedAt, sortedDt, minCount, getNewPos) {
+  if (minCount === 0) return { dx: 0, dy: 0 }
+
+  const atPoints = []
+  const findingPoints = []
+
+  for (let i = 0; i < minCount; i++) {
+    atPoints.push(...parsePolygonPoints(sortedAt[i].getAttribute('points') || ''))
+    findingPoints.push(...sortedDt[i].points.map(point => getNewPos({ x: 0, y: 0 }, point)))
+  }
+
+  if (atPoints.length === 0 || findingPoints.length === 0) return { dx: 0, dy: 0 }
+
+  const atCenter = getCentroid(atPoints)
+  const findingCenter = getCentroid(findingPoints)
+
+  return {
+    dx: findingCenter.x - atCenter.x,
+    dy: findingCenter.y - atCenter.y
+  }
+}
+
+/**
+ * Apply a translation offset to a polygon points string.
+ *
+ * @param {string} pointsStr - Source points string.
+ * @param {{dx:number,dy:number}} offset - Translation offset.
+ * @returns {string} Translated points string.
+ */
+function applyOffsetToPoints (pointsStr, offset) {
+  const points = parsePolygonPoints(pointsStr)
+  if (points.length === 0) return pointsStr
+  const moved = points.map(point => ({ x: point.x + offset.dx, y: point.y + offset.dy }))
+  return moved.map(point => `${point.x},${point.y}`).join(' ')
+}
+
+/**
+ * Compute centroid of polygon points.
+ *
+ * @param {{x:number,y:number}[]} points - Polygon points.
+ * @returns {{x:number,y:number}} Centroid point.
+ */
+function getCentroid (points) {
+  if (!points.length) return { x: 0, y: 0 }
+  const sum = points.reduce((acc, point) => ({ x: acc.x + point.x, y: acc.y + point.y }), { x: 0, y: 0 })
+  return { x: sum.x / points.length, y: sum.y / points.length }
 }
 
 /**
