@@ -58,6 +58,8 @@ export const liquifyTremolos = (ftSvg, dtSvg, atMeiDom, tools) => {
         id: `${atId}-stroke-${i}`,
         localName: 'tremolo-stroke',
         states: {
+          digitalFacsimile: { type: 'points', val: findingsPoints },
+          writingZone: { type: 'points', val: findingsPoints },
           finding: { type: 'points', val: findingsPoints },
           normalization: { type: 'points', val: normalizationPoints },
           readingOrder: { type: 'points', val: normalizationPoints },
@@ -138,6 +140,8 @@ function applyOpacityFallback (trem, atId, dtStrokes, getNewPos, setAnimation) {
       id: `${atId}-tremolo-glyph-${i}`,
       localName: 'tremolo',
       states: {
+        digitalFacsimile: { type: 'opacity', val: '0' },
+        writingZone: { type: 'opacity', val: '0' },
         finding: { type: 'opacity', val: '0' },
         normalization: { type: 'opacity', val: '0' },
         readingOrder: { type: 'opacity', val: '1' },
@@ -162,6 +166,8 @@ function applyOpacityFallback (trem, atId, dtStrokes, getNewPos, setAnimation) {
       id: `${atId}-dt-stroke-${i}`,
       localName: 'tremolo',
       states: {
+        digitalFacsimile: { type: 'opacity', val: '1' },
+        writingZone: { type: 'opacity', val: '1' },
         finding: { type: 'opacity', val: '1' },
         normalization: { type: 'opacity', val: '1' },
         readingOrder: { type: 'opacity', val: '0' },

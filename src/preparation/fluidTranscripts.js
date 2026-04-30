@@ -743,17 +743,19 @@ function groupDtStaffLinesByMatchedBlocks (dtSvg, matchedBlocks, blockToDtSystem
 function animateSystemLabels (ftSvg, setAnimation, stateModel) {
   if (stateModel !== 'fluidSystems') return
 
-  // Default six-phase spacing is 20% per phase; compress label fade to 10% of that.
-  const phaseSpan = 1 / 5
-  const regulationStart = phaseSpan * 3
+  // Eight-phase spacing is 1/7 per phase; compress label fade to 10% of one phase.
+  const phaseSpan = 1 / 7
+  const regulationStart = phaseSpan * 5
   const transitionSpan = phaseSpan * 0.1
   const readingOrderTransitionStart = regulationStart - transitionSpan
   const labelKeyTimes = [
     0,
     phaseSpan,
+    phaseSpan * 2,
+    phaseSpan * 3,
     readingOrderTransitionStart,
     regulationStart,
-    phaseSpan * 4,
+    phaseSpan * 6,
     1
   ].map(value => value.toFixed(2))
 
@@ -774,6 +776,8 @@ function animateSystemLabels (ftSvg, setAnimation, stateModel) {
       id: `system-label-${index}`,
       localName: 'system-label',
       states: {
+        digitalFacsimile: { type: 'opacity', val: '0' },
+        writingZone: { type: 'opacity', val: '0' },
         finding: { type: 'opacity', val: '0' },
         normalization: { type: 'opacity', val: '0' },
         readingOrder: { type: 'opacity', val: '0' },
@@ -852,6 +856,8 @@ function animateUnmatchedBlockContainers (ftSvg, measureBlockMap, matchedStaffLi
       id: `unmatched-system-${containerIndex++}`,
       localName: 'system',
       states: {
+        digitalFacsimile: { type: 'opacity', val: '0' },
+        writingZone: { type: 'opacity', val: '0' },
         finding: { type: 'opacity', val: '0' },
         normalization: { type: 'opacity', val: '0' },
         readingOrder: { type: 'opacity', val: '0' },
@@ -874,6 +880,8 @@ function animateUnmatchedBlockContainers (ftSvg, measureBlockMap, matchedStaffLi
       id: `unmatched-measure-${containerIndex++}`,
       localName: 'measure',
       states: {
+        digitalFacsimile: { type: 'opacity', val: '0' },
+        writingZone: { type: 'opacity', val: '0' },
         finding: { type: 'opacity', val: '0' },
         normalization: { type: 'opacity', val: '0' },
         readingOrder: { type: 'opacity', val: '0' },
@@ -942,6 +950,8 @@ const animateStaffLines = (ftSvg, dtSvg, convertD, setAnimation, logger, matched
         id: `staff-line-${i}`,
         localName: 'staff-line',
         states: {
+          digitalFacsimile: { type: 'd', val: newD },
+          writingZone: { type: 'd', val: newD },
           finding: { type: 'd', val: newD },
           normalization: { type: 'd', val: newD },
           readingOrder: { type: 'd', val: newD },
@@ -969,6 +979,8 @@ const animateStaffLines = (ftSvg, dtSvg, convertD, setAnimation, logger, matched
         id: `staff-line-block-${blockIndex}-unmatched-${idx}`,
         localName: 'staff-line',
         states: {
+          digitalFacsimile: { type: 'opacity', val: '0' },
+          writingZone: { type: 'opacity', val: '0' },
           finding: { type: 'opacity', val: '0' },
           normalization: { type: 'opacity', val: '0' },
           readingOrder: { type: 'opacity', val: '1' },
@@ -1005,6 +1017,8 @@ const animateStaffLines = (ftSvg, dtSvg, convertD, setAnimation, logger, matched
         id: `staff-line-block-${blockIndex}-${i}`,
         localName: 'staff-line',
         states: {
+          digitalFacsimile: { type: 'd', val: newD },
+          writingZone: { type: 'd', val: newD },
           finding: { type: 'd', val: newD },
           normalization: { type: 'd', val: newD },
           readingOrder: { type: 'd', val: newD },
@@ -1291,13 +1305,16 @@ const setAnimationFluidTranscript = (descriptor, unmatchedClassByAtId = new Map(
 }
 
 /**
- * Resolve a partial state descriptor into the canonical fluidSystems six-phase sequence.
+ * Resolve a partial state descriptor into the canonical fluidSystems eight-phase sequence.
  * Missing phases are derived conservatively to preserve existing behavior.
  *
  * @param {Object} states - Input object used by this function.
- * @returns {Object} Fully-resolved six-phase state descriptor
+ * @returns {Object} Fully-resolved eight-phase state descriptor
  */
 export const resolveFluidSystemsStates = (states = {}) => {
+  const digitalFacsimile = states.digitalFacsimile || null
+  const writingZone = states.writingZone || digitalFacsimile
+
   const finding = states.finding || null
   const normalization = states.normalization || finding
   const readingOrder = states.readingOrder || normalization
@@ -1318,6 +1335,8 @@ export const resolveFluidSystemsStates = (states = {}) => {
   const interventions = states.interventions || supplements
 
   return {
+    digitalFacsimile,
+    writingZone,
     finding,
     normalization,
     readingOrder,
@@ -1336,9 +1355,18 @@ export const resolveFluidSystemsStates = (states = {}) => {
 const setAnimationFluidSystems = (descriptor, unmatchedClassByAtId = new Map()) => {
   const { element, id, localName, states } = descriptor
   const resolvedStates = resolveFluidSystemsStates(states)
-  const { finding, normalization, readingOrder, regulation, supplements, interventions } = resolvedStates
+  const {
+    digitalFacsimile,
+    writingZone,
+    finding,
+    normalization,
+    readingOrder,
+    regulation,
+    supplements,
+    interventions
+  } = resolvedStates
 
-  const allStates = [finding, normalization, readingOrder, regulation, supplements, interventions]
+  const allStates = [digitalFacsimile, writingZone, finding, normalization, readingOrder, regulation, supplements, interventions]
   const hasNullStates = allStates.some(state => state === null)
   const unmatchedContainer = element?.closest?.('[data-bw-unmatched-container="true"]') || null
   const isContainerItself = Boolean(unmatchedContainer && unmatchedContainer === element)
@@ -1350,7 +1378,7 @@ const setAnimationFluidSystems = (descriptor, unmatchedClassByAtId = new Map()) 
     // Supplied/editorial material must remain hidden until supplements.
     const isSuppliedLike = (finding === null || normalization === null) && supplements !== null
     if (isSuppliedLike) {
-      opacityValues = ['0', '0', '0', '0', '1', interventions === null ? '0' : '1']
+      opacityValues = ['0', '0', '0', '0', '0', '0', '1', interventions === null ? '0' : '1']
     }
 
     if (!isInsideUnmatchedContainer) {

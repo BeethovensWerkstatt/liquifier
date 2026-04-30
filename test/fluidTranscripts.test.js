@@ -53,6 +53,8 @@ test('resolveFluidSystemsStates honors explicit fluidSystems keys', () => {
   })
 
   assert.deepEqual(resolved, {
+    digitalFacsimile: null,
+    writingZone: null,
     finding,
     normalization,
     readingOrder,
@@ -161,7 +163,7 @@ test('generateFluidTranscription fluidSystems keeps AT-only note hidden through 
 
   const opacityAnim = outNote.querySelector('animate[attributeName="opacity"]')
   assert.ok(opacityAnim)
-  assert.equal(opacityAnim.getAttribute('values'), '0;0;0;0;1;1')
+  assert.equal(opacityAnim.getAttribute('values'), '0;0;0;0;0;0;1;1')
 })
 
 test('generateFluidTranscription fluidSystems keeps staff lines stable through readingOrder and transitions by regulation', () => {
@@ -197,20 +199,22 @@ test('generateFluidTranscription fluidSystems keeps staff lines stable through r
   const lines = Array.from(outSvg.querySelectorAll('path.rastrum'))
   assert.ok(lines.length >= 1)
 
-  const transitionsAtSupplements = lines.map(line => {
+  const transitionsAtRegulation = lines.map(line => {
     const dAnim = line.querySelector('animate[attributeName="d"]')
     assert.ok(dAnim)
 
     const values = dAnim.getAttribute('values').split(';')
-    assert.equal(values.length, 6)
+    assert.equal(values.length, 8)
     assert.equal(values[0], values[1])
     assert.equal(values[1], values[2])
+    assert.equal(values[2], values[3])
     assert.equal(values[3], values[4])
-    assert.equal(values[4], values[5])
-    return values[2] !== values[3]
+    assert.equal(values[5], values[6])
+    assert.equal(values[6], values[7])
+    return values[4] !== values[5]
   })
 
-  assert.ok(transitionsAtSupplements.some(Boolean))
+  assert.ok(transitionsAtRegulation.some(Boolean))
 })
 
 test('generateFluidTranscription fluidSystems builds separate AT target staff sets per AT block', () => {
@@ -250,7 +254,7 @@ test('generateFluidTranscription fluidSystems builds separate AT target staff se
 
   const atTargets = rastrumLines.map(line => {
     const vals = line.querySelector('animate[attributeName="d"]').getAttribute('values').split(';')
-    return vals[4]
+    return vals[5]
   })
 
   assert.deepEqual(atTargets.sort(), ['M10 100 L90 100', 'M110 100 L190 100'])
@@ -504,10 +508,10 @@ test('generateFluidTranscription fluidSystems keeps AT target in regulation and 
   const noteAnim = outSvg.querySelector('g.note[data-id="a1"] > animateTransform[type="translate"]')
   assert.ok(noteAnim)
   const values = noteAnim.getAttribute('values').split(';')
-  assert.equal(values.length, 6)
-  assert.equal(values[3], '0 0')
-  assert.equal(values[4], '0 0')
+  assert.equal(values.length, 8)
   assert.equal(values[5], '0 0')
+  assert.equal(values[6], '0 0')
+  assert.equal(values[7], '0 0')
 })
 
 test('generateFluidTranscription fluidSystems skips no-op note translate animation when all states are 0 0', () => {
@@ -638,10 +642,10 @@ test('generateFluidTranscription fluidSystems applies vertical choice offsets in
   const noteAnim = outSvg.querySelector('g.note[data-id="a1"] > animateTransform[type="translate"]')
   assert.ok(noteAnim)
   const values = noteAnim.getAttribute('values').split(';')
-  assert.equal(values.length, 6)
-  assert.equal(values[3], '0 -20')
-  assert.equal(values[4], '0 -20')
-  assert.equal(values[5], '0 0')
+  assert.equal(values.length, 8)
+  assert.equal(values[5], '0 -20')
+  assert.equal(values[6], '0 -20')
+  assert.equal(values[7], '0 0')
 })
 
 test('generateFluidTranscription classifies foreign-DT note corresp as otherWz', () => {
@@ -781,8 +785,8 @@ test('generateFluidTranscription fluidSystems animates system labels from readin
 
   const opacityAnim = label.querySelector('animate[attributeName="opacity"]')
   assert.ok(opacityAnim)
-  assert.equal(opacityAnim.getAttribute('values'), '0;0;0;1;1;1')
-  assert.equal(opacityAnim.getAttribute('keyTimes'), '0.00;0.20;0.58;0.60;0.80;1.00')
+  assert.equal(opacityAnim.getAttribute('values'), '0;0;0;0;0;1;1;1')
+  assert.equal(opacityAnim.getAttribute('keyTimes'), '0.00;0.14;0.29;0.43;0.70;0.71;0.86;1.00')
 })
 
 test('generateFluidTranscription animates chord note augmentation dots with noteheads', () => {
@@ -1013,7 +1017,7 @@ test('generateFluidTranscription fluidSystems hides unmatched subsequent-page me
 
   const measureOpacityAnim = unmatchedMeasure.querySelector(':scope > animate[attributeName="opacity"]')
   assert.ok(measureOpacityAnim)
-  assert.equal(measureOpacityAnim.getAttribute('values'), '0;0;0;0;1;1')
+  assert.equal(measureOpacityAnim.getAttribute('values'), '0;0;0;0;0;0;1;1')
 
   const unmatchedNote = outSvg.querySelector('g.note[data-id="a2"]')
   assert.ok(unmatchedNote)
@@ -1101,13 +1105,15 @@ test('generateFluidTranscription animates bTrem tremolo symbol from DT line corr
   const glyphOpacity = tremUse.querySelector('animate[attributeName="opacity"]')
   assert.ok(glyphOpacity, 'AT glyph must have opacity animation')
   const glyphValues = glyphOpacity.getAttribute('values').split(';')
-  assert.equal(glyphValues.length, 6)
-  assert.equal(glyphValues[0], '0') // finding: hidden
-  assert.equal(glyphValues[1], '0') // normalization: hidden
-  assert.equal(glyphValues[2], '1') // readingOrder: visible
-  assert.equal(glyphValues[3], '1') // regulation: visible
-  assert.equal(glyphValues[4], '1') // supplements: visible
-  assert.equal(glyphValues[5], '1') // interventions: visible
+  assert.equal(glyphValues.length, 8)
+  assert.equal(glyphValues[0], '0') // digitalFacsimile: hidden
+  assert.equal(glyphValues[1], '0') // writingZone: hidden
+  assert.equal(glyphValues[2], '0') // finding: hidden
+  assert.equal(glyphValues[3], '0') // normalization: hidden
+  assert.equal(glyphValues[4], '1') // readingOrder: visible
+  assert.equal(glyphValues[5], '1') // regulation: visible
+  assert.equal(glyphValues[6], '1') // supplements: visible
+  assert.equal(glyphValues[7], '1') // interventions: visible
 
   // No translate animation on the glyph (avoids scale collapse)
   assert.equal(tremUse.querySelector('animateTransform[type="translate"]'), null)
@@ -1120,9 +1126,11 @@ test('generateFluidTranscription animates bTrem tremolo symbol from DT line corr
     const strokeOpacity = poly.querySelector('animate[attributeName="opacity"]')
     assert.ok(strokeOpacity, 'DT stroke polygon must have opacity animation')
     const sv = strokeOpacity.getAttribute('values').split(';')
-    assert.equal(sv[0], '1') // finding: visible
-    assert.equal(sv[1], '1') // normalization: visible
-    assert.equal(sv[2], '0') // readingOrder: hidden
+    assert.equal(sv[0], '1') // digitalFacsimile: visible
+    assert.equal(sv[1], '1') // writingZone: visible
+    assert.equal(sv[2], '1') // finding: visible
+    assert.equal(sv[3], '1') // normalization: visible
+    assert.equal(sv[4], '0') // readingOrder: hidden
   })
 })
 
@@ -1205,9 +1213,11 @@ test('generateFluidTranscription aligns bTrem symbol with nested note animation'
   const glyphOpacity = tremUse.querySelector('animate[attributeName="opacity"]')
   assert.ok(glyphOpacity, 'AT glyph must have opacity animation')
   const gv = glyphOpacity.getAttribute('values').split(';')
-  assert.equal(gv[0], '0') // finding: hidden
-  assert.equal(gv[1], '0') // normalization: hidden
-  assert.equal(gv[2], '1') // readingOrder: visible
+  assert.equal(gv[0], '0') // digitalFacsimile: hidden
+  assert.equal(gv[1], '0') // writingZone: hidden
+  assert.equal(gv[2], '0') // finding: hidden
+  assert.equal(gv[3], '0') // normalization: hidden
+  assert.equal(gv[4], '1') // readingOrder: visible
 
   // One DT stroke polygon added for the single DT corresp line
   const dtStroke = outSvg.querySelector('g.bTrem[data-id="atTremNested1"] > polygon.bw-trem-stroke')
@@ -1215,9 +1225,11 @@ test('generateFluidTranscription aligns bTrem symbol with nested note animation'
   const strokeOpacity = dtStroke.querySelector('animate[attributeName="opacity"]')
   assert.ok(strokeOpacity, 'DT stroke must have opacity animation')
   const sv = strokeOpacity.getAttribute('values').split(';')
-  assert.equal(sv[0], '1') // finding: visible
-  assert.equal(sv[1], '1') // normalization: visible
-  assert.equal(sv[2], '0') // readingOrder: hidden
+  assert.equal(sv[0], '1') // digitalFacsimile: visible
+  assert.equal(sv[1], '1') // writingZone: visible
+  assert.equal(sv[2], '1') // finding: visible
+  assert.equal(sv[3], '1') // normalization: visible
+  assert.equal(sv[4], '0') // readingOrder: hidden
 })
 
 test('generateFluidTranscription animates fTrem tremolo symbol from DT line corresp', () => {
@@ -1287,10 +1299,12 @@ test('generateFluidTranscription animates fTrem tremolo symbol from DT line corr
   const glyphOpacity = tremUse.querySelector('animate[attributeName="opacity"]')
   assert.ok(glyphOpacity, 'AT fTrem glyph must have opacity animation')
   const glyphValues = glyphOpacity.getAttribute('values').split(';')
-  assert.equal(glyphValues.length, 6)
-  assert.equal(glyphValues[0], '0') // finding: hidden
-  assert.equal(glyphValues[1], '0') // normalization: hidden
-  assert.equal(glyphValues[2], '1') // readingOrder: visible
+  assert.equal(glyphValues.length, 8)
+  assert.equal(glyphValues[0], '0') // digitalFacsimile: hidden
+  assert.equal(glyphValues[1], '0') // writingZone: hidden
+  assert.equal(glyphValues[2], '0') // finding: hidden
+  assert.equal(glyphValues[3], '0') // normalization: hidden
+  assert.equal(glyphValues[4], '1') // readingOrder: visible
 
   assert.equal(tremUse.querySelector('animateTransform[type="translate"]'), null)
 
@@ -1300,9 +1314,11 @@ test('generateFluidTranscription animates fTrem tremolo symbol from DT line corr
   const strokeOpacity = dtStroke.querySelector('animate[attributeName="opacity"]')
   assert.ok(strokeOpacity)
   const sv = strokeOpacity.getAttribute('values').split(';')
-  assert.equal(sv[0], '1') // finding: visible
-  assert.equal(sv[1], '1') // normalization: visible
-  assert.equal(sv[2], '0') // readingOrder: hidden
+  assert.equal(sv[0], '1') // digitalFacsimile: visible
+  assert.equal(sv[1], '1') // writingZone: visible
+  assert.equal(sv[2], '1') // finding: visible
+  assert.equal(sv[3], '1') // normalization: visible
+  assert.equal(sv[4], '0') // readingOrder: hidden
 })
 
 test('generateFluidTranscription countermeasures inherited bTrem translate to avoid stacking', () => {
@@ -1376,7 +1392,7 @@ test('generateFluidTranscription countermeasures inherited bTrem translate to av
   // Nested note still gets its translate animation
   const noteAnim = outSvg.querySelector('g.note[data-id="atCounterNote1"] > animateTransform[type="translate"]')
   assert.ok(noteAnim)
-  assert.equal(noteAnim.getAttribute('values'), '100 200;100 200;100 200;0 0;0 0;0 0')
+  assert.equal(noteAnim.getAttribute('values'), '0 0;0 0;100 200;100 200;100 200;0 0;0 0;0 0')
 
   // The glyph use must NOT have a translate animation (opacity only – no stacking)
   const tremTranslate = outSvg.querySelector('g.bTrem[data-id="atTremCounter1"] > use > animateTransform[type="translate"]')
@@ -1473,20 +1489,23 @@ test('generateFluidTranscription expands tremolo glyph use to inline strokes and
     const animatePoints = poly.querySelector('animate[attributeName="points"]')
     assert.ok(animatePoints, `inline stroke ${i} should animate points`)
     const values = animatePoints.getAttribute('values').split(';')
-    assert.equal(values.length, 6)
-    assert.notEqual(values[0], values[1], 'DT and AT geometry should differ between finding and normalization')
-    assert.equal(values[1], values[2], 'normalization and readingOrder should currently be identical')
-    assert.notEqual(values[2], values[3], 'readingOrder and regulation should differ by position')
-    assert.equal(values[3], values[4], 'regulation and supplements should share AT position and shape')
+    assert.equal(values.length, 8)
+    assert.equal(values[0], values[1], 'digitalFacsimile and writingZone should share DT geometry')
+    assert.equal(values[1], values[2], 'writingZone and finding should share DT geometry')
+    assert.notEqual(values[2], values[3], 'DT and AT geometry should differ between finding and normalization')
+    assert.equal(values[3], values[4], 'normalization and readingOrder should currently be identical')
+    assert.notEqual(values[4], values[5], 'readingOrder and regulation should differ by position')
+    assert.equal(values[5], values[6], 'regulation and supplements should share AT position and shape')
+    assert.equal(values[6], values[7], 'supplements and interventions should share AT position and shape')
   })
 
   // Normalization/readingOrder keep one shared group offset relative to AT: same line spacing and x alignment.
   const parsedFrames = Array.from(inlineStrokes).map(poly => {
     const values = poly.querySelector('animate[attributeName="points"]').getAttribute('values').split(';')
     return {
-      normalization: parsePoints(values[1]),
-      readingOrder: parsePoints(values[2]),
-      regulation: parsePoints(values[3])
+      normalization: parsePoints(values[3]),
+      readingOrder: parsePoints(values[4]),
+      regulation: parsePoints(values[5])
     }
   })
 
@@ -1576,7 +1595,7 @@ test('generateFluidTranscription animates staffGrp braces visible from supplemen
 
   const opacityAnim = brace.querySelector('animate[attributeName="opacity"]')
   assert.ok(opacityAnim, 'staffGrp brace should receive opacity animation')
-  assert.equal(opacityAnim.getAttribute('values'), '0;0;0;0;1;1')
+  assert.equal(opacityAnim.getAttribute('values'), '0;0;0;0;0;0;1;1')
 
   const nonBrace = outSvg.querySelector('path[data-id="notBrace"]')
   assert.ok(nonBrace)

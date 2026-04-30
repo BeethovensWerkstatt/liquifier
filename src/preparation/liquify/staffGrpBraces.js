@@ -28,6 +28,8 @@ export const liquifyStaffGrpBraces = (ftSvg, dtSvg, atMeiDom, tools) => {
       id: `${braceId}-staffGrpBrace`,
       localName: 'staffGrpBrace',
       states: {
+        digitalFacsimile: { type: 'opacity', val: '0' },
+        writingZone: { type: 'opacity', val: '0' },
         finding: { type: 'opacity', val: '0' },
         normalization: { type: 'opacity', val: '0' },
         readingOrder: { type: 'opacity', val: '0' },
