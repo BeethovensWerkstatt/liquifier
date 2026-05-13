@@ -4,7 +4,7 @@ This repo holds code that can be used to generate fluid transcriptions.
 ## Installation
 ### locally
 
-To run and test the liquifier locally, follow these steps:
+To run and test the liquifier docker image locally, follow these steps:
 
   1. Clone the repo and navigate into it:  
      ```bash
@@ -30,8 +30,13 @@ docker container, so that the liquifier can read input files and write output fi
 The `.git` directory is mounted to enable accessing the versioning of the generated files.
 It is mounted read-only to prevent any accidental changes to the git repository.
 
-Newly created files are **not** committed automatically. You can check which files were
-created or modified by running `git status` in the `data` directory.
+> Newly created files are **not** committed automatically. You can check which files were
+  created or modified by running `git status` in the `data` directory.
+
+> In actual operation at "Beethovens Werkstatt", the data and cache folders are stored in separate
+  repositories named `data` and `data-cache`. In the GitHub CI workflow document, the three folders `data`,
+  `cache` and `.git` are mounted from the base directory using:
+  `docker run --rm -v $(pwd)/data/data:/usr/src/app/data -v $(pwd)/data-cache/cache:/usr/src/app/cache -v $(pwd)/data/.git:/usr/src/app/.git:ro ghcr.io/beethovenswerkstatt/liquifier:latest node index.js ...`
 
 ### on a server
 
