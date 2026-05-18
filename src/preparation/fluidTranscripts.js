@@ -328,22 +328,12 @@ function extractCorrespContext (atMeiDom, { currentDtReference = '' } = {}) {
  * @param {Object} dtSystemSvg - DT system SVG DOM (document or svg element)
  * @param {Object} atSystemSvg - AT system SVG DOM (document or svg element)
  * @param {Document} atMeiDom - AT MEI DOM (for corresp mappings)
+ * @param {Document} sourceMeiDom - Source MEI DOM (for additional context)
  * @param {{debug: Function, info: Function, warn: Function, error: Function}} logger - Logger instance for info/debug/warn/error messages
  * @param {Object} options - Structured options object.
  * @returns {Object} Fluid transcription SVG DOM
  */
-export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, sourceMeiDomOrLogger, loggerOrOptions, maybeOptions = {}) => {
-  // Backward compatibility:
-  // old signature: (dtSvg, atSvg, atMeiDom, logger, options)
-  // new signature: (dtSvg, atSvg, atMeiDom, sourceMeiDom, logger, options)
-  let logger = loggerOrOptions
-  let options = maybeOptions
-
-  if (sourceMeiDomOrLogger && typeof sourceMeiDomOrLogger.debug === 'function') {
-    logger = sourceMeiDomOrLogger
-    options = loggerOrOptions || {}
-  }
-
+export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, sourceMeiDom, logger, options = {}) => {
   // Handle both document and element inputs
   const dtSvgElement = dtSystemSvg.documentElement || dtSystemSvg
   const atSvgElement = atSystemSvg.documentElement || atSystemSvg
@@ -359,6 +349,10 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, s
   // Calculate system centers
   const dtCenter = calculateDtSystemCenter(dtSvgElement)
   const atCenter = calculateAtSystemCenter(atSvgElement)
+
+  // console.log(`[Scale Factor] Calculated scale factor: ${scaleFactor.toFixed(3)}`)
+  // console.log('dtCenter', dtCenter)
+  // console.log('atCenter', atCenter)
 
   // Clone AT SVG as the base for fluid transcription
   const ftSvg = atSvgElement.cloneNode(true)
@@ -1436,4 +1430,90 @@ const createAnimationSetter = (stateModel, unmatchedClassByAtId = new Map()) => 
   }
 
   return descriptor => setAnimationFluidTranscript(descriptor, unmatchedClassByAtId)
+}
+
+/**
+ * Determines the necessary positions for the fluid transcription
+ *
+ * @param {{ dtSvg, atSvg, atMei, dtMei, source, logger, overlayContext }} params - Parameters object.
+ * @param {SVGElement} params.dtSvg - Diplomatic transcript SVG element.
+ * @param {Document} params.atMei - AT MEI document for metadata access.
+ * @param {SVGElement} params.atSvg - AT SVG element.
+ * @param {Document} params.dtMei - DT MEI document for metadata access.
+ * @param {Document} params.sourceMei - Source MEI document for metadata access.
+ * @param {Document} params.reconstructionMei - Reconstruction MEI document for metadata access.
+ * @param {{debug: Function, info: Function, warn: Function, error: Function}} params.logger - Logger instance.
+ * @param {Object|null} [params.overlayContext] - Optional normalized facsimile/shapes overlay context.
+ * @param {Object} [params.overlayContext.facsimile] - Normalized facsimile geometry in px/mm units.
+ * @param {Object} [params.overlayContext.shapes] - Shapes source context.
+ * @returns {object} Object containing positional data for fluid transcription elements.
+ */
+export const retrievePositionalDataForFluidSystems = ({ dtSvg, atSvg, atMei, dtMei, sourceMei, reconstructionMei, logger, overlayContext = null }) => {
+  const surfaceId = dtMei.querySelector('pb').getAttribute('target').split('#')[1]
+  const atSurfaceIds = Array.from(atMei.querySelectorAll('pb')).map(pb => pb.getAttribute('corresp').split('#')[1])
+  // const pageIndex = atSurfaceIds.indexOf(surfaceId)
+
+  const round = num => Math.round((num + Number.EPSILON) * 100) / 100
+
+  const arr = []
+
+  atSvg.querySelectorAll('g.writingZone > rect.pageLabelBox').forEach((labelBox, pageIndex) => {
+    const iteratedSurfaceId = atSurfaceIds[pageIndex]
+    const foliumLike = [...reconstructionMei.querySelectorAll('*|foliaDesc *|folium, *|foliaDesc *|bifolium')].find(elem => {
+      const match = (elem.hasAttribute('recto') && elem.getAttribute('recto').endsWith('#' + iteratedSurfaceId)) ||
+        (elem.hasAttribute('verso') && elem.getAttribute('verso').endsWith('#' + iteratedSurfaceId)) ||
+        (elem.hasAttribute('outer.recto') && elem.getAttribute('outer.recto').endsWith('#' + iteratedSurfaceId)) ||
+        (elem.hasAttribute('inner.verso') && elem.getAttribute('inner.verso').endsWith('#' + iteratedSurfaceId)) ||
+        (elem.hasAttribute('inner.recto') && elem.getAttribute('inner.recto').endsWith('#' + iteratedSurfaceId)) ||
+        (elem.hasAttribute('outer.verso') && elem.getAttribute('outer.verso').endsWith('#' + iteratedSurfaceId))
+
+      return match
+    })
+
+    const pageInfo = {}
+
+    pageInfo.atWidth = round(parseFloat(labelBox.getAttribute('width') || '0') / 90)
+    pageInfo.mmWidth = parseFloat(foliumLike.getAttribute('width') || '0')
+    pageInfo.mmHeight = parseFloat(foliumLike.getAttribute('height') || '0')
+    pageInfo.surfaceId = iteratedSurfaceId
+    pageInfo.currentPage = iteratedSurfaceId === surfaceId
+
+    pageInfo.systems = []
+    labelBox.parentNode.querySelectorAll('g.systemBegin').forEach((systemBegin, systemIndex) => {
+      const systemInfo = {}
+      systemInfo.sbId = systemBegin.getAttribute('data-id')
+      systemInfo.width = round(parseFloat(systemBegin.querySelector('rect.pageLabelBox').getAttribute('width') || '0') / 90)
+      pageInfo.systems.push(systemInfo)
+    })
+    arr.push(pageInfo)
+  })
+
+  let sum = 0
+  arr.forEach((page, index) => {
+    page.precedingWidth = round(sum)
+    sum += page.atWidth
+  })
+
+  const obj = { pages: arr }
+
+  if (overlayContext?.facsimile) {
+    obj.iiifUrl = overlayContext.facsimile.href
+    obj.facsimile = {
+      href: overlayContext.facsimile.href,
+      widthPx: overlayContext.facsimile.widthPx,
+      heightPx: overlayContext.facsimile.heightPx,
+      fragment: overlayContext.facsimile.fragment,
+      pageMm: overlayContext.facsimile.pageMm,
+      mediaFragMm: overlayContext.facsimile.mediaFragMm,
+      imageMm: overlayContext.facsimile.imageMm,
+      ratioPxPerMm: overlayContext.facsimile.ratioPxPerMm,
+      mmPerPx: overlayContext.facsimile.mmPerPx
+    }
+  } else {
+    const surface = sourceMei.getElementById(surfaceId)
+    const iiifUrl = surface?.querySelector('graphic[type="facsimile"]')?.getAttribute('target') || null
+    obj.iiifUrl = iiifUrl
+  }
+
+  return obj
 }

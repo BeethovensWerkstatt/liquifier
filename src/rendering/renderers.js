@@ -5,7 +5,7 @@ import { serializeXmlCanonical } from '../utils/xml.js'
 import { renderContinuousAt, renderSystemBasedAt, renderMidi } from './verovioHandler.js'
 import { renderDiplomaticTranscript } from './thulemeierHandler.js'
 import { writeData } from '../filehandlers/filehandler.js'
-import { generateFluidTranscription } from '../preparation/fluidTranscripts.js'
+import { generateFluidTranscription, retrievePositionalDataForFluidSystems } from '../preparation/fluidTranscripts.js'
 import { getOuterBoundingRect } from '../utils/trigonometry.js'
 import { JSDOM } from 'jsdom'
 import path from 'path'
@@ -468,6 +468,7 @@ function renderFluidSystemsLike ({ data, triple, recreate, logger, sourceDir, so
         ...generationOptions
       }
 
+      // todo: this seems unused??
       const fluidSvg = generateFluidTranscription(dtSystemSvg, atSystemSvg, data.atDom, data.sourceDom, logger, effectiveGenerationOptions)
 
       if (postProcessSvg) {
@@ -1225,7 +1226,7 @@ function injectFluidSystemsFacsimileLayers ({ fluidSvg, overlayContext, parser, 
   image.setAttribute('y', String(overlayContext.facsimile.imageMm.y * unitsPerMm))
   image.setAttribute('width', String(overlayContext.facsimile.imageMm.width * unitsPerMm))
   image.setAttribute('height', String(overlayContext.facsimile.imageMm.height * unitsPerMm))
-  image.setAttribute('href', overlayContext.facsimile.href)
+  image.setAttribute('href', overlayContext.facsimile.href + '/full/full/0/default.jpg')
   image.setAttribute('preserveAspectRatio', 'none')
   image.setAttribute('opacity', '1')
 
@@ -1392,6 +1393,26 @@ export async function renderFluidSystemsSvg ({ data, triple, verovio, pageDimens
       }
     })
 
+    const overlayContext = resolveFluidSystemsOverlayContext({
+      dtDom: data.dtDom,
+      sourceDom: data.sourceDom,
+      triple
+    })
+
+    const positionalData = retrievePositionalDataForFluidSystems({
+      dtSvg,
+      atSvg: atSvgWithSystemLabels,
+      atMei: data.atDom,
+      dtMei: data.dtDom,
+      sourceMei: data.sourceDom,
+      reconstructionMei: data.reconstructionDom,
+      logger,
+      overlayContext
+    })
+    console.log('positionalData', positionalData)
+    console.log(data)
+    console.log(triple)
+
     const fluidSvg = generateFluidTranscription(dtSvg, atSvgWithSystemLabels, data.atDom, data.sourceDom, logger, {
       stateModel: 'fluidSystems',
       currentDtReference: triple.dtFullPath || triple.dt || '',
@@ -1399,13 +1420,8 @@ export async function renderFluidSystemsSvg ({ data, triple, verovio, pageDimens
       matchedStaffLineBlocks: staffLineContext.matchedStaffLineBlocks,
       blockToDtSystemId: staffLineContext.blockToDtSystemId
     })
+    console.log('trollolo')
     anchorFluidSystemsToAtLeft(fluidSvg)
-
-    const overlayContext = resolveFluidSystemsOverlayContext({
-      dtDom: data.dtDom,
-      sourceDom: data.sourceDom,
-      triple
-    })
 
     if (overlayContext) {
       injectFluidSystemsFacsimileLayers({

@@ -122,6 +122,11 @@ The `--input-dir` and `--output-dir` parameters allow you to configure where the
 node index.js --input-dir=../data/data/sources --output-dir=../data/cache diplomaticTranscripts/filename.xml
 ```
 
+```bash
+# Local test of one specific transcription
+node index.js --types=editedAt,fluidSystems --recreate=true --input-dir=../data/data/sources --output-dir=../data/cache --context-document=Notirungsbuch_K D-BNba_MH_60_Engelmann/diplomaticTranscripts/D-BNba_MH_60_Engelmann_p005_wz06_dt.xml
+```
+
 **Docker container example:**
 ```bash
 # When running in Docker with mounted volumes

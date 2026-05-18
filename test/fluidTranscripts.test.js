@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { JSDOM } from 'jsdom'
 
-import { generateFluidTranscription, resolveFluidSystemsStates } from '../src/preparation/fluidTranscripts.js'
+import { generateFluidTranscription, resolveFluidSystemsStates, retrievePositionalDataForFluidSystems } from '../src/preparation/fluidTranscripts.js'
 import { adjustViewBoxForContent } from '../src/preparation/liquify/viewbox.js'
 
 const parser = new (new JSDOM().window.DOMParser)()
@@ -13,6 +13,47 @@ const noopLogger = {
   warn: () => {},
   error: () => {}
 }
+
+test('retrievePositionalDataForFluidSystems uses overlay facsimile geometry when provided', () => {
+  const dtSvg = parser.parseFromString('<svg xmlns="http://www.w3.org/2000/svg"/>', 'image/svg+xml')
+  const atSvg = parser.parseFromString('<svg xmlns="http://www.w3.org/2000/svg"/>', 'image/svg+xml')
+  const atMei = parser.parseFromString('<mei><music><body><pb corresp="#surface-current"/></body></music></mei>', 'text/xml')
+  const dtMei = parser.parseFromString('<mei><music><body><pb target="#surface-current"/></body></music></mei>', 'text/xml')
+  const sourceMei = parser.parseFromString('<mei><music><body/></music></mei>', 'text/xml')
+  const reconstructionMei = parser.parseFromString('<mei><music><body/></music></mei>', 'text/xml')
+
+  const overlayContext = {
+    surfaceId: 'surface-current',
+    facsimile: {
+      href: 'https://example.org/iiif/image',
+      widthPx: 6000,
+      heightPx: 4000,
+      fragment: { x: 120, y: 80, w: 1800, h: 1200, rotate: 2 },
+      pageMm: { width: 420, height: 297 },
+      mediaFragMm: { x: -5, y: -7, w: 430, h: 310 },
+      imageMm: { x: -33.7, y: -25.2, width: 1400.3, height: 933.5 },
+      ratioPxPerMm: 4.186,
+      mmPerPx: 0.23889
+    },
+    shapes: {
+      absolutePath: null
+    }
+  }
+
+  const positionalData = retrievePositionalDataForFluidSystems({
+    dtSvg,
+    atSvg,
+    atMei,
+    dtMei,
+    sourceMei,
+    reconstructionMei,
+    logger: noopLogger,
+    overlayContext
+  })
+
+  assert.equal(positionalData.iiifUrl, overlayContext.facsimile.href)
+  assert.deepEqual(positionalData.facsimile, overlayContext.facsimile)
+})
 
 test('resolveFluidSystemsStates moves non-supplied material in regulation', () => {
   const finding = { type: 'translate', val: '10 20' }
