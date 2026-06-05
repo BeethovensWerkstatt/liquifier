@@ -4,7 +4,7 @@ This repo holds code that can be used to generate fluid transcriptions.
 ## Installation
 ### locally
 
-To run and test the liquifier locally, follow these steps:
+To run and test the liquifier docker image locally, follow these steps:
 
   1. Clone the repo and navigate into it:  
      ```bash
@@ -30,59 +30,64 @@ docker container, so that the liquifier can read input files and write output fi
 The `.git` directory is mounted to enable accessing the versioning of the generated files.
 It is mounted read-only to prevent any accidental changes to the git repository.
 
-Newly created files are **not** committed automatically. You can check which files were
-created or modified by running `git status` in the `data` directory.
+> Newly created files are **not** committed automatically. You can check which files were
+  created or modified by running `git status` in the `data` directory.
+
+> In actual operation at "Beethovens Werkstatt", the data and cache folders are stored in separate
+  repositories named `data` and `data-cache`. In the GitHub CI workflow document, the three folders `data`,
+  `cache` and `.git` are mounted from the base directory using:
+  `docker run --rm -v $(pwd)/data/data:/usr/src/app/data -v $(pwd)/data-cache/cache:/usr/src/app/cache -v $(pwd)/data/.git:/usr/src/app/.git:ro ghcr.io/beethovenswerkstatt/liquifier:latest node index.js ...`
 
 ### on a server
 
 The liquifier can also be run as a GitHub Action on a server. To set this up, follow these steps:
 
-  1. Fork the [BeethovensWerkstatt/data]
-  2. In your fork, go to the "Actions" tab and enable GitHub Actions if it is not already enabled.
-  3. Create a new workflow file in the `.github/workflows` directory of your fork. You can name the file `liquifier.yml`.
-  4. Add the following content to the `liquifier.yml` file:
+1. Fork the [BeethovensWerkstatt/data]
+2. In your fork, go to the "Actions" tab and enable GitHub Actions if it is not already enabled.
+3. Create a new workflow file in the `.github/workflows` directory of your fork. You can name the file `liquifier.yml`.
+4. Add the following content to the `liquifier.yml` file:
     ```yaml
-      name: Liquifier | Generate and cache diplomatic, annotated, and fluid transcriptions
-      on:
-        push:
-          branches:
-            - main
-          paths:
-            - 'data/sources/**/annotatedTranscripts/**/*.xml'
-            - 'data/sources/**/diplomaticTranscripts/**/*.xml'
-      jobs:
-        build:
-          name: Generate Cache files
-          runs-on: ubuntu-latest
-          permissions:
-            contents: write
+    name: Liquifier | Generate and cache diplomatic, annotated, and fluid transcriptions
+    on:
+      push:
+        branches:
+          - main
+        paths:
+          - 'data/sources/**/annotatedTranscripts/**/*.xml'
+          - 'data/sources/**/diplomaticTranscripts/**/*.xml'
+    jobs:
+      build:
+        name: Generate Cache files
+        runs-on: ubuntu-latest
+        permissions:
+          contents: write
 
-          steps:
-            - name: Checkout repository
-              uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+        steps:
+          - name: Checkout repository
+            uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
 
-            - name: ensure cache
-              run: mkdir -p cache
+          - name: ensure cache
+            run: mkdir -p cache
 
-            - name: run Docker image
-              run: docker run --rm -v $(pwd)/data:/usr/src/app/data -v $(pwd)/cache:/usr/src/app/cache -v $(pwd)/.git:/usr/src/app/.git:ro ghcr.io/beethovenswerkstatt/liquifier:latest node index.js --input-dir=/usr/src/app/data/sources --output-dir=/usr/src/app/cache --context-document=Notirungsbuch_K
+          - name: run Docker image
+            run: docker run --rm -v $(pwd)/data:/usr/src/app/data -v $(pwd)/cache:/usr/src/app/cache -v $(pwd)/.git:/usr/src/app/.git:ro ghcr.io/beethovenswerkstatt/liquifier:latest node index.js --input-dir=/usr/src/app/data/sources --output-dir=/usr/src/app/cache --context-document=Notirungsbuch_K
 
-            # check repo status before push to avoid overlapping commits
+          # check repo status before push to avoid overlapping commits
 
-            - name: configure git
-              run: |
-                echo "Configuring git..."
-                git config user.name "github-actions"
-                git config user.email "github-actions@users.noreply.github.com"
-            
-            - name: Commit
-              run: |
-                git add .
-                git commit -m "generate and cache transcriptions for @${{ github.sha }}"
-                git push
+          - name: configure git
+            run: |
+              echo "Configuring git..."
+              git config user.name "github-actions"
+              git config user.email "github-actions@users.noreply.github.com"
+          
+          - name: Commit
+            run: |
+              git add .
+              git commit -m "generate and cache transcriptions for @${{ github.sha }}"
+              git push
     ```
-  5. Commit and push the `liquifier.yml` file to your fork.
-  6. The workflow will run automatically whenever there is a push to the `main` branch that
+5. Commit and push the `liquifier.yml` file to your fork.
+6. The workflow will run automatically whenever there is a push to the `main` branch that
   affects files in the `data/sources/**/annotatedTranscripts/` or `data/sources/**/diplomaticTranscripts/` directories.
 
 Make sure to monitor the Actions tab in your fork to see the status of the workflow runs.
