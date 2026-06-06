@@ -212,6 +212,139 @@ export const calculateScaleFactor = (dtSystemSvg, atSystemSvg) => {
 }
 
 /**
+ * Resolves the DT scale factor used in fluidSystems.
+ *
+ * @param {Object} options - Structured options object.
+ * @param {number} fullScaleFactor - Computed full DT->AT scale factor.
+ * @param {number|null} [perSystemScaleFactor] - Computed DT->AT scale factor for one matched system.
+ * @param {number} [options.dtScaleReductionFactor] - Optional override divisor for DT reduction calibration.
+ * @returns {number} Positive point scale factor.
+ */
+function resolveFluidSystemsDtScaleFactor (options = {}, fullScaleFactor = 1, perSystemScaleFactor = null) {
+  const mode = options.dtScaleReductionMode === 'full' ? 'full' : 'perSystem'
+  const configured = Number.parseFloat(options.dtScaleReductionFactor)
+  if (Number.isFinite(configured) && configured > 0) {
+    if (Number.isFinite(fullScaleFactor) && fullScaleFactor > 0) return fullScaleFactor / configured
+    return 1 / configured
+  }
+
+  if (mode === 'perSystem') {
+    if (Number.isFinite(perSystemScaleFactor) && perSystemScaleFactor > 0) return perSystemScaleFactor
+    if (Number.isFinite(fullScaleFactor) && fullScaleFactor > 0) return fullScaleFactor
+    return 1
+  }
+
+  if (Number.isFinite(fullScaleFactor) && fullScaleFactor > 0) return fullScaleFactor
+  return 1
+}
+
+/**
+ * Extracts min/max y range from rastrum path nodes.
+ *
+ * @param {Element[]} lineNodes - Staff-line path nodes.
+ * @returns {{min: number, max: number}|null} Y range.
+ */
+function extractLineYRange (lineNodes = []) {
+  let minY = Infinity
+  let maxY = -Infinity
+
+  lineNodes.forEach(line => {
+    const d = line?.getAttribute?.('d') || ''
+    const match = d.match(/M\s*([\d.-]+)[,\s]+([\d.-]+)\s+L\s*([\d.-]+)[,\s]+([\d.-]+)/)
+    if (!match) return
+
+    const y1 = Number.parseFloat(match[2])
+    const y2 = Number.parseFloat(match[4])
+    if (Number.isFinite(y1)) {
+      minY = Math.min(minY, y1)
+      maxY = Math.max(maxY, y1)
+    }
+    if (Number.isFinite(y2)) {
+      minY = Math.min(minY, y2)
+      maxY = Math.max(maxY, y2)
+    }
+  })
+
+  if (!Number.isFinite(minY) || !Number.isFinite(maxY) || maxY <= minY) return null
+  return { min: minY, max: maxY }
+}
+
+/**
+ * Builds per-block scale profile for fluidSystems using matched block/system pairs.
+ *
+ * @param {Object} params - Input parameter bundle.
+ * @param {SVGElement} params.ftSvg - Fluid transcription SVG.
+ * @param {SVGElement|Document} params.dtSvg - Diplomatic transcript SVG.
+ * @param {Set<number>|null} params.matchedStaffLineBlocks - Matched AT block indices.
+ * @param {Map<number, string>|null} params.blockToDtSystemId - AT block -> DT system id mapping.
+ * @param {{debug: Function, info: Function, warn: Function, error: Function}} params.logger - Logger instance.
+ * @returns {{bands: Array<{blockIndex: number, centerY: number, scaleFactor: number}>, averageScaleFactor: number|null}} Scale profile.
+ */
+function buildFluidSystemsScaleProfile ({ ftSvg, dtSvg, matchedStaffLineBlocks, blockToDtSystemId, logger }) {
+  if (!(matchedStaffLineBlocks instanceof Set) || matchedStaffLineBlocks.size === 0) {
+    return { bands: [], averageScaleFactor: null }
+  }
+
+  const ftStaffLines = Array.from(ftSvg.querySelectorAll('path.rastrum'))
+  const ftByBlock = groupFtStaffLinesByBlock(ftStaffLines)
+  const dtByBlock = groupDtStaffLinesByMatchedBlocks(dtSvg, matchedStaffLineBlocks, blockToDtSystemId, logger)
+
+  const bands = []
+
+  Array.from(matchedStaffLineBlocks).sort((a, b) => a - b).forEach(blockIndex => {
+    const ftRange = extractLineYRange(ftByBlock.get(blockIndex) || [])
+    const dtRange = extractLineYRange(dtByBlock.get(blockIndex) || [])
+    if (!ftRange || !dtRange) return
+
+    const atHeight = ftRange.max - ftRange.min
+    const dtHeight = dtRange.max - dtRange.min
+    if (!Number.isFinite(atHeight) || !Number.isFinite(dtHeight) || atHeight <= 0 || dtHeight <= 0) return
+
+    const scaleFactor = atHeight / dtHeight
+    if (!Number.isFinite(scaleFactor) || scaleFactor <= 0) return
+
+    bands.push({
+      blockIndex,
+      centerY: dtRange.min + ((dtRange.max - dtRange.min) / 2),
+      scaleFactor
+    })
+  })
+
+  if (bands.length === 0) return { bands: [], averageScaleFactor: null }
+
+  bands.sort((a, b) => a.centerY - b.centerY)
+  const averageScaleFactor = bands.reduce((sum, band) => sum + band.scaleFactor, 0) / bands.length
+  return { bands, averageScaleFactor }
+}
+
+/**
+ * Resolves per-system scale factor for one DT point by nearest DT block center.
+ *
+ * @param {Object} params - Input parameter bundle.
+ * @param {{x: number, y: number}} params.dtPoint - DT point used by coordinate transform.
+ * @param {Array<{blockIndex: number, centerY: number, scaleFactor: number}>} params.bands - Per-block scale profile.
+ * @returns {number|null} Resolved scale factor.
+ */
+function resolvePerSystemScaleFactorForDtPoint ({ dtPoint, bands }) {
+  if (!Array.isArray(bands) || bands.length === 0) return null
+  if (!Number.isFinite(dtPoint?.y)) return null
+
+  let bestBand = null
+  let bestDistance = Infinity
+
+  bands.forEach(band => {
+    if (!Number.isFinite(band.centerY) || !Number.isFinite(band.scaleFactor) || band.scaleFactor <= 0) return
+    const distance = Math.abs(dtPoint.y - band.centerY)
+    if (distance < bestDistance) {
+      bestDistance = distance
+      bestBand = band
+    }
+  })
+
+  return bestBand?.scaleFactor || null
+}
+
+/**
  * Normalizes a file reference to a basename for stable matching.
  *
  * @param {string} value - Raw file reference value.
@@ -334,9 +467,24 @@ function extractCorrespContext (atMeiDom, { currentDtReference = '' } = {}) {
  * @returns {Object} Fluid transcription SVG DOM
  */
 export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, sourceMeiDom, logger, options = {}) => {
+  // Backward compatibility: older call sites pass (dt, at, atMei, logger, options).
+  if (sourceMeiDom && typeof sourceMeiDom.debug === 'function' && (!logger || typeof logger.debug !== 'function')) {
+    options = logger || {}
+    logger = sourceMeiDom
+    sourceMeiDom = null
+  }
+
+  const safeLogger = {
+    debug: typeof logger?.debug === 'function' ? logger.debug.bind(logger) : () => {},
+    info: typeof logger?.info === 'function' ? logger.info.bind(logger) : () => {},
+    warn: typeof logger?.warn === 'function' ? logger.warn.bind(logger) : () => {},
+    error: typeof logger?.error === 'function' ? logger.error.bind(logger) : () => {}
+  }
+
   // Handle both document and element inputs
   const dtSvgElement = dtSystemSvg.documentElement || dtSystemSvg
   const atSvgElement = atSystemSvg.documentElement || atSystemSvg
+  const stateModel = options.stateModel || 'fluidTranscript'
 
   const currentDtReference = options.currentDtReference || ''
   const { correspMappings, unmatchedClassByAtId } = extractCorrespContext(atMeiDom, {
@@ -368,6 +516,24 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, s
   adjustAtStaffLines(ftSvg, atMeiDom, measureBlockMap)
   adjustDtStaffLines(dtSvgElement)
 
+  const fluidSystemsScaleProfile = stateModel === 'fluidSystems'
+    ? buildFluidSystemsScaleProfile({
+      ftSvg,
+      dtSvg: dtSvgElement,
+      matchedStaffLineBlocks,
+      blockToDtSystemId,
+      logger: safeLogger
+    })
+    : { bands: [], averageScaleFactor: null }
+
+  const effectiveScaleFactor = stateModel === 'fluidSystems'
+    ? resolveFluidSystemsDtScaleFactor(
+      options,
+      scaleFactor,
+      fluidSystemsScaleProfile.averageScaleFactor
+    )
+    : scaleFactor
+
   // helper function that will get the translation between two points
   /**
    * Returns new pos from the current data context.
@@ -382,10 +548,17 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, s
     const dtOffX = dtCenter.x - dt.x
     const dtOffY = dtCenter.y - dt.y
 
-    const diffX = atOffX - dtOffX * scaleFactor // ((dtOffX * scaleFactor) - atOffX) * -1
-    const diffY = atOffY - dtOffY * scaleFactor // ((dtOffY * scaleFactor) - atOffY) * 1
+    const perSystemScaleFactor = stateModel === 'fluidSystems'
+      ? resolvePerSystemScaleFactorForDtPoint({ dtPoint: dt, bands: fluidSystemsScaleProfile.bands })
+      : null
+    const pointScaleFactor = stateModel === 'fluidSystems'
+      ? resolveFluidSystemsDtScaleFactor(options, scaleFactor, perSystemScaleFactor)
+      : scaleFactor
+
+    const diffX = atOffX - dtOffX * pointScaleFactor // ((dtOffX * scaleFactor) - atOffX) * -1
+    const diffY = atOffY - dtOffY * pointScaleFactor // ((dtOffY * scaleFactor) - atOffY) * 1
     const newPos = { x: Math.round(at.x + diffX), y: Math.round(at.y + diffY) }
-    logger.debug(`[Position Diff] AT: (${at.x}, ${at.y}), DT: (${dt.x}, ${dt.y}) => newPos: (${newPos.x}, ${newPos.y})`)
+    safeLogger.debug(`[Position Diff] AT: (${at.x}, ${at.y}), DT: (${dt.x}, ${dt.y}) => newPos: (${newPos.x}, ${newPos.y})`)
     return newPos
   }
 
@@ -435,7 +608,6 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, s
     return newD
   }
 
-  const stateModel = options.stateModel || 'fluidTranscript'
   const choiceVerticalOffsets = options.choiceVerticalOffsets instanceof Map
     ? options.choiceVerticalOffsets
     : new Map()
@@ -470,7 +642,7 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, s
   // Build the state-model-specific writer once, then pass through all liquify modules.
   const setAnimationForMode = createAnimationSetter(stateModel, unmatchedClassByAtId)
 
-  animateStaffLines(ftSvg, dtSvgElement, convertD, setAnimationForMode, logger, matchedStaffLineBlocks, blockToDtSystemId)
+  animateStaffLines(ftSvg, dtSvgElement, convertD, setAnimationForMode, safeLogger, matchedStaffLineBlocks, blockToDtSystemId)
   animateUnmatchedBlockContainers(
     ftSvg,
     measureBlockMap,
@@ -482,7 +654,7 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, s
   const tools = {
     getNewPos,
     convertD,
-    scaleFactor,
+    scaleFactor: effectiveScaleFactor,
     correspMappings,
     stateModel,
     matchedStaffLineBlocks,
@@ -490,7 +662,7 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, s
     getChoiceVerticalOffset,
     applyUnmatchedClass,
     setAnimation: setAnimationForMode,
-    logger
+    logger: safeLogger
   }
 
   liquifyMusic(ftSvg, dtSvgElement, atMeiDom, tools)
@@ -1471,8 +1643,11 @@ export const retrievePositionalDataForFluidSystems = ({ dtSvg, atSvg, atMei, dtM
     })
 
     const pageInfo = {}
+    const labelY = parseFloat(labelBox.getAttribute('y') || '0')
+    const labelHeight = parseFloat(labelBox.getAttribute('height') || '0')
 
     pageInfo.atWidth = round(parseFloat(labelBox.getAttribute('width') || '0') / 90)
+    pageInfo.atCenterY = round((labelY + (labelHeight / 2)) / 90)
     pageInfo.mmWidth = parseFloat(foliumLike.getAttribute('width') || '0')
     pageInfo.mmHeight = parseFloat(foliumLike.getAttribute('height') || '0')
     pageInfo.surfaceId = iteratedSurfaceId

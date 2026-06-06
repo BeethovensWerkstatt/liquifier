@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { JSDOM } from 'jsdom'
 
-import { generateFluidTranscription, resolveFluidSystemsStates, retrievePositionalDataForFluidSystems } from '../src/preparation/fluidTranscripts.js'
+import { calculateScaleFactor, generateFluidTranscription, resolveFluidSystemsStates, retrievePositionalDataForFluidSystems } from '../src/preparation/fluidTranscripts.js'
 import { adjustViewBoxForContent } from '../src/preparation/liquify/viewbox.js'
 
 const parser = new (new JSDOM().window.DOMParser)()
@@ -103,6 +103,165 @@ test('resolveFluidSystemsStates honors explicit fluidSystems keys', () => {
     supplements,
     interventions
   })
+})
+
+test('generateFluidTranscription fluidSystems uses full DT-to-AT scale by default', () => {
+  const atSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
+      <g class="system" data-id="sys1">
+        <g class="measure" data-id="m1">
+          <g class="staff">
+            <path d="M0 100 L300 100"/>
+            <path d="M0 110 L300 110"/>
+            <path d="M0 120 L300 120"/>
+            <path d="M0 130 L300 130"/>
+            <path d="M0 140 L300 140"/>
+          </g>
+        </g>
+      </g>
+    </svg>
+  `, 'image/svg+xml')
+
+  const dtSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
+      <g class="rastrum bounding-box"><rect x="0" y="100" width="300" height="33.333333"/></g>
+      <g class="rastrum">
+        <path d="M0 100 L300 100"/>
+        <path d="M0 110 L300 110"/>
+        <path d="M0 120 L300 120"/>
+        <path d="M0 130 L300 130"/>
+        <path d="M0 140 L300 140"/>
+      </g>
+    </svg>
+  `, 'image/svg+xml')
+
+  const atMei = parser.parseFromString(`
+    <mei xmlns="http://www.music-encoding.org/ns/mei">
+      <music><body><mdiv><score><section><measure xml:id="m1"/></section></score></mdiv></body></music>
+    </mei>
+  `, 'text/xml')
+
+  const fullScaleFactor = calculateScaleFactor(dtSvg.documentElement || dtSvg, atSvg.documentElement || atSvg)
+  const outputWithFullMode = generateFluidTranscription(dtSvg, atSvg, atMei, null, noopLogger, {
+    stateModel: 'fluidSystems',
+    dtScaleReductionMode: 'full'
+  })
+
+  const outputWithConfiguredReduction = generateFluidTranscription(dtSvg, atSvg, atMei, null, noopLogger, {
+    stateModel: 'fluidSystems',
+    dtScaleReductionFactor: fullScaleFactor
+  })
+
+  const outputWithDefaultReduction = generateFluidTranscription(dtSvg, atSvg, atMei, null, noopLogger, {
+    stateModel: 'fluidSystems'
+  })
+
+  const getFirstAnimatedY = (svg) => {
+    const rastrum = svg.querySelector('path.rastrum')
+    assert.ok(rastrum)
+    const animation = rastrum.querySelector('animate[attributeName="d"]')
+    assert.ok(animation)
+    const firstState = animation.getAttribute('values').split(';')[0]
+    const match = firstState.match(/M[\d.-]+\s+([\d.-]+)\s+L/)
+    assert.ok(match)
+    return Number.parseFloat(match[1])
+  }
+
+  const yWithFullMode = getFirstAnimatedY(outputWithFullMode)
+  const yWithConfiguredReduction = getFirstAnimatedY(outputWithConfiguredReduction)
+  const yWithDefaultReduction = getFirstAnimatedY(outputWithDefaultReduction)
+
+  assert.equal(yWithDefaultReduction, yWithFullMode)
+  assert.notEqual(yWithConfiguredReduction, yWithDefaultReduction)
+  assert.ok(yWithConfiguredReduction > yWithDefaultReduction)
+})
+
+test('generateFluidTranscription fluidSystems applies per-system reduction factors by matched block', () => {
+  const atSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 400">
+      <g class="system" data-id="sysAT">
+        <g class="measure" data-id="m1">
+          <g class="staff">
+            <path d="M0 100 L240 100"/>
+            <path d="M0 110 L240 110"/>
+          </g>
+        </g>
+        <g class="measure" data-id="m2">
+          <g class="staff">
+            <path d="M0 220 L240 220"/>
+            <path d="M0 230 L240 230"/>
+          </g>
+        </g>
+      </g>
+    </svg>
+  `, 'image/svg+xml')
+
+  const dtSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 400">
+      <g class="system" data-id="s1">
+        <g class="rastrum bounding-box"><rect x="0" y="60" width="240" height="8"/></g>
+        <g class="rastrum">
+          <path d="M0 60 L240 60"/>
+          <path d="M0 68 L240 68"/>
+        </g>
+      </g>
+      <g class="system" data-id="s2">
+        <g class="rastrum bounding-box"><rect x="0" y="160" width="240" height="16"/></g>
+        <g class="rastrum">
+          <path d="M0 160 L240 160"/>
+          <path d="M0 176 L240 176"/>
+        </g>
+      </g>
+    </svg>
+  `, 'image/svg+xml')
+
+  const atMei = parser.parseFromString(`
+    <mei xmlns="http://www.music-encoding.org/ns/mei">
+      <music><body><mdiv><score><section>
+        <measure xml:id="m1"/>
+        <sb xml:id="sb2"/>
+        <measure xml:id="m2"/>
+      </section></score></mdiv></body></music>
+    </mei>
+  `, 'text/xml')
+
+  const commonOptions = {
+    stateModel: 'fluidSystems',
+    matchedStaffLineBlocks: new Set([0, 1]),
+    blockToDtSystemId: new Map([[0, 's1'], [1, 's2']])
+  }
+
+  const outFull = generateFluidTranscription(dtSvg, atSvg, atMei, null, noopLogger, {
+    ...commonOptions,
+    dtScaleReductionMode: 'full'
+  })
+
+  const outPerSystem = generateFluidTranscription(dtSvg, atSvg, atMei, null, noopLogger, {
+    ...commonOptions
+  })
+
+  const readStartY = (svg, blockIndex) => {
+    const line = svg.querySelector(`path.rastrum[data-bw-block="${blockIndex}"][data-bw-line-index="0"]`)
+    assert.ok(line)
+    const animation = line.querySelector('animate[attributeName="d"]')
+    assert.ok(animation)
+    const first = animation.getAttribute('values').split(';')[0]
+    const match = first.match(/M[\d.-]+\s+([\d.-]+)\s+L/)
+    assert.ok(match)
+    return Number.parseFloat(match[1])
+  }
+
+  const fullBlock0 = readStartY(outFull, 0)
+  const fullBlock1 = readStartY(outFull, 1)
+  const perBlock0 = readStartY(outPerSystem, 0)
+  const perBlock1 = readStartY(outPerSystem, 1)
+
+  const deltaBlock0 = perBlock0 - fullBlock0
+  const deltaBlock1 = perBlock1 - fullBlock1
+
+  assert.notEqual(deltaBlock0, 0)
+  assert.notEqual(deltaBlock1, 0)
+  assert.notEqual(deltaBlock0, deltaBlock1)
 })
 
 test('adjustViewBoxForContent focuses fluidSystems viewBox to matched blocks', () => {

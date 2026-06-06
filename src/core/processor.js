@@ -5,7 +5,7 @@ import {
   renderAnnotatedTranscriptMidi,
   renderEditedAnnotatedTranscript,
   renderDiplomaticTranscriptSvg,
-  renderFluidSystemsSvg
+  renderFluidTranscriptsSvg
 } from '../rendering/renderers.js'
 
 /**
@@ -67,7 +67,7 @@ async function processData ({ data, triple, config, verovio, logger }) {
   if (config.types.indexOf('ft') >= 0) {
     logger.info(triple.ftSvgDate + ' ' + triple.ftSvgDate)
   }
-  if (config.types.indexOf('fluidSystems') >= 0) {
+  if (config.types.indexOf('fluidTranscripts') >= 0) {
     logger.info(triple.fsSvgPath + ' ' + triple.fsSvgDate)
   }
   if (config.types.indexOf('editedAt') >= 0) {
@@ -103,20 +103,10 @@ async function processData ({ data, triple, config, verovio, logger }) {
       }
     }
 
-    // Fluid Transcript rendering
-    /* if (config.types.indexOf('ft') >= 0) {
-      if (config.media.indexOf('svg') >= 0) {
-        renderFluidTranscriptSvg(renderParams)
-      }
-      if (config.media.indexOf('html') >= 0) {
-        renderFluidTranscriptHtml(renderParams)
-      }
-    } */
-
     // Fluid Systems rendering
-    if (config.types.indexOf('fluidSystems') >= 0) {
+    if (config.types.indexOf('fluidTranscripts') >= 0) {
       if (config.media.indexOf('svg') >= 0) {
-        await renderFluidSystemsSvg(renderParams)
+        await renderFluidTranscriptsSvg(renderParams)
       }
     }
   } catch (err) {
