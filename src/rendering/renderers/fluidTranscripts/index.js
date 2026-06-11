@@ -2,7 +2,7 @@ import { JSDOM } from 'jsdom'
 
 import { addSbIndicators, prepareAtDomForRendering, addSystemLabelBlocks } from '../../../preparation/annotatedTranscripts.js'
 import { prepareEditedAtDom } from '../../../preparation/editedAnnotatedTranscripts.js'
-import { generateFluidTranscription, retrievePositionalDataForFluidSystems } from '../../../preparation/fluidTranscripts.js'
+import { generateFluidTranscription, retrievePositioningDataForFluidTranscripts, adjustAtStaffLines } from '../../../preparation/fluidTranscripts.js'
 import { writeData } from '../../../filehandlers/filehandler.js'
 import { shouldRender } from '../../../utils/rendering.js'
 import { renderContinuousAt } from '../../verovioHandler.js'
@@ -12,10 +12,11 @@ import { extractChoiceVerticalOffsets } from './choiceOffsets.js'
 import { writeFluidTranscriptsErrorLog } from './errorLog.js'
 import {
   anchorFluidTranscriptsToAtLeft,
-  resolveFluidTranscriptsOverlayContext,
-  injectFluidTranscriptsFacsimileLayers,
-  logFluidTranscriptsDimensionDiagnostics
+  resolveFluidTranscriptsOverlayContext// ,
+  // injectFluidTranscriptsFacsimileLayers // ,
+  // logFluidTranscriptsDimensionDiagnostics
 } from './overlay.js'
+import { addFacsimile } from './facsimile.js'
 import { resolveMatchedStaffLineContextForCurrentDt } from './staffLineContext.js'
 
 /**
@@ -46,6 +47,7 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
     const parser = new dom.window.DOMParser()
     const serializer = new dom.window.XMLSerializer()
 
+    // Build DT SVG for current DT version to extract layout and positional data for fluid transcription synthesis and overlay injection.
     const dtSvg = await buildCurrentDtSvgForFluidTranscripts({
       dtDom: data.dtDom,
       sourceDom: data.sourceDom,
@@ -57,7 +59,9 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
 
     // Step 1: compute per-element vertical offsets from edited AT choice rendering.
     const editedAtDom = prepareEditedAtDom(data.atDom, data.dtDom)
-    const editedAtWithSbIndicators = addSbIndicators(null, editedAtDom.cloneNode(true))
+    const editedAtWithSbIndicators = addSbIndicators(editedAtDom.cloneNode(true))
+
+    // prepareAtDomForRendering adds @dots attributes, plus @dot-corresp, since Verovio does not support <dot> elements
     const editedRenderDom = prepareAtDomForRendering(editedAtWithSbIndicators, data.dtDom, pageDimensions)
 
     const regAtSvgString = renderContinuousAt(editedRenderDom, verovio, 'annotated', pageDimensions, {
@@ -71,7 +75,7 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
     const origAtSvg = parser.parseFromString(origAtSvgString, 'image/svg+xml')
     const choiceVerticalOffsets = extractChoiceVerticalOffsets(regAtSvg, origAtSvg, editedAtDom)
 
-    // Step 2: resolve strict AT block -> DT system context and validate DT SVG coverage.
+    // Step 2: map AT blocks to DT systems for current DT version, to enable accurate system label injection and overlay alignment. This is done by comparing pb@target references in the DT with pb@corresp references in the AT, and then resolving the corresponding sb@corresp system labels for matched blocks.
     const staffLineContext = resolveMatchedStaffLineContextForCurrentDt(data.atDom, data.dtDom, logger)
     if (staffLineContext.errorMessage) {
       throw new Error(staffLineContext.errorMessage)
@@ -94,10 +98,10 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
     }
 
     // Step 3: render AT base geometry and inject system labels.
-    const atWithSbIndicators = addSbIndicators(null, data.atDom.cloneNode(true))
-    const renderDom = prepareAtDomForRendering(atWithSbIndicators, data.dtDom, pageDimensions)
-    const atSvgString = renderContinuousAt(renderDom, verovio, 'annotated', pageDimensions)
-    const atSvg = parser.parseFromString(atSvgString, 'image/svg+xml')
+    // const atWithSbIndicators = addSbIndicators(data.atDom.cloneNode(true))
+    // const renderDom = prepareAtDomForRendering(atWithSbIndicators, data.dtDom, pageDimensions)
+    // const atSvgString = renderContinuousAt(renderDom, verovio, 'annotated', pageDimensions)
+    const atSvg = regAtSvg // parser.parseFromString(atSvgString, 'image/svg+xml')
 
     const atSvgWithSystemLabels = addSystemLabelBlocks(atSvg, data.atDom, data.dtDom, data.sourceDom, data.reconstructionDom, triple, {
       onIssue: issue => {
@@ -105,20 +109,20 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
       }
     })
 
-    // Step 4: overlay context, diagnostics, and positional data.
+    // Step 4: gather information, mostly about facsimile dimensions and placement
     const overlayContext = resolveFluidTranscriptsOverlayContext({
       dtDom: data.dtDom,
       sourceDom: data.sourceDom,
       triple
     })
 
-    logFluidTranscriptsDimensionDiagnostics({
+    /* logFluidTranscriptsDimensionDiagnostics({
       dtSvg,
       overlayContext,
       logger
-    })
+    }) */
 
-    const positionalData = retrievePositionalDataForFluidSystems({
+    const positioningData = retrievePositioningDataForFluidTranscripts({
       dtSvg,
       atSvg: atSvgWithSystemLabels,
       atMei: data.atDom,
@@ -129,9 +133,38 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
       overlayContext
     })
 
+    adjustAtStaffLines(atSvgWithSystemLabels, data.atDom)
+    console.log(888, atSvgWithSystemLabels.querySelectorAll('.rastrum'))
+    const ftSvg = atSvgWithSystemLabels.cloneNode(true)
+
+    const dataPackage = {
+      ftSvg,
+      dtSvg,
+      atSvg: atSvgWithSystemLabels,
+      atMei: data.atDom,
+      dtMei: data.dtDom,
+      sourceMei: data.sourceDom,
+      reconstructionMei: data.reconstructionDom,
+      logger,
+      overlayContext,
+      positioningData
+    }
+
+    addFacsimile(dataPackage)
+
     // Step 5: synthesize fluid transcript SVG, align viewport, and inject overlays.
-    const fluidSvg = generateFluidTranscription(dtSvg, atSvgWithSystemLabels, data.atDom, data.sourceDom, logger, {
-      stateModel: 'fluidSystems',
+    const fluidSvg = generateFluidTranscription({
+      dtSvg,
+      atSvg: atSvgWithSystemLabels,
+      atMei: data.atDom,
+      dtMei: data.dtDom,
+      sourceMei: data.sourceDom,
+      reconstructionMei: data.reconstructionDom,
+      logger,
+      overlayContext,
+      positioningData
+    }, {
+      stateModel: 'fluidTranscripts',
       currentDtReference: triple.dtFullPath || triple.dt || '',
       choiceVerticalOffsets,
       matchedStaffLineBlocks: staffLineContext.matchedStaffLineBlocks,
@@ -140,11 +173,11 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
 
     anchorFluidTranscriptsToAtLeft(fluidSvg)
 
-    if (overlayContext) {
+    /* if (overlayContext) {
       injectFluidTranscriptsFacsimileLayers({
         fluidSvg,
         overlayContext,
-        positionalData,
+        positioningData,
         dtDom: data.dtDom,
         sourceDom: data.sourceDom,
         parser,
@@ -152,7 +185,7 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
       })
     } else {
       logger.warn('[renderFluidTranscriptsSvg] Could not resolve facsimile/shapes overlay context; writing transcription-only output.')
-    }
+    } */
 
     // Step 6: write output and issue logs.
     const fluidSvgString = serializer.serializeToString(fluidSvg)

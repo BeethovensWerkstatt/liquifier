@@ -855,55 +855,15 @@ export function addSystemLabelBlocks (svgDom, atDom, dtDom, sourceDom, contextDo
 }
 
 /**
- * fixes corresp attributes for dots in the SVG output, as ATs use attributes, but DTs use elements
+ * Normalizes AT indicators needed before rendering.
  *
- * @param {SVGElement|Document} svgDom - Source document used by this function.
  * @param {Document} atDom - Source document used by this function.
  * @returns {Object} Resulting object.
  */
-export function addSbIndicators (svgDom, atDom) {
-  const doc = atDom.ownerDocument || atDom
-
+export function addSbIndicators (atDom) {
   atDom.querySelectorAll('annot[class="#bw_writingZoneBegin"]').forEach((annot) => {
     annot.setAttribute('type', '#bw_writingZoneBegin')
   })
-
-  const sbs = atDom.querySelectorAll('sb')
-
-  /**
-   * Returns measure from the current data context.
-   *
-   * @param {Element} node - Element processed by this function.
-   * @returns {Object} Resulting object.
-   */
-  const getMeasure = (node) => {
-    let sibling = node.nextElementSibling
-    while (sibling) {
-      if (sibling.localName === 'measure') {
-        return sibling
-      }
-      sibling = sibling.nextElementSibling
-    }
-    return null
-  }
-
-  /* sbs.forEach((sb, i) => {
-    if (i > 0) {
-      const measure = getMeasure(sb)
-      if (measure) {
-        const dir = doc.createElementNS('http://www.music-encoding.org/ns/mei', 'dir')
-        const pb = sb.previousElementSibling.localName === 'pb'
-        dir.innerHTML = pb ? '⫪' : '⊤'
-        dir.setAttribute('staff', 1)
-        dir.setAttribute('tstamp', 0)
-        dir.setAttribute('place', 'above')
-        const classes = pb ? 'pb sb unselectable' : 'sb unselectable'
-        dir.setAttribute('type', classes)
-        dir.setAttribute('xml:id', 'dir_' + sb.getAttribute('xml:id'))
-        measure.append(dir)
-      }
-    }
-  }) */
 
   return atDom
 }
@@ -919,6 +879,8 @@ export function addSbIndicators (svgDom, atDom) {
  */
 export function prepareAtDomForRendering (atDom, dtDom, pageDimensions) {
   const clone = atDom.cloneNode(true)
+
+  // add dot-corresp attribute to elements that have dot children, and count dots in dots attribute, then remove dot children, as Verovio does not support them and this way we can still use the information in the AT to display dots in the right place in the SVG output
   const map = new Map()
   const dots = clone.querySelectorAll('dot')
   dots.forEach((dot) => {
@@ -945,13 +907,15 @@ export function prepareAtDomForRendering (atDom, dtDom, pageDimensions) {
     } else {
       parent.setAttribute('dot-corresp', refs)
     }
-    // console.log(611, 'parent resolved', parent)
   })
+
+  /*
   const staffCorresp = clone.querySelectorAll('staff[corresp]')
   staffCorresp.forEach((staff) => {
     const corresps = staff.getAttribute('corresp').split(' ')
     console.log(279, 'prepareAtDomForRendering', staff.getAttribute('xml:id'), 'corresp', corresps)
   })
+  */
   return clone
 }
 

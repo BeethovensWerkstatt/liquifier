@@ -466,28 +466,30 @@ function extractCorrespContext (atMeiDom, { currentDtReference = '' } = {}) {
  * @param {Object} options - Structured options object.
  * @returns {Object} Fluid transcription SVG DOM
  */
-export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, sourceMeiDom, logger, options = {}) => {
-  // Backward compatibility: older call sites pass (dt, at, atMei, logger, options).
-  if (sourceMeiDom && typeof sourceMeiDom.debug === 'function' && (!logger || typeof logger.debug !== 'function')) {
-    options = logger || {}
-    logger = sourceMeiDom
-    sourceMeiDom = null
-  }
-
+export const generateFluidTranscription = ({
+  dtSvg,
+  atSvg,
+  atMei,
+  dtMei,
+  sourceMei,
+  reconstructionMei,
+  logger,
+  overlayContext,
+  positioningData
+}, options = {}) => {
   const safeLogger = {
     debug: typeof logger?.debug === 'function' ? logger.debug.bind(logger) : () => {},
     info: typeof logger?.info === 'function' ? logger.info.bind(logger) : () => {},
     warn: typeof logger?.warn === 'function' ? logger.warn.bind(logger) : () => {},
     error: typeof logger?.error === 'function' ? logger.error.bind(logger) : () => {}
   }
-
   // Handle both document and element inputs
-  const dtSvgElement = dtSystemSvg.documentElement || dtSystemSvg
-  const atSvgElement = atSystemSvg.documentElement || atSystemSvg
+  const dtSvgElement = dtSvg.documentElement || dtSvg
+  const atSvgElement = atSvg.documentElement || atSvg
   const stateModel = options.stateModel || 'fluidTranscript'
 
   const currentDtReference = options.currentDtReference || ''
-  const { correspMappings, unmatchedClassByAtId } = extractCorrespContext(atMeiDom, {
+  const { correspMappings, unmatchedClassByAtId } = extractCorrespContext(atMei, {
     currentDtReference
   })
 
@@ -505,7 +507,7 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, s
   // Clone AT SVG as the base for fluid transcription
   const ftSvg = atSvgElement.cloneNode(true)
 
-  const measureBlockMap = buildAtMeasureBlockMap(atMeiDom)
+  const measureBlockMap = buildAtMeasureBlockMap(atMei)
   const matchedStaffLineBlocks = options.matchedStaffLineBlocks instanceof Set
     ? options.matchedStaffLineBlocks
     : null
@@ -513,10 +515,10 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, s
     ? options.blockToDtSystemId
     : null
 
-  adjustAtStaffLines(ftSvg, atMeiDom, measureBlockMap)
+  adjustAtStaffLines(ftSvg, atMei, measureBlockMap)
   adjustDtStaffLines(dtSvgElement)
 
-  const fluidSystemsScaleProfile = stateModel === 'fluidSystems'
+  const fluidSystemsScaleProfile = stateModel === 'fluidTranscripts'
     ? buildFluidSystemsScaleProfile({
       ftSvg,
       dtSvg: dtSvgElement,
@@ -526,7 +528,7 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, s
     })
     : { bands: [], averageScaleFactor: null }
 
-  const effectiveScaleFactor = stateModel === 'fluidSystems'
+  const effectiveScaleFactor = stateModel === 'fluidTranscripts'
     ? resolveFluidSystemsDtScaleFactor(
       options,
       scaleFactor,
@@ -548,10 +550,10 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, s
     const dtOffX = dtCenter.x - dt.x
     const dtOffY = dtCenter.y - dt.y
 
-    const perSystemScaleFactor = stateModel === 'fluidSystems'
+    const perSystemScaleFactor = stateModel === 'fluidTranscripts'
       ? resolvePerSystemScaleFactorForDtPoint({ dtPoint: dt, bands: fluidSystemsScaleProfile.bands })
       : null
-    const pointScaleFactor = stateModel === 'fluidSystems'
+    const pointScaleFactor = stateModel === 'fluidTranscripts'
       ? resolveFluidSystemsDtScaleFactor(options, scaleFactor, perSystemScaleFactor)
       : scaleFactor
 
@@ -612,7 +614,7 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, s
     ? options.choiceVerticalOffsets
     : new Map()
 
-  // Expose a no-op getter outside fluidSystems so liquify modules can call one API.
+  // Expose a no-op getter outside fluidTranscripts so liquify modules can call one API.
   /**
    * Returns choice vertical offset from the current data context.
    *
@@ -620,7 +622,7 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, s
    * @returns {number} Resulting numeric value.
    */
   const getChoiceVerticalOffset = (elementId) => {
-    if (stateModel !== 'fluidSystems') return 0
+    if (stateModel !== 'fluidTranscripts') return 0
     if (!elementId) return 0
     const offset = choiceVerticalOffsets.get(elementId)
     return Number.isFinite(offset) ? offset : 0
@@ -665,7 +667,7 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, s
     logger: safeLogger
   }
 
-  liquifyMusic(ftSvg, dtSvgElement, atMeiDom, tools)
+  liquifyMusic(ftSvg, dtSvgElement, atMei, tools)
   animateSystemLabels(ftSvg, setAnimationForMode, stateModel)
 
   // Adjust viewBox to encompass all animated content
@@ -682,9 +684,8 @@ export const generateFluidTranscription = (dtSystemSvg, atSystemSvg, atMeiDom, s
  * @param {Map<string, number>} measureBlockMap - Optional precomputed map of AT measure ids to block indices.
  * @returns {void} No return value.
  */
-const adjustAtStaffLines = (svg, atMeiDom, measureBlockMap = buildAtMeasureBlockMap(atMeiDom)) => {
+export const adjustAtStaffLines = (svg, atMeiDom, measureBlockMap = buildAtMeasureBlockMap(atMeiDom)) => {
   const systemGroups = svg.querySelectorAll('g.system:not(.bounding-box)')
-
   systemGroups.forEach(system => {
     const measures = Array.from(system.querySelectorAll('g.measure:not(.bounding-box)'))
     if (measures.length === 0) return
@@ -1620,7 +1621,7 @@ const createAnimationSetter = (stateModel, unmatchedClassByAtId = new Map()) => 
  * @param {Object} [params.overlayContext.shapes] - Shapes source context.
  * @returns {object} Object containing positional data for fluid transcription elements.
  */
-export const retrievePositionalDataForFluidSystems = ({ dtSvg, atSvg, atMei, dtMei, sourceMei, reconstructionMei, logger, overlayContext = null }) => {
+export const retrievePositioningDataForFluidTranscripts = ({ dtSvg, atSvg, atMei, dtMei, sourceMei, reconstructionMei, logger, overlayContext = null }) => {
   const surfaceId = dtMei.querySelector('pb').getAttribute('target').split('#')[1]
   const atSurfaceIds = Array.from(atMei.querySelectorAll('pb')).map(pb => pb.getAttribute('corresp').split('#')[1])
   // const pageIndex = atSurfaceIds.indexOf(surfaceId)

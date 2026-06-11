@@ -20,7 +20,7 @@ export function renderAnnotatedTranscriptMidi ({ data, triple, verovio, pageDime
 
   if (shouldRender(recreate, [atDate], atMidDate)) {
     logger.info('Rendering Annotated MIDI for ' + atMidPath + ' ...')
-    const atWithSbIndicators = addSbIndicators(null, data.atDom.cloneNode(true))
+    const atWithSbIndicators = addSbIndicators(data.atDom.cloneNode(true))
     const atOutDom = prepareAtDomForRendering(atWithSbIndicators, data.dtDom, pageDimensions)
     const atMidBuffer = renderMidi(atOutDom, verovio)
     writeData(atMidBuffer, atMidPath)

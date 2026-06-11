@@ -109,7 +109,7 @@ The liquifier script can be run with the following command line arguments:
 - `--hours <number>`: specifies the number of hours to look back for modified files (default `24`)
 - `--since <date>`: specifies a date to look back for modified files (supersedes `--hours`)
 - `--full`: generates full fluid transcriptions instead of only the changes (supersedes `--hours` and `--since`)
-- `--types`: comma separated list of transcription types (`at`,`dt`,`ft`,`editedAt`,`fluidSystems` | *default all*)
+- `--types`: comma separated list of transcription types (`at`,`dt`,`ft`,`editedAt`,`fluidTranscripts` | *default all*)
   - compatibility note: legacy `eat` is accepted and normalized to `editedAt`
 - `--media`: comma separated list of files to create (`svg`,`midi`,`html` | *default all*)
 - `--input-dir` (or `-i`): specifies the base directory for input files (default `./`)
@@ -129,7 +129,7 @@ node index.js --input-dir=../data/data/sources --output-dir=../data/cache diplom
 
 ```bash
 # Local test of one specific transcription
-node index.js --types=editedAt,fluidSystems --recreate=true --input-dir=../data/data/sources --output-dir=../data/cache --context-document=Notirungsbuch_K D-BNba_MH_60_Engelmann/diplomaticTranscripts/D-BNba_MH_60_Engelmann_p005_wz06_dt.xml
+node index.js --types=editedAt,fluidTranscripts --recreate=true --input-dir=../data/data/sources --output-dir=../data/cache --context-document=Notirungsbuch_K D-BNba_MH_60_Engelmann/diplomaticTranscripts/D-BNba_MH_60_Engelmann_p005_wz06_dt.xml
 ```
 
 **Docker container example:**
@@ -157,7 +157,7 @@ With `--input-dir=../data/data/sources`, the short identifier `Notirungsbuch_K` 
 Example command:
 
 ```bash
-node index.js --types=editedAt,fluidSystems --recreate=true --input-dir=../data/data/sources --output-dir=../data/cache --context-document=Notirungsbuch_K D-BNba_MH_60_Engelmann/diplomaticTranscripts/D-BNba_MH_60_Engelmann_p017_wz01_dt.xml
+node index.js --types=editedAt,fluidTranscripts --recreate=true --input-dir=../data/data/sources --output-dir=../data/cache --context-document=Notirungsbuch_K D-BNba_MH_60_Engelmann/diplomaticTranscripts/D-BNba_MH_60_Engelmann_p017_wz01_dt.xml
 ```
 
 Any filter options are ignored, when a list of files is given.
@@ -193,9 +193,6 @@ cache/sources/D-BNba_MH_60_Engelmann/
 ├── fluidTranscripts/
 │   └── p005/
 │       └── D-BNba_MH_60_Engelmann_p005_wz06_ft.svg
-├── fluidSystems/
-│   └── p005/
-│       └── D-BNba_MH_60_Engelmann_p005_wz06_fs.svg
 ├── editedAT/
 │   └── p005/
 │       └── D-BNba_MH_60_Engelmann_p005_wz06_eat.xml

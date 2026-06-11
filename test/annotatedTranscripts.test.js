@@ -34,7 +34,7 @@ test('addSbIndicators appends sb indicator dir elements to following measures', 
   </mei>`
 
   const atDom = parser.parseFromString(atXml, 'text/xml')
-  const out = addSbIndicators(null, atDom)
+  const out = addSbIndicators(atDom)
 
   const annot = out.querySelector('annot[xml\\:id="wz1"]')
   assert.equal(annot.getAttribute('type'), '#bw_writingZoneBegin')
