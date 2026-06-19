@@ -5,3 +5,9 @@ export const annotatedRegex = /\/annotatedTranscripts\/.*.xml/
 export const diplomaticRegex = /\/diplomaticTranscripts\/.*.xml/
 
 export const verovioPixelDensity = 9
+
+export const constants = {
+  verovioPixelPerVu: verovioPixelDensity,
+  verovioGeneralScaling: 10,
+  ftStaticScaling: 1
+}

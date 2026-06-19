@@ -119,7 +119,7 @@ export function resolveFluidTranscriptsOverlayContext ({ dtDom, sourceDom, tripl
  * @param {Document} [params.sourceDom] - Source MEI DOM containing surface zones.
  * @returns {{xOffsetMm: number, yOffsetMm: number, xOffsetUnits: number, yOffsetUnits: number, unitsPerMm: number}} Placement offsets.
  */
-export function resolveFluidTranscriptsOverlayPlacement ({ overlayContext, positionalData, fluidSvg, dtDom, sourceDom }) {
+/* export function resolveFluidTranscriptsOverlayPlacement ({ overlayContext, positionalData, fluidSvg, dtDom, sourceDom }) {
   const unitsPerMm = 90
   if (!overlayContext?.facsimile) {
     return { xOffsetMm: 0, yOffsetMm: 0, xOffsetUnits: 0, yOffsetUnits: 0, unitsPerMm }
@@ -160,7 +160,7 @@ export function resolveFluidTranscriptsOverlayPlacement ({ overlayContext, posit
     yOffsetUnits: yOffsetMm * unitsPerMm,
     unitsPerMm
   }
-}
+} */
 
 /**
  * Logs fluid transcripts dimension diagnostics in millimeters.

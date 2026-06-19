@@ -1,4 +1,4 @@
-import { addSbIndicators, prepareAtDomForRendering } from '../../preparation/annotatedTranscripts.js'
+import { addSbIndicators, prepareAtForVerovio } from '../../preparation/annotatedTranscripts.js'
 import { renderMidi } from '../verovioHandler.js'
 import { writeData } from '../../filehandlers/filehandler.js'
 import { shouldRender } from '../../utils/rendering.js'
@@ -21,7 +21,7 @@ export function renderAnnotatedTranscriptMidi ({ data, triple, verovio, pageDime
   if (shouldRender(recreate, [atDate], atMidDate)) {
     logger.info('Rendering Annotated MIDI for ' + atMidPath + ' ...')
     const atWithSbIndicators = addSbIndicators(data.atDom.cloneNode(true))
-    const atOutDom = prepareAtDomForRendering(atWithSbIndicators, data.dtDom, pageDimensions)
+    const atOutDom = prepareAtForVerovio(atWithSbIndicators)
     const atMidBuffer = renderMidi(atOutDom, verovio)
     writeData(atMidBuffer, atMidPath)
   } else {

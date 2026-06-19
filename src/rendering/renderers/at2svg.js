@@ -1,4 +1,4 @@
-import { addSbIndicators, prepareAtDomForRendering } from '../../preparation/annotatedTranscripts.js'
+import { addSbIndicators, prepareAtForVerovio } from '../../preparation/annotatedTranscripts.js'
 import { renderContinuousAt, renderSystemBasedAt } from '../verovioHandler.js'
 import { writeData } from '../../filehandlers/filehandler.js'
 import { shouldRender } from '../../utils/rendering.js'
@@ -22,7 +22,7 @@ export async function renderAnnotatedTranscriptSvg ({ data, triple, verovio, pag
   if (shouldRender(recreate, [atDate], atSvgDate)) {
     logger.info('Rendering Annotated Transcript for ' + atSvgPath + ' ...')
     const atWithSbIndicators = addSbIndicators(data.atDom.cloneNode(true))
-    const atOutDom = prepareAtDomForRendering(atWithSbIndicators, data.dtDom, pageDimensions)
+    const atOutDom = prepareAtForVerovio(atWithSbIndicators)
 
     const atSvgString = renderContinuousAt(atOutDom, verovio, 'annotated', pageDimensions)
     await writeData(atSvgString, atSvgPath)

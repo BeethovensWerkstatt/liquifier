@@ -14,6 +14,11 @@ export function getRectFromFragment (fragment) {
   const y = parseFloat(xywh[1])
   const w = parseFloat(xywh[2])
   const h = parseFloat(xywh[3])
+  const absDeg = Math.abs(deg)
+  const absRad = deg2rad(absDeg)
+  const cos = Math.cos(absRad)
+  const sin = Math.sin(absRad)
+  const det = cos * cos - sin * sin
 
   // the outer rectangle
   const outer = {
@@ -21,7 +26,7 @@ export function getRectFromFragment (fragment) {
     ur: { x: x + w, y },
     lr: { x: x + w, y: y + h },
     ll: { x, y: y + h },
-    w,
+    w: getDistance({ x, y }, { x: x + w, y }),
     h
   }
 
@@ -30,11 +35,31 @@ export function getRectFromFragment (fragment) {
     y: y + h / 2
   }
 
+  let innerW = w
+  let innerH = h
+
+  if (absDeg !== 0 && Math.abs(det) > 1e-6) {
+    const resolvedInnerW = (w * cos - h * sin) / det
+    const resolvedInnerH = (h * cos - w * sin) / det
+
+    if (resolvedInnerW > 0 && resolvedInnerH > 0) {
+      innerW = resolvedInnerW
+      innerH = resolvedInnerH
+    }
+  }
+
+  const innerUnrotated = {
+    ul: { x: center.x - innerW / 2, y: center.y - innerH / 2 },
+    ur: { x: center.x + innerW / 2, y: center.y - innerH / 2 },
+    lr: { x: center.x + innerW / 2, y: center.y + innerH / 2 },
+    ll: { x: center.x - innerW / 2, y: center.y + innerH / 2 }
+  }
+
   const inner = {
-    ul: rotatePoint(outer.ul, center, deg),
-    ur: rotatePoint(outer.ur, center, deg),
-    lr: rotatePoint(outer.lr, center, deg),
-    ll: rotatePoint(outer.ll, center, deg)
+    ul: rotatePoint(innerUnrotated.ul, center, deg),
+    ur: rotatePoint(innerUnrotated.ur, center, deg),
+    lr: rotatePoint(innerUnrotated.lr, center, deg),
+    ll: rotatePoint(innerUnrotated.ll, center, deg)
   }
 
   inner.w = getDistance(inner.ul, inner.ur)
@@ -43,12 +68,17 @@ export function getRectFromFragment (fragment) {
   const rotate = {
     deg,
     handle: {
-      x: parseFloat((inner.ur.x + inner.lr.x) / 2),
-      y: parseFloat((inner.ur.y + inner.lr.y) / 2)
+      x: parseFloat((inner.ul.x + inner.lr.x) / 2),
+      y: parseFloat((inner.ul.y + inner.lr.y) / 2)
     }
   }
 
-  const fragmentIdentifier = degProvided !== undefined ? fragment + degProvided : fragment + '&rotate=0'
+  const fragmentIdentifier = degProvided !== undefined ? fragment : fragment + '&rotate=0'
+
+  console.log(101.1, outer)
+  console.log(101.2, inner)
+  console.log(101.3, rotate)
+  console.log(101.4, center)
 
   return { outer, inner, rotate, center, fragmentIdentifier }
 }

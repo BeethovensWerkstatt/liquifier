@@ -603,7 +603,6 @@ export function addSystemLabelBlocks (svgDom, atDom, dtDom, sourceDom, contextDo
   if (wzBegins.length === 0) {
     return svgDom
   }
-
   /**
    * Returns measure from the current data context.
    *
@@ -612,13 +611,13 @@ export function addSystemLabelBlocks (svgDom, atDom, dtDom, sourceDom, contextDo
    */
   const getMeasure = (node) => {
     if (!node) return null
-
-    let sibling = node.nextElementSibling
+    let sibling = node.nextSibling
     while (sibling) {
-      if (sibling.getAttribute('data-class') === 'measure') {
+      // nodeType 1 is ELEMENT_NODE, so this skips text nodes. Not using nextElementSibling for restricted API of xmldom-qsa compared to JSDom
+      if (sibling.nodeType === 1 && sibling.getAttribute('data-class') === 'measure') {
         return sibling
       }
-      sibling = sibling.nextElementSibling
+      sibling = sibling.nextSibling
     }
     return null
   }
@@ -640,7 +639,6 @@ export function addSystemLabelBlocks (svgDom, atDom, dtDom, sourceDom, contextDo
     : 12
 
   const fontSize = staffHeight / 1.5
-
   wzBegins.forEach((wzb) => {
     const content = []
     const box = doc.createElementNS('http://www.w3.org/2000/svg', 'g')
@@ -648,42 +646,51 @@ export function addSystemLabelBlocks (svgDom, atDom, dtDom, sourceDom, contextDo
     box.setAttribute('data-id', 'wz_' + wzb.getAttribute('data-id'))
     box.setAttribute('data-class', 'writingZone')
 
-    let next = wzb.nextElementSibling
-    while (next && !next.classList.contains('annot')) {
-      if (next.classList.contains('sb')) {
-        // console.log(912, 'found sb', next)
+    const isElement = (node) => node && node.nodeType === 1
+    const hasClass = (node, className) => isElement(node) && node.getAttribute('data-class') === className
 
-        const sbDataId = normalizeId(next.getAttribute('data-id'))
-        const sbCorrespId = normalizeId(next.getAttribute('data-corresp'))
+    let next = wzb.nextSibling
+    while (next) {
+      if (hasClass(next, 'annot')) break
+      if (isElement(next)) {
+        if (hasClass(next, 'sb')) {
+          const sbDataId = normalizeId(next.getAttribute('data-id'))
+          const sbCorrespId = normalizeId(next.getAttribute('data-corresp'))
+          const sysBox = doc.createElementNS('http://www.w3.org/2000/svg', 'g')
+          sysBox.setAttribute('class', 'systemBegin')
+          sysBox.setAttribute('data-class', 'systemBegin')
+          sysBox.setAttribute('data-id', sbDataId)
+          sysBox.setAttribute('data-system-id', sbCorrespId || sbDataId)
 
-        const sysBox = doc.createElementNS('http://www.w3.org/2000/svg', 'g')
-        sysBox.setAttribute('class', 'systemBegin')
-        sysBox.setAttribute('data-class', 'systemBegin')
-        sysBox.setAttribute('data-id', sbDataId)
-        sysBox.setAttribute('data-system-id', sbCorrespId || sbDataId)
+          content.push(sysBox)
+          const sysBoxContent = []
 
-        content.push(sysBox)
-        const sysBoxContent = []
+          let sysNext = next.nextSibling
+          while (sysNext) {
+            if (hasClass(sysNext, 'sb') || hasClass(sysNext, 'pb')) break
 
-        let sysNext = next.nextElementSibling
-        while (sysNext && !sysNext.classList.contains('sb') && !sysNext.classList.contains('pb')) {
-          sysBoxContent.push(sysNext)
-          sysNext = sysNext.nextElementSibling
+            if (isElement(sysNext)) {
+              sysBoxContent.push(sysNext)
+            }
+            sysNext = sysNext.nextSibling
+          }
+
+          sysBoxContent.forEach((node) => {
+            sysBox.appendChild(node)
+          })
         }
-        sysBoxContent.forEach((node) => {
-          sysBox.append(node)
-        })
+
+        if (!hasClass(next, 'pb')) {
+          content.push(next)
+        }
       }
 
-      if (!next.classList.contains('pb')) {
-        content.push(next)
-      }
-      next = next.nextElementSibling
+      next = next.nextSibling
     }
-    const parent = wzb.parentElement
-    box.append(wzb.cloneNode(true))
+    const parent = wzb.parentNode
+    box.appendChild(wzb.cloneNode(true))
     content.forEach((node) => {
-      box.append(node)
+      box.appendChild(node)
     })
 
     parent.replaceChild(box, wzb)
@@ -708,7 +715,7 @@ export function addSystemLabelBlocks (svgDom, atDom, dtDom, sourceDom, contextDo
 
         const wzLabel = gendescWZ.getAttribute('label')
 
-        surfaceId = normalizeId(gendescWZ.parentElement?.getAttribute('corresp'))
+        surfaceId = normalizeId(gendescWZ.parentNode?.getAttribute('corresp'))
         const surfaceLabel = resolveSurfaceLabelFromContext(contextDom, surfaceId)
         if (!surfaceLabel) {
           throw new Error('Missing context foliation label for surface id ' + surfaceId)
@@ -736,16 +743,25 @@ export function addSystemLabelBlocks (svgDom, atDom, dtDom, sourceDom, contextDo
     rect.setAttribute('width', bbox.width - staffHeight / 4)
     rect.setAttribute('height', staffHeight)
     rect.setAttribute('fill', '#e5e5e5')
-    rect.classList.add('pageLabelBox')
+    rect.setAttribute('class', 'pageLabelBox')
 
     const text = doc.createElementNS('http://www.w3.org/2000/svg', 'text')
     text.setAttribute('x', bbox.x + staffHeight / 8 + fontSize / 3)
     text.setAttribute('y', staffHeight * -2 + fontSize * 1)
     text.setAttribute('font-size', fontSize)
-    text.classList.add('pageLabel')
+    text.setAttribute('class', 'pageLabel')
     text.textContent = label
-    box.prepend(text)
-    box.prepend(rect)
+
+    const prependChild = (parent, node) => {
+      if (parent.firstChild) {
+        parent.insertBefore(node, parent.firstChild)
+      } else {
+        parent.appendChild(node)
+      }
+    }
+
+    prependChild(box, text)
+    prependChild(box, rect)
 
     const sysBoxes = box.querySelectorAll('g.systemBegin')
 
@@ -770,7 +786,7 @@ export function addSystemLabelBlocks (svgDom, atDom, dtDom, sourceDom, contextDo
       rect.setAttribute('width', sysBbox.width - staffHeight / 4)
       rect.setAttribute('height', staffHeight * 0.6)
       rect.setAttribute('fill', '#e5e5e5')
-      rect.classList.add('pageLabelBox')
+      rect.setAttribute('class', 'pageLabelBox')
 
       const sbId = normalizeId(sysBox.getAttribute('data-id'))
       const dtSystemRef = resolveDtSystemRefFromSb(sbId, atSbById, currentDtReference)
@@ -804,7 +820,7 @@ export function addSystemLabelBlocks (svgDom, atDom, dtDom, sourceDom, contextDo
       const pageWidth = parseFloat((pageHeight * pageAspectRatio).toFixed(2))
 
       const previewPageBox = doc.createElementNS('http://www.w3.org/2000/svg', 'rect')
-      previewPageBox.classList.add('pageBg')
+      previewPageBox.setAttribute('class', 'pageBg')
       previewPageBox.setAttribute('x', sysBbox.x + staffHeight / 8 + pageHeight * 0.1)
       previewPageBox.setAttribute('y', staffHeight * -0.8 + pageHeight * 0.1)
 
@@ -819,7 +835,7 @@ export function addSystemLabelBlocks (svgDom, atDom, dtDom, sourceDom, contextDo
       const previewHeightRatio = previewBounds ? previewBounds.h : 1
 
       const previewSystemBox = doc.createElementNS('http://www.w3.org/2000/svg', 'rect')
-      previewSystemBox.classList.add('sysPreview')
+      previewSystemBox.setAttribute('class', 'sysPreview')
       previewSystemBox.setAttribute('x', sysBbox.x + staffHeight / 8 + pageHeight * 0.1 + pageWidth * x1)
       previewSystemBox.setAttribute('y', staffHeight * -0.8 + pageHeight * 0.1 + pageHeight * y1)
 
@@ -831,7 +847,7 @@ export function addSystemLabelBlocks (svgDom, atDom, dtDom, sourceDom, contextDo
       text.setAttribute('x', sysBbox.x + staffHeight / 8 + parseFloat(pageHeight * 0.5) + parseFloat(pageWidth))
       text.setAttribute('y', staffHeight * -0.8 + fontSize * 0.65)
       text.setAttribute('font-size', fontSize * 0.75)
-      text.classList.add('sysLabel')
+      text.setAttribute('class', 'sysLabel')
 
       let systemLabel
 
@@ -844,10 +860,10 @@ export function addSystemLabelBlocks (svgDom, atDom, dtDom, sourceDom, contextDo
       }
       text.textContent = systemLabel // 'Systems'
 
-      sysBox.prepend(text)
-      sysBox.prepend(previewSystemBox)
-      sysBox.prepend(previewPageBox)
-      sysBox.prepend(rect)
+      prependChild(sysBox, text)
+      prependChild(sysBox, previewSystemBox)
+      prependChild(sysBox, previewPageBox)
+      prependChild(sysBox, rect)
     })
   })
 
@@ -873,16 +889,12 @@ export function addSbIndicators (atDom) {
  *
  * @returns
  * @param {Document} atDom - Source document used by this function.
- * @param {Document} dtDom - DOM document used by this function.
- * @param {{width?: number, height?: number}} pageDimensions - Rendering page dimensions.
  * @returns {void} No return value.
  */
-export function prepareAtDomForRendering (atDom, dtDom, pageDimensions) {
-  const clone = atDom.cloneNode(true)
-
+export function prepareAtForVerovio (atDom) {
   // add dot-corresp attribute to elements that have dot children, and count dots in dots attribute, then remove dot children, as Verovio does not support them and this way we can still use the information in the AT to display dots in the right place in the SVG output
   const map = new Map()
-  const dots = clone.querySelectorAll('dot')
+  const dots = atDom.querySelectorAll('dot')
   dots.forEach((dot) => {
     const parent = dot.parentElement
     const parentId = parent.getAttribute('xml:id')
@@ -909,14 +921,17 @@ export function prepareAtDomForRendering (atDom, dtDom, pageDimensions) {
     }
   })
 
-  /*
-  const staffCorresp = clone.querySelectorAll('staff[corresp]')
-  staffCorresp.forEach((staff) => {
-    const corresps = staff.getAttribute('corresp').split(' ')
-    console.log(279, 'prepareAtDomForRendering', staff.getAttribute('xml:id'), 'corresp', corresps)
+  // remove supplied elements in scoreDef, as Verovio does not support them
+  const suppliedsInScoreDef = atDom.querySelectorAll('scoreDef supplied > *')
+  suppliedsInScoreDef.forEach((elem) => {
+    const supplied = elem.parentElement
+    const parent = supplied.parentElement
+    if (supplied && supplied.localName === 'supplied') {
+      elem.setAttribute('type', 'supplied')
+      parent.appendChild(elem.cloneNode(true))
+      supplied.remove()
+    }
   })
-  */
-  return clone
 }
 
 /**

@@ -1,5 +1,5 @@
 import { DOMParser, XMLSerializer } from 'xmldom-qsa'
-import { verovioPixelDensity } from '../config.mjs'
+import { constants } from '../config.mjs'
 import { fixScoreDefChildIds } from '../preparation/annotatedTranscripts.js'
 
 const verovioOptions = {
@@ -11,7 +11,7 @@ const verovioOptions = {
   header: 'none',
   footer: 'none',
   breaks: 'encoded',
-  svgAdditionalAttribute: ['staff@rotate', 'staff@height', 'score@viewBox', 'sb@rotate', 'chord@stem.dir']
+  svgAdditionalAttribute: ['staff@rotate', 'staff@height', 'score@viewBox', 'sb@rotate', 'chord@stem.dir', 'pb@corresp']
 }
 
 /**
@@ -29,8 +29,8 @@ export const renderContinuousAt = (dom, verovio, target, pageDimensions, extraOp
 
   const options = {
     ...verovioOptions,
-    pageHeight: pageDimensions.height * verovioPixelDensity,
-    pageWidth: pageDimensions.width * verovioPixelDensity
+    pageHeight: pageDimensions.height * constants.verovioGeneralScaling,
+    pageWidth: pageDimensions.width * constants.verovioGeneralScaling
   }
 
   if (target === 'annotated') {
@@ -97,8 +97,8 @@ export const renderSystemBasedAt = (dom, verovio, pageDimensions) => {
   const systemOptions = {
     ...verovioOptions,
     breaks: 'encoded',
-    pageHeight: pageDimensions.height * verovioPixelDensity,
-    pageWidth: pageDimensions.width * verovioPixelDensity,
+    pageHeight: pageDimensions.height * constants.verovioGeneralScaling,
+    pageWidth: pageDimensions.width * constants.verovioGeneralScaling,
     pageMarginTop: 300,
     pageMarginRight: 500,
     pageMarginBottom: 300,

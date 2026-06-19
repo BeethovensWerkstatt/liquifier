@@ -1,4 +1,6 @@
 import { JSDOM } from 'jsdom'
+import path from 'node:path'
+import { existsSync, readFileSync } from 'node:fs'
 const { document } = (new JSDOM('<!DOCTYPE html><html><body></body></html>')).window
 
 /**
@@ -95,10 +97,11 @@ export const getPageDimensions = (sourceMEI, transcriptionMEI) => {
   const pageGenDesc = wzGenDesc.parentElement
   const surfaceRef = pageGenDesc.getAttribute('corresp')
   const foliumLike = sourceMEI.querySelector('foliaDesc *[recto="' + surfaceRef + '"], foliaDesc *[verso="' + surfaceRef + '"], foliaDesc *[outer\\.recto="' + surfaceRef + '"], foliaDesc *[inner\\.verso="' + surfaceRef + '"], foliaDesc *[inner\\.recto="' + surfaceRef + '"], foliaDesc *[outer\\.verso="' + surfaceRef + '"]')
+  const whichAttribute = ['recto', 'verso', 'outer.recto', 'inner.verso', 'inner.recto', 'outer.verso'].find(attr => foliumLike.getAttribute(attr) === surfaceRef)
   const foliumWidth = parseFloat(foliumLike.getAttribute('width'))
   const foliumHeight = parseFloat(foliumLike.getAttribute('height'))
 
-  return { width: foliumWidth, height: foliumHeight }
+  return { width: foliumWidth, height: foliumHeight, surfaceId: surfaceRef.split('#')[1], position: whichAttribute }
 }
 
 /**
@@ -109,6 +112,49 @@ export const getPageDimensions = (sourceMEI, transcriptionMEI) => {
  */
 export const getAtSystemCenters = (atSvgDom) => {
   // const arr = []
+}
+
+/**
+ * Resolves a reference path against a source document path.
+ *
+ * @param {string} referencePath - Referenced path to resolve.
+ * @param {string} documentPath - Absolute path of the source document.
+ * @returns {string} Absolute path when resolvable, otherwise empty string.
+ */
+export const resolvePathFromDocumentReference = (referencePath, documentPath) => {
+  const ref = String(referencePath || '').trim()
+  const base = String(documentPath || '').trim()
+
+  if (!ref || !base) {
+    return ''
+  }
+
+  if (/^[a-zA-Z][a-zA-Z\d+.-]*:/.test(ref)) {
+    return ref
+  }
+
+  if (path.isAbsolute(ref)) {
+    return path.normalize(ref)
+  }
+
+  return path.resolve(path.dirname(base), ref)
+}
+
+/**
+ * Reads text content from a reference path relative to a source document path.
+ *
+ * @param {string} referencePath - Referenced path to read.
+ * @param {string} documentPath - Absolute path of the source document.
+ * @param {BufferEncoding} encoding - Text encoding for reading.
+ * @returns {string} Text content when readable, otherwise empty string.
+ */
+export const readTextFromDocumentReference = (referencePath, documentPath, encoding = 'utf8') => {
+  const resolvedPath = resolvePathFromDocumentReference(referencePath, documentPath)
+  if (!resolvedPath || !existsSync(resolvedPath)) {
+    return ''
+  }
+
+  return readFileSync(resolvedPath, { encoding })
 }
 
 // calculates the outer bounding rect of a rotated rectangle
