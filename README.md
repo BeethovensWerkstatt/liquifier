@@ -11,16 +11,20 @@ To run and test the liquifier docker image locally, follow these steps:
      git clone git@github.com:BeethovensWerkstatt/liquifier.git
      cd liquifier
      ```
-  2. create the docker image:  
+    2. Initialize the Thulemeier submodule:  
+      ```bash
+      git submodule update --init --recursive
+      ```
+    3. create the docker image:  
      ```bash
      docker build -t liquifier:latest .
      ```
-  3. Move to the `BeethovensWerkstatt/data` directory:  
+    4. Move to the `BeethovensWerkstatt/data` directory:  
      ```bash
      cd <path/to/BeethovensWerkstatt/data>
      ```
      *(This might be* `cd ../data` *if the `liquifier` repo is cloned next to `data`.)*
-  4. Run the docker image:  
+    5. Run the docker image:  
      ```bash
      docker run --rm -ti -v $(pwd)/data:/usr/src/app/data -v $(pwd)/cache:/usr/src/app/cache -v $(pwd)/.git:/usr/src/app/.git:ro -w /usr/src/app liquifier node index.js --input-dir=/usr/src/app/data/sources --output-dir=/usr/src/app/cache
      ```
@@ -95,6 +99,30 @@ Make sure to monitor the Actions tab in your fork to see the status of the workf
 The GitHub action is responsible for committing the newly created or modified files back
 to the repository. It is configured to use a generic "github-actions" user for the commits.
 The liquifier node application will not make any commits itself!
+
+### Thulemeier Submodule Workflow
+
+`thulemeier` is tracked as a Git submodule at `./thulemeier` and consumed via `file:./thulemeier`.
+
+Typical workflow when forwarding Thulemeier changes upstream:
+
+```bash
+cd thulemeier
+git checkout -b <feature-branch>
+# edit files, run tests, commit
+git push origin <feature-branch>
+
+cd ..
+git add thulemeier
+git commit -m "chore: update thulemeier submodule pointer"
+```
+
+After pulling updates in `liquifier`, run:
+
+```bash
+git submodule update --init --recursive
+npm install
+```
 
 ## Command line arguments
 
