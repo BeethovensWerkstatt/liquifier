@@ -21,6 +21,7 @@ import { generateFluidTranscription } from '../../../preparation/fluidTranscript
 import { writeData } from '../../filehandlers/filehandler.js'
 
 import { getRectFromFragment, getOuterBoundingRect } from '../../utils/trigonometry.js'
+import { computeApproxBBox } from '../../utils/svgGeometry.js'
 import { resolvePathFromDocumentReference, readTextFromDocumentReference } from '../../utils/utils.js'
 
 import { constants } from '../../config.mjs'
@@ -46,24 +47,33 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
     try {
       const layoutInfo = extractLayoutInfo(data, pageDimensions, logger, triple.sourceFullPath)
       const currentPage = layoutInfo.pages.find(page => page.current)
-      
+
       // get first draft of FT, which holds Facsimile and Shapes, and will get transcriptions inserted
       const ftSvgDom = initializeFtSvg(layoutInfo, data.dtDom)
       
       // handle diplomatic transcription
       const dtSvgDom = await prepareDtForFt(data.dtDom, data.sourceDom, data, layoutInfo, logger, triple.sourceFullPath)
       // result is also available as data.dtSvgDom = dtSvgDom
-      // remove bboxes
-      dtSvgDom.querySelectorAll('.rastrum.bounding-box').forEach(bbox => bbox.parentNode.removeChild(bbox))
+      
       // copy DT content into FT SVG
       Array.from(dtSvgDom.documentElement.childNodes).forEach(child => {
         ftSvgDom.querySelector('.diplomatic').appendChild(child)
       })
-      // adjust scaling to match the actual average staff height on this page
-      ftSvgDom.querySelectorAll('.diplomatic .system').forEach(system => {
-        const scale = 1 / currentPage.vrvMeiUnit * constants.verovioPixelPerVu
-        system.setAttribute('transform', 'scale(' + scale + ',1)')
+
+      // This adds the page rotation to individual rastrums, which _should_ be wrong, but seemed necessary at some point?!
+      /* ftSvgDom.querySelectorAll('.diplomatic .rastrum[style*="transform: rotate("]').forEach(element => {
+        const baseDeg = currentPage.fragment?.rotate?.deg || 0
+        const style = element.getAttribute('style') || ''
+        const rotateMatch = style.match(/transform:\s*rotate\((-?[\d.]+)deg\)/)
+
+        if (!rotateMatch) {
+          return
+        }
+
+        const rotateAngle = baseDeg + parseFloat(rotateMatch[1])
+        element.setAttribute('style', style.replace(rotateMatch[0], 'transform: rotate(' + rotateAngle + 'deg)'))
       })
+      ftSvgDom.querySelector('.diplomatic').removeAttribute('transform') */
 
       // handle annotated transcription
       const atSvgDom = await prepareAtForFt(data.atDom, data.dtDom, data, verovio, pageDimensions, layoutInfo, logger, triple)
@@ -91,11 +101,13 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
         const dtTopRastrumY = parseFloat(dtAllRastrumPaths[0].getAttribute('d').split(' ')[1])
         const dtBottomRastrumY = parseFloat(dtAllRastrumPaths[dtAllRastrumPaths.length - 1].getAttribute('d').split(' ')[1])
 
+        const dtBbox = computeApproxBBox(ftSvgDom.querySelector('.diplomatic .draft'))
+
         const atAllRastrumPaths = ftSvgDom.querySelectorAll('.transcription .staff > path')
         const atTopRastrumY = parseFloat(atAllRastrumPaths[0].getAttribute('d').split(' ')[1])
         const atBottomRastrumY = parseFloat(atAllRastrumPaths[atAllRastrumPaths.length - 1].getAttribute('d').split(' ')[1])
 
-        const dtCenterY = (dtTopRastrumY + dtBottomRastrumY) / 2
+        const dtCenterY = dtBbox.y + dtBbox.height / 2
         const atCenterY = (atTopRastrumY + atBottomRastrumY) / 2
 
         return (dtCenterY - atCenterY) * layoutInfo.pages.find(page => page.current).vrvMeiUnit / constants.verovioPixelPerVu
@@ -125,7 +137,7 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
           const wzBegin = ftSvgDom.querySelector('g.pb[data-corresp$="#' + currentPage.id + '"] + g.writingZone > rect.pageLabelBox')
           const wzBeginX = wzBegin ? parseFloat(wzBegin.getAttribute('x')) : 0
           
-          const dtScaling = parseFloat(ftSvgDom.querySelector('.diplomatic').getAttribute('transform').match(/scale\((.*)\)/)[1])
+          const dtScaling = 1 // parseFloat(ftSvgDom.querySelector('.diplomatic').getAttribute('transform').match(/scale\((.*)\)/)[1])
           
           if (wzBeginX > 0) {
             ftSvgDom.querySelectorAll('.facsimileBg, .shapes').forEach(layer => {
@@ -137,14 +149,19 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
         }
         atX = atX * currentPage.vrvMeiUnit * constants.verovioGeneralScaling
 
-        // console.log(113, 'atWidth:', atWidth, 'pageWidth:', pageDimensions.width, 'atHorizontalPosition:', atX)
-
         return atX
       }
       const atHorizontalPosition = getAtHorizontalPosition()
       
       // apply positioning to AT
       transcriptionGroup.setAttribute('transform', 'translate(' + atHorizontalPosition + ',' + atVerticalShift + ') scale(' + atScaling + ')')
+
+      // liquify
+      liquifyMusic(ftSvgDom)
+      
+
+      // remove bboxes
+      ftSvgDom.querySelectorAll('.rastrum.bounding-box').forEach(bbox => bbox.parentNode.removeChild(bbox))
 
       const ftSvgString = new XMLSerializer().serializeToString(ftSvgDom)
       await writeData(ftSvgString, triple.fsSvgPath)
@@ -179,10 +196,11 @@ const prepareDtForFt = async (dtDom, sourceDom, data, layoutInfo, logger, path) 
 
     const vrvUnit = layoutInfo.pages.find(page => page.current).vrvMeiUnit
     const baseScaling = constants.verovioGeneralScaling * vrvUnit
-    const extraOptions = { baseScaling }
+    const extraOptions = { baseScaling, mode: 'singleDraftStandalone' }
 
     const dtSvgString = await renderDiplomaticTranscript(preparedDt, extraOptions)
     const dtSvgDom = parser.parseFromString(dtSvgString, 'image/svg+xml')
+
     data.dtSvgDom = dtSvgDom
     return dtSvgDom
   } catch (error) {
@@ -297,7 +315,7 @@ const extractLayoutInfo = (data, pageDimensions, logger, sourceFullPath) => {
       }
       if (pageId === currentPageId) {
         pageInfo.current = true
-        pageInfo.position = pageDimensions.position
+        pageInfo.position = pageDimensions.position // 'outer.recto' etc.
         pageInfo.mm = {
           width: pageDimensions.width,
           height: pageDimensions.height
@@ -320,11 +338,11 @@ const extractLayoutInfo = (data, pageDimensions, logger, sourceFullPath) => {
         const outerRectMm = getOuterBoundingRect(0, 0, pageInfo.mm.width, pageInfo.mm.height, fragment.rotate.deg)
         const ratio = fragment.outer.w / outerRectMm.w
 
-        /* console.log(334, 'ratio', ratio)
-        console.log(334.1, 'fragment', fragment)
-        console.log(334.2, 'outerRectMm', outerRectMm)
-        console.log(334.3, 'pageInfo', pageInfo)
-        console.log(334.4, 'pageDimensions', pageDimensions) */
+        // console.log(334, 'ratio', ratio)
+        // console.log(334.1, 'fragment', fragment)
+        // console.log(334.2, 'outerRectMm', outerRectMm)
+        // console.log(334.3, 'pageInfo', pageInfo)
+        // console.log(334.4, 'pageDimensions', pageDimensions)
       
         pageInfo.utils = {}
         pageInfo.utils.mmToPx = (mm) => mm * ratio
@@ -333,10 +351,10 @@ const extractLayoutInfo = (data, pageDimensions, logger, sourceFullPath) => {
         pageInfo.fragment = fragment
 
         pageInfo.px.iiifPlacement = {
-          x: fragment.inner.ul.x * -1,
-          y: fragment.inner.ul.y * -1,
-          w: fragment.inner.w,
-          h: fragment.inner.h
+          x: fragment.outer.ul.x * -1,
+          y: fragment.outer.ul.y * -1,
+          w: fragment.outer.w,
+          h: fragment.outer.h
         }
 
         const layout = data.sourceDom.querySelector('layout[xml\\:id="' + surface.getAttribute('decls').split('#')[1] + '"]')
@@ -438,8 +456,9 @@ const initializeFtSvg = (layoutInfo, dtDom) => {
   const contentGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g')
   contentGroup.setAttribute('class', 'content')
 
-  const pageX = currentPage.utils.pxToMm(currentPage.px.iiifPlacement.x) * vrvGeneralScaling * vrvUnit
-  const pageY = currentPage.utils.pxToMm(currentPage.px.iiifPlacement.y) * vrvGeneralScaling * vrvUnit
+  // TODO: it is a bit odd to use vrvPixelPerVu here, this needs to be clarified. However, it gives the most reasonable positions for the time being. 
+  const pageX = currentPage.utils.pxToMm(currentPage.px.iiifPlacement.x) * vrvGeneralScaling * vrvPixelPerVu
+  const pageY = currentPage.utils.pxToMm(currentPage.px.iiifPlacement.y) * vrvGeneralScaling * vrvPixelPerVu
   const pageW = currentPage.utils.pxToMm(currentPage.px.width) * vrvGeneralScaling * vrvUnit
   const pageH = currentPage.utils.pxToMm(currentPage.px.height) * vrvGeneralScaling * vrvUnit
 
@@ -488,6 +507,49 @@ const initializeFtSvg = (layoutInfo, dtDom) => {
   
   facsimileGroup.appendChild(image)
 
+  // Debug: Add dot raster
+  const addDebugDots = () => {
+    const rasterGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g')
+    rasterGroup.setAttribute('class', 'raster')
+    contentGroup.appendChild(rasterGroup)
+
+    for (let x = 0; x <= 30; x += 1) {
+      for (let y = 0; y <= 23; y += 1) {
+        const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
+        dot.setAttribute('cx', x * 10 * vrvGeneralScaling * vrvUnit)
+        dot.setAttribute('cy', y * 10 * vrvGeneralScaling * vrvUnit)
+        dot.setAttribute('r', 25)
+        dot.setAttribute('fill', '#ff0000cc ')
+        if (x % 5 === 0 || y % 5 === 0) {
+          dot.setAttribute('fill', '#0000ffcc ')
+        }
+        rasterGroup.appendChild(dot)
+      }
+    }
+
+    const dot1 = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
+    dot1.setAttribute('cx', 53 * vrvGeneralScaling * vrvUnit)
+    dot1.setAttribute('cy', 13 * vrvGeneralScaling * vrvUnit)
+    dot1.setAttribute('r', 25)
+    dot1.setAttribute('fill', '#00ff00cc ')
+    rasterGroup.appendChild(dot1)
+
+    const dot2 = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
+    dot2.setAttribute('cx', 51.5 * vrvGeneralScaling * vrvUnit)
+    dot2.setAttribute('cy', 24 * vrvGeneralScaling * vrvUnit)
+    dot2.setAttribute('r', 25)
+    dot2.setAttribute('fill', '#00ff00cc ')
+    rasterGroup.appendChild(dot2)
+
+    const dot3 = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
+    dot3.setAttribute('cx', 21 * vrvGeneralScaling * vrvUnit)
+    dot3.setAttribute('cy', 14.2 * vrvGeneralScaling * vrvUnit)
+    dot3.setAttribute('r', 25)
+    dot3.setAttribute('fill', '#00ff00cc ')
+    rasterGroup.appendChild(dot3)
+  }
+  // addDebugDots()
+    
   // Add shapes layer if shapes graphic is available
   const shapesGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g')
   shapesGroup.setAttribute('class', 'shapes')
@@ -535,7 +597,6 @@ const initializeFtSvg = (layoutInfo, dtDom) => {
   const diplomaticGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g')
   diplomaticGroup.setAttribute('class', 'diplomatic')
   
-  diplomaticGroup.setAttribute('transform', 'scale(' + (1 / constants.verovioPixelPerVu * vrvUnit) + ')')
   contentGroup.appendChild(diplomaticGroup)
 
   svg.appendChild(contentGroup)
