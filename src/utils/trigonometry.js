@@ -75,11 +75,6 @@ export function getRectFromFragment (fragment) {
 
   const fragmentIdentifier = degProvided !== undefined ? fragment : fragment + '&rotate=0'
 
-  console.log(101.1, outer)
-  console.log(101.2, inner)
-  console.log(101.3, rotate)
-  console.log(101.4, center)
-
   return { outer, inner, rotate, center, fragmentIdentifier }
 }
 
