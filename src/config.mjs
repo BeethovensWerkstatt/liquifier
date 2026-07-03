@@ -9,5 +9,8 @@ export const verovioPixelDensity = 9
 export const constants = {
   verovioPixelPerVu: verovioPixelDensity,
   verovioGeneralScaling: 10,
-  ftStaticScaling: 1
+  ftStaticScaling: 1,
+  ftRendererAnimationDuration: '5s',
+  ftRendererAnimationRepeatCount: 'indefinite',
+  ftRendererReverseAnimations: false
 }

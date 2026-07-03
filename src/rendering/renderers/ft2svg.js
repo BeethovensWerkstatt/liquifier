@@ -12,6 +12,7 @@ import { renderContinuousAt } from '../verovioHandler.js'
 // DT preparations
 // import { buildCurrentDtSvgForFluidTranscripts } from '../dt2svg.js'
 import { prepareDtForThulemeier } from '../../preparation/mei.js'
+import { liquifyMusic } from '../../preparation/liquify.js'
 import { renderDiplomaticTranscript } from '../thulemeierHandler.js'
 /*
 // FT preparation
@@ -29,6 +30,427 @@ import { constants } from '../../config.mjs'
 // eslint-disable-next-line
 import pkg from '../../../package.json' with { type: 'json' }
 const appVersion = pkg.version
+
+/**
+ * Add a translate animation to one SVG element for the FT renderer's eight-step sequence.
+ *
+ * Zero-only translations are skipped so the output does not accumulate no-op
+ * `animateTransform` nodes.
+ *
+ * @param {Element} node - SVG element that receives the animation.
+ * @param {string[]} [values=[]] - Translate values in `x y` form for each phase.
+ * @returns {void}
+ */
+const addTransformTranslate = (node, values = []) => {
+  if (values.length === 0) return
+
+  const hasOnlyZeroTranslateValues = values.every(value => {
+    const match = String(value || '').trim().match(/^([\d.-]+)[,\s]+([\d.-]+)$/)
+    if (!match) return false
+
+    const x = parseFloat(match[1])
+    const y = parseFloat(match[2])
+    return Number.isFinite(x) && Number.isFinite(y) && x === 0 && y === 0
+  })
+
+  if (hasOnlyZeroTranslateValues) return
+
+  const anim = appendNewElement(node, 'animateTransform', 'http://www.w3.org/2000/svg')
+  anim.setAttribute('attributeName', 'transform')
+  anim.setAttribute('attributeType', 'XML')
+  anim.setAttribute('type', 'translate')
+
+  const reverse = constants.ftRendererReverseAnimations ? values.slice(0, -1).reverse() : []
+  anim.setAttribute('values', values.concat(reverse).join(';'))
+  anim.setAttribute('repeatCount', constants.ftRendererAnimationRepeatCount)
+  anim.setAttribute('dur', constants.ftRendererAnimationDuration)
+}
+
+/**
+ * Add a generic SVG attribute animation for the FT renderer's eight-step sequence.
+ *
+ * @param {Element} node - SVG element that receives the animation.
+ * @param {string} attribute - Animated SVG attribute name.
+ * @param {string[]} [values=[]] - Phase values for the given attribute.
+ * @returns {void}
+ */
+const addTransform = (node, attribute, values = []) => {
+  const anim = appendNewElement(node, 'animate', 'http://www.w3.org/2000/svg')
+  anim.setAttribute('attributeName', attribute)
+
+  const reverse = constants.ftRendererReverseAnimations ? values.slice(0, -1).reverse() : []
+  anim.setAttribute('values', values.concat(reverse).join(';'))
+  anim.setAttribute('repeatCount', constants.ftRendererAnimationRepeatCount)
+  anim.setAttribute('dur', constants.ftRendererAnimationDuration)
+}
+
+/**
+ * Resolve the AT id for a rendered SVG node, falling back to the nearest annotated ancestor.
+ *
+ * @param {Element|null|undefined} element - Animated SVG element.
+ * @param {string} fallbackId - Descriptor-level fallback id.
+ * @returns {string|null} Resolved AT id when available.
+ */
+function resolveAtIdForClassification (element, fallbackId) {
+  if (!element) return fallbackId || null
+
+  const ownId = element.getAttribute?.('data-id')
+  if (ownId) return ownId
+
+  const ancestorId = closestElement(element, '[data-id]')?.getAttribute?.('data-id')
+  if (ancestorId) return ancestorId
+
+  return fallbackId || null
+}
+
+/**
+ * Apply one unmatched-material class while removing competing classification classes.
+ *
+ * @param {Element|null|undefined} element - Element to classify.
+ * @param {string} className - Classification class to apply.
+ * @returns {void}
+ */
+function applyClassificationClass (element, className) {
+  if (!element || !className) return
+
+  const classes = (element.getAttribute('class') || '')
+    .split(/\s+/)
+    .filter(Boolean)
+    .filter(classToken => classToken !== 'supplied' && classToken !== 'otherWz')
+
+  classes.push(className)
+  element.setAttribute('class', classes.join(' '))
+}
+
+/**
+ * Determine which unmatched-material class should be used for one animation descriptor.
+ *
+ * @param {Object} descriptor - Animation descriptor.
+ * @param {Map<string, string>} unmatchedClassByAtId - AT id to unmatched class mapping.
+ * @returns {string} Classification class name.
+ */
+function resolveUnmatchedClassForDescriptor (descriptor, unmatchedClassByAtId) {
+  const atId = resolveAtIdForClassification(descriptor.element, descriptor.id)
+  if (!atId) return 'supplied'
+  return unmatchedClassByAtId.get(atId) || 'supplied'
+}
+
+/**
+ * Normalize a file reference to its basename so `@corresp` matching stays stable.
+ *
+ * @param {string} [value=''] - Raw file reference.
+ * @returns {string} Normalized basename.
+ */
+function normalizeFileBasename (value = '') {
+  const normalized = String(value).trim().replace(/\\/g, '/')
+  if (!normalized) return ''
+  const parts = normalized.split('/')
+  return parts[parts.length - 1] || ''
+}
+
+/**
+ * Split one `@corresp` token into file-part and target-id components.
+ *
+ * @param {string} [token=''] - Raw `@corresp` token.
+ * @returns {{fileRef: string, targetId: string}|null} Parsed token or null.
+ */
+function parseCorrespToken (token = '') {
+  const normalized = String(token).trim()
+  if (!normalized || !normalized.includes('#')) return null
+
+  const hashIndex = normalized.indexOf('#')
+  const fileRef = hashIndex > 0 ? normalized.slice(0, hashIndex).trim() : ''
+  const targetId = normalized.slice(hashIndex + 1).trim()
+  if (!targetId) return null
+
+  return { fileRef, targetId }
+}
+
+/**
+ * Return whether one `@corresp` file reference should be treated as DT material.
+ *
+ * @param {string} [fileRef=''] - File part from a `@corresp` token.
+ * @returns {boolean} Whether the reference points to a diplomatic transcript.
+ */
+function isDiplomaticCorrespReference (fileRef = '') {
+  if (fileRef === '') return true
+  return fileRef.includes('/diplomaticTranscripts/') || fileRef.endsWith('_dt.xml')
+}
+
+/**
+ * Return whether one DT file reference belongs to the currently rendered DT file.
+ *
+ * @param {string} [fileRef=''] - File part from a `@corresp` token.
+ * @param {string} [currentDtBasename=''] - Basename of the current DT file.
+ * @returns {boolean} Whether the token belongs to the active DT context.
+ */
+function isCurrentDtReference (fileRef = '', currentDtBasename = '') {
+  if (fileRef === '') return true
+  if (!currentDtBasename) return true
+  return normalizeFileBasename(fileRef) === currentDtBasename
+}
+
+/**
+ * Build AT->DT correspondence mappings and unmatched-class hints for the current DT file.
+ *
+ * @param {Document} atMeiDom - Edited or plain AT MEI DOM.
+ * @param {Object} options - Extraction options.
+ * @param {string} options.currentDtReference - Current DT file path or basename.
+ * @returns {{correspMappings: Map<string, string[]>, unmatchedClassByAtId: Map<string, string>}}
+ */
+function extractCorrespContext (atMeiDom, { currentDtReference = '' } = {}) {
+  const correspMappings = new Map()
+  const unmatchedClassByAtId = new Map()
+  const currentDtBasename = normalizeFileBasename(currentDtReference)
+
+  atMeiDom.querySelectorAll('[corresp]').forEach(element => {
+    const atId = element.getAttribute('xml:id')
+    const corresp = element.getAttribute('corresp')
+    if (!atId || !corresp) return
+
+    const currentDtIds = []
+    let hasForeignDtReference = false
+
+    corresp
+      .trim()
+      .replace(/\s+/g, ' ')
+      .split(' ')
+      .forEach(token => {
+        const parsed = parseCorrespToken(token)
+        if (!parsed) return
+
+        const { fileRef, targetId } = parsed
+        if (!isDiplomaticCorrespReference(fileRef)) return
+
+        if (isCurrentDtReference(fileRef, currentDtBasename)) {
+          currentDtIds.push(targetId)
+        } else {
+          hasForeignDtReference = true
+        }
+      })
+
+    const uniqueCurrentDtIds = Array.from(new Set(currentDtIds))
+    if (uniqueCurrentDtIds.length > 0) {
+      correspMappings.set(atId, uniqueCurrentDtIds)
+      return
+    }
+
+    if (hasForeignDtReference) {
+      unmatchedClassByAtId.set(atId, 'otherWz')
+    }
+  })
+
+  return { correspMappings, unmatchedClassByAtId }
+}
+
+/**
+ * Resolve one partial animation descriptor into the FT renderer's eight-step phase sequence.
+ *
+ * The first two steps are renderer-local asset phases:
+ * 1. facsimile only
+ * 2. facsimile + shapes
+ *
+ * The remaining six steps keep the established FT musical states unchanged.
+ *
+ * @param {Object} descriptor - Animation descriptor emitted by liquify modules.
+ * @param {Map<string, string>} [unmatchedClassByAtId=new Map()] - AT id to unmatched class mapping.
+ * @returns {void}
+ */
+const setAnimationForFtWithAssets = (descriptor, unmatchedClassByAtId = new Map()) => {
+  const { element, id, localName, states } = descriptor
+
+  const finding = states.finding || null
+  const normalization = states.normalization || finding
+  const readingOrder = states.readingOrder || normalization
+  const regulation = states.regulation || states.supplements || states.interventions || normalization
+  const supplements = states.supplements || regulation
+  const interventions = states.interventions || supplements
+
+  const allStates = [null, null, finding, normalization, readingOrder, regulation, supplements, interventions]
+  const hasNullStates = allStates.some(state => state === null)
+
+  if (hasNullStates) {
+    const opacityValues = allStates.map(state => (state === null ? '0' : '1'))
+    element.setAttribute('opacity', opacityValues[0])
+    addTransform(element, 'opacity', opacityValues)
+
+    if (finding === null || normalization === null) {
+      const unmatchedClass = resolveUnmatchedClassForDescriptor(descriptor, unmatchedClassByAtId)
+      applyClassificationClass(element, unmatchedClass)
+      if (unmatchedClass === 'supplied') {
+        element.setAttribute('fill', '#999999')
+        element.setAttribute('stroke', '#999999')
+      } else if (unmatchedClass === 'otherWz') {
+        element.setAttribute('fill', '#555555')
+        element.setAttribute('stroke', '#555555')
+      }
+    }
+  }
+
+  const validStates = allStates.filter(state => state !== null)
+
+  if (validStates.length === 0) {
+    console.warn(`[setAnimationForFtWithAssets] No valid states for element ${id} (${localName})`)
+    return
+  }
+
+  const animationType = validStates[0].type
+  const values = allStates.map(state => {
+    if (state === null) {
+      if (animationType === 'translate') return '0 0'
+      if (animationType === 'opacity') return '0'
+      return ''
+    }
+    return state.val
+  })
+
+  if (animationType === 'translate') {
+    addTransformTranslate(element, values)
+  } else {
+    addTransform(element, animationType, values)
+  }
+}
+
+/**
+ * Build the liquify helper bundle for the FT renderer's single-DOM setup.
+ *
+ * This adapter keeps `liquifyMusic()` unchanged by exposing the same helper
+ * surface it already expects, while translating DT coordinates into the local
+ * coordinate space of the transformed AT layer.
+ *
+ * @param {Object} params - Helper construction parameters.
+ * @param {SVGElement} params.ftSvgDom - Root FT SVG element.
+ * @param {SVGElement} params.atLayer - AT layer inside the FT SVG.
+ * @param {SVGElement} params.dtLayer - DT layer inside the FT SVG.
+ * @param {Document} params.atMeiDom - AT MEI DOM aligned with the rendered AT layer.
+ * @param {string} params.currentDtReference - Current DT file path or basename.
+ * @param {number} params.atScaling - Applied AT scale inside the FT SVG.
+ * @param {number} params.atHorizontalPosition - Applied AT x translation inside the FT SVG.
+ * @param {number} params.atVerticalShift - Applied AT y translation inside the FT SVG.
+ * @param {{debug: Function, info: Function, warn: Function, error: Function}} params.logger - Logger instance.
+ * @returns {{
+ *   getNewPos: Function,
+ *   convertD: Function,
+ *   scaleFactor: number,
+ *   correspMappings: Map<string, string[]>,
+ *   stateModel: string,
+ *   getChoiceVerticalOffset: Function,
+ *   applyUnmatchedClass: Function,
+ *   setAnimation: Function,
+ *   logger: Object
+ * }} Liquify helper bundle for the current FT render.
+ */
+const prepareAssets = ({
+  ftSvgDom,
+  atLayer,
+  dtLayer,
+  atMeiDom,
+  currentDtReference,
+  atScaling,
+  atHorizontalPosition,
+  atVerticalShift,
+  logger
+}) => {
+  const { correspMappings, unmatchedClassByAtId } = extractCorrespContext(atMeiDom, {
+    currentDtReference
+  })
+
+  /**
+   * Apply one eight-phase opacity track to a non-musical FT layer.
+   *
+   * @param {Element|null} element - Layer root.
+   * @param {string[]} values - One opacity value per FT phase.
+   * @returns {void}
+   */
+  const setLayerOpacity = (element, values) => {
+    if (!element) return
+    element.setAttribute('opacity', values[0])
+    addTransform(element, 'opacity', values)
+  }
+
+  // The renderer-owned layers establish the two asset phases before musical animation starts.
+  setLayerOpacity(ftSvgDom.querySelector('.facsimileBg'), ['1', '1', '0.5', '0', '0', '0', '0', '0'])
+  setLayerOpacity(ftSvgDom.querySelector('.shapes'), ['0', '1', '0', '0', '0', '0', '0', '0'])
+  setLayerOpacity(dtLayer, ['0', '0', '1', '1', '1', '1', '1', '1'])
+  setLayerOpacity(atLayer, ['0', '0', '1', '1', '1', '1', '1', '1'])
+
+  /**
+   * Convert one DT point in FT root coordinates into the local coordinates of the transformed AT layer.
+   *
+   * @param {{x: number, y: number}} [at={ x: 0, y: 0 }] - AT-local fallback point.
+   * @param {{x: number, y: number}} [dt={ x: 0, y: 0 }] - DT point in FT root coordinates.
+   * @returns {{x: number, y: number}} DT point converted into AT-local coordinates.
+   */
+  const getNewPos = (at = { x: 0, y: 0 }, dt = { x: 0, y: 0 }) => {
+    // Invert the AT layer transform so liquify modules can continue to work in AT-local coordinates.
+    const newPos = {
+      x: Math.round((dt.x - atHorizontalPosition) / atScaling),
+      y: Math.round((dt.y - atVerticalShift) / atScaling)
+    }
+
+    logger.debug(`[Position Diff] AT: (${at.x}, ${at.y}), DT: (${dt.x}, ${dt.y}) => newPos: (${newPos.x}, ${newPos.y})`)
+    return newPos
+  }
+
+  /**
+   * Convert one DT path into AT-local coordinates while preserving AT path command structure.
+   *
+   * @param {string} atD - AT path data used as the structural template.
+   * @param {string} dtD - DT path data used as the coordinate source.
+   * @returns {string} DT geometry expressed in AT-local coordinates.
+   */
+  const convertD = (atD, dtD) => {
+    const atCoords = []
+    const dtCoords = []
+    const coordRegex = /([-\d.]+)[,\s]+([-\d.]+)/g
+
+    let match
+    while ((match = coordRegex.exec(atD)) !== null) {
+      atCoords.push({ x: parseFloat(match[1]), y: parseFloat(match[2]) })
+    }
+
+    coordRegex.lastIndex = 0
+    while ((match = coordRegex.exec(dtD)) !== null) {
+      dtCoords.push({ x: parseFloat(match[1]), y: parseFloat(match[2]) })
+    }
+
+    const newCoords = atCoords.map((atPos, index) => {
+      const dtPos = dtCoords[index] || atPos
+      return getNewPos(atPos, dtPos)
+    })
+
+    let coordIndex = 0
+    return atD.replace(coordRegex, () => {
+      const coord = newCoords[coordIndex++]
+      return `${coord.x} ${coord.y}`
+    })
+  }
+
+  /**
+   * Apply the unmatched-material class associated with one AT id.
+   *
+   * @param {Element} element - Element to classify.
+   * @param {string} atId - AT id used for lookup.
+   * @returns {string} Applied class name.
+   */
+  const applyUnmatchedClass = (element, atId) => {
+    const className = unmatchedClassByAtId.get(atId) || 'supplied'
+    applyClassificationClass(element, className)
+    return className
+  }
+
+  return {
+    getNewPos,
+    convertD,
+    scaleFactor: atScaling !== 0 ? (1 / atScaling) : 1,
+    correspMappings,
+    stateModel: 'fluidTranscripts',
+    getChoiceVerticalOffset: () => 0,
+    applyUnmatchedClass,
+    setAnimation: descriptor => setAnimationForFtWithAssets(descriptor, unmatchedClassByAtId),
+    logger
+  }
+}
 
 /**
  * Render Fluid Transcript SVG.
@@ -157,8 +579,19 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
       // apply positioning to AT
       transcriptionGroup.setAttribute('transform', 'translate(' + atHorizontalPosition + ',' + atVerticalShift + ') scale(' + atScaling + ')')
 
-      // liquify
-      liquifyMusic(ftSvgDom)
+      const tools = prepareAssets({
+        ftSvgDom,
+        atLayer: transcriptionGroup,
+        dtLayer: ftSvgDom.querySelector('.diplomatic'),
+        atMeiDom: data.editedAtDom || data.atDom,
+        currentDtReference: triple.dtFullPath || triple.dt || '',
+        atScaling,
+        atHorizontalPosition,
+        atVerticalShift,
+        logger
+      })
+
+      liquifyMusic(transcriptionGroup, ftSvgDom.querySelector('.diplomatic'), data.editedAtDom || data.atDom, tools)
       
 
       // remove bboxes
