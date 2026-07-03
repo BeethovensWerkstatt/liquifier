@@ -1,4 +1,5 @@
 import { execSync } from 'node:child_process'
+import { closestElement } from '../utils/dom.js'
 import { uuid } from '../utils/uuid.js'
 
 const MEI_NS = 'http://www.music-encoding.org/ns/mei'
@@ -192,7 +193,7 @@ function hasDiplomaticCorresp (element) {
 function canBeWrappedAsSupplied (element) {
   if (!wrappableElementNames.has(element.localName)) return false
   if (!element.hasAttribute('xml:id')) return false
-  if (element.closest('supplied')) return false
+  if (closestElement(element, 'supplied')) return false
   if (element.localName === 'supplied') return false
 
   return !hasDiplomaticCorresp(element)
@@ -270,7 +271,7 @@ function nodePrecedes (left, right) {
 function getAtClefForNote (note, atDom) {
   if (!note || !atDom) return null
 
-  const staff = note.closest('staff')
+  const staff = closestElement(note, 'staff')
   const staffN = staff?.getAttribute('n')
 
   let clef = null

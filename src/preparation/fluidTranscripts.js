@@ -1,4 +1,4 @@
-import { appendNewElement } from '../utils/dom.js'
+import { appendNewElement, closestElement, removeElement } from '../utils/dom.js'
 import { liquifyNotes } from './liquify/notes.js'
 import { liquifyBarlines } from './liquify/barlines.js'
 import { liquifyCurves } from './liquify/curves.js'
@@ -91,7 +91,7 @@ const calculateDtSystemCenter = (svg) => {
     const height = parseFloat(rect.getAttribute('height'))
 
     // Get the transform-origin from parent rastrum group
-    const rastrumGroup = rect.closest('g.rastrum')
+    const rastrumGroup = closestElement(rect, 'g.rastrum')
     const style = rastrumGroup?.getAttribute('style')
     if (style) {
       // Rotation metadata may exist on rastrum groups, but current bbox logic intentionally
@@ -699,7 +699,7 @@ export const adjustAtStaffLines = (svg, atMeiDom, measureBlockMap = buildAtMeasu
     })
 
     // Remove any previously generated system-level rastrum lines for idempotency.
-    system.querySelectorAll(':scope > g.bw-system-rastrum').forEach(group => group.remove())
+    system.querySelectorAll(':scope > g.bw-system-rastrum').forEach(group => removeElement(group))
 
     const doc = system.ownerDocument || system
     // Keep generated rastrum groups behind existing content while preserving block order.
@@ -758,7 +758,7 @@ export const adjustAtStaffLines = (svg, atMeiDom, measureBlockMap = buildAtMeasu
     measures.forEach((measure, i) => {
       const staffLinesInMeasure = measure.querySelectorAll('g.staff:not(.bounding-box) > path')
       // Remove measure-owned staff lines so staff lines are truly system-level.
-      staffLinesInMeasure.forEach(path => path.remove())
+      staffLinesInMeasure.forEach(path => removeElement(path))
     })
   })
 }
@@ -1036,7 +1036,7 @@ function animateUnmatchedBlockContainers (ftSvg, measureBlockMap, matchedStaffLi
   })
 
   unmatchedMeasures.forEach(measure => {
-    if (measure.closest('g.system[data-bw-unmatched-container="true"]')) return
+    if (closestElement(measure, 'g.system[data-bw-unmatched-container="true"]')) return
 
     measure.setAttribute('data-bw-unmatched-container', 'true')
     applyClassificationClass(measure, 'otherWz')
@@ -1353,7 +1353,7 @@ function resolveAtIdForClassification (element, fallbackId) {
   const ownId = element.getAttribute?.('data-id')
   if (ownId) return ownId
 
-  const ancestorId = element.closest?.('[data-id]')?.getAttribute?.('data-id')
+  const ancestorId = closestElement(element, '[data-id]')?.getAttribute?.('data-id')
   if (ancestorId) return ancestorId
 
   return fallbackId || null
@@ -1535,7 +1535,7 @@ const setAnimationFluidSystems = (descriptor, unmatchedClassByAtId = new Map()) 
 
   const allStates = [digitalFacsimile, writingZone, finding, normalization, readingOrder, regulation, supplements, interventions]
   const hasNullStates = allStates.some(state => state === null)
-  const unmatchedContainer = element?.closest?.('[data-bw-unmatched-container="true"]') || null
+  const unmatchedContainer = closestElement(element, '[data-bw-unmatched-container="true"]') || null
   const isContainerItself = Boolean(unmatchedContainer && unmatchedContainer === element)
   const isInsideUnmatchedContainer = Boolean(unmatchedContainer && !isContainerItself)
 

@@ -1,3 +1,5 @@
+import { closestElement } from '../../utils/dom.js'
+
 /**
  * Adjust viewBox of SVG to encompass all animated content
  * This post-processing function analyzes all animation values to find the
@@ -173,7 +175,7 @@ const getFocusedFluidSystemsBounds = (svg, matchedStaffLineBlocks, measureBlockM
 
   if (measureBlockMap instanceof Map) {
     const matchedMeasures = Array.from(svg.querySelectorAll('g.measure[data-id]')).filter(measure => {
-      if (measure.closest('[data-bw-unmatched-container="true"]')) return false
+      if (closestElement(measure, '[data-bw-unmatched-container="true"]')) return false
       const measureId = measure.getAttribute('data-id')
       const blockIndex = measureBlockMap.get(measureId)
       return Number.isFinite(blockIndex) && matchedStaffLineBlocks.has(blockIndex)

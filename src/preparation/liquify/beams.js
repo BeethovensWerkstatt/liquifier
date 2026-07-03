@@ -1,3 +1,5 @@
+import { removeElement } from '../../utils/dom.js'
+
 /**
  * Prepare AT beam elements for animation
  * Beams consist of polygon elements representing beam lines. Typically there is:
@@ -123,7 +125,7 @@ const adjustAtBeams = (svg, logger) => {
       beamG.insertBefore(mergedPolygon, group[0].element)
 
       // Remove original segment polygons
-      group.forEach(poly => poly.element.remove())
+      group.forEach(poly => removeElement(poly.element))
 
       logger.debug(`[Adjust AT Beams] Merged ${group.length} segments into one polygon`)
     })

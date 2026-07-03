@@ -1,3 +1,5 @@
+import { closestElement } from '../../utils/dom.js'
+
 /**
  * Animate chords between AT and DT transcriptions, including noteheads, stems, ledger lines, and flags
  * For each chord in the AT (fluid transcription):
@@ -88,7 +90,7 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
       const dtNotes = dtChord.querySelectorAll('.notehead > use')
       const dtNotesPositions = Array.from(dtNotes).map(dtHeadUse => {
         return {
-          id: dtHeadUse.closest('g.note')?.getAttribute('data-id'),
+          id: closestElement(dtHeadUse, 'g.note')?.getAttribute('data-id'),
           x: parseFloat(dtHeadUse.getAttribute('x')),
           y: parseFloat(dtHeadUse.getAttribute('y'))
         }
@@ -171,7 +173,7 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
         }
       })
 
-      chord.closest('.measure').querySelectorAll('.ledgerLines .lineDash').forEach(ledgerLine => {
+      closestElement(chord, '.measure')?.querySelectorAll('.ledgerLines .lineDash').forEach(ledgerLine => {
         if (ledgerLine.hasAttribute('data-related')) {
           const relatedAttr = ledgerLine.getAttribute('data-related')
           // Check if ANY of the chord's note IDs appear in the ledgerLine's data-related attribute

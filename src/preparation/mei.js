@@ -1,4 +1,5 @@
 import { boundingboxDefaultControlpoints } from '../utils/geometry.js'
+import { closestElement, removeElement } from '../utils/dom.js'
 import { uuid } from '../utils/uuid.js'
 import { getOsdRects } from '../utils/facsimileHelpers.js'
 import { JSDOM } from 'jsdom'
@@ -283,7 +284,7 @@ function getDiplomaticBeam (annotElem, beam) {
   const targets = []
   annotElem.querySelectorAll('[corresp]').forEach(elem => {
     console.log('718: investigating ', elem)
-    if (elem.localName === 'chord' || (elem.localName === 'note' && !elem.closest('chord'))) {
+    if (elem.localName === 'chord' || (elem.localName === 'note' && !closestElement(elem, 'chord'))) {
       // multiple associations are possible!
       for (const correspelem of elem.getAttribute('corresp').split(' ')) {
         // get uid for corresponding element
@@ -300,7 +301,7 @@ function getDiplomaticBeam (annotElem, beam) {
   beam.setAttribute('plist', targets.join(' '))
   beam.setAttribute('startid', targets[0])
   beam.setAttribute('endid', targets.splice(-1)[0])
-  beam.setAttribute('staff', annotElem.closest('staff').getAttribute('n'))
+  beam.setAttribute('staff', closestElement(annotElem, 'staff').getAttribute('n'))
   console.log(718, '\n', beam, '\n', annotElem, '\n', targets)
   */
 }
@@ -326,7 +327,7 @@ function getDiplomaticAccid (annotElem, accid, { keySig, keyAccid, keyBase }) {
     // console.log(279, accid)
   } else {
     accid.setAttribute('accid', annotElem.getAttribute('accid'))
-    const note = annotElem.closest('note')
+    const note = closestElement(annotElem, 'note')
     accid.setAttribute('loc', getLocAttribute(note))
   }
 }
@@ -642,12 +643,12 @@ function getDiplomaticCurve (annotElem, curve, bbox) {
   let staff
   if (annotElem.hasAttribute('staff')) {
     staff = annotElem.getAttribute('staff').replace(/\s+/g, ' ').trim().split(' ')[0]
-  } else if (annotElem.closest('staff')) {
-    staff = annotElem.closest('staff').getAttribute('n')
+  } else if (closestElement(annotElem, 'staff')) {
+    staff = closestElement(annotElem, 'staff').getAttribute('n')
   } else if (annotElem.hasAttribute('startid')) {
-    const startElem = annotElem.closest('mei').querySelector('*[*|id="' + annotElem.getAttribute('startid').substring(1) + '"]')
-    if (startElem && startElem.closest('staff')) {
-      staff = startElem.closest('staff').getAttribute('n')
+    const startElem = closestElement(annotElem, 'mei').querySelector('*[*|id="' + annotElem.getAttribute('startid').substring(1) + '"]')
+    if (startElem && closestElement(startElem, 'staff')) {
+      staff = closestElement(startElem, 'staff').getAttribute('n')
     } else {
       console.warn('WARNING: Could not determine staff for curve', annotElem, startElem)
     }
@@ -672,7 +673,7 @@ function getPitchClarificationLetter (annotElem, metaMark, bbox) {
     metaMark.setAttribute('x', (parseFloat(bbox.mm.x)).toFixed(1))
     metaMark.setAttribute('width', (parseFloat(bbox.mm.w)).toFixed(1))
     metaMark.setAttribute('y', bbox.mm.y)
-    const staff = annotElem.closest('staff').getAttribute('n')
+    const staff = closestElement(annotElem, 'staff').getAttribute('n')
     metaMark.setAttribute('staff', staff)
 
     const pname = annotElem.getAttribute('pname')
@@ -698,7 +699,7 @@ function getDiplomaticWord (annotElem, word, bbox) {
   word.setAttribute('x', (parseFloat(bbox.mm.x)).toFixed(1))
   word.setAttribute('width', (parseFloat(bbox.mm.w)).toFixed(1))
   word.setAttribute('y', bbox.mm.y)
-  word.setAttribute('staff', annotElem.closest('staff').getAttribute('n'))
+  word.setAttribute('staff', closestElement(annotElem, 'staff').getAttribute('n'))
   word.innerHTML = annotElem.innerHTML.replace(/\s+/g, ' ').trim()
 }
 
@@ -717,7 +718,7 @@ function getLocAttribute (annotElem) {
     return 5
   }
   try {
-    let staffN = annotElem.closest('staff').getAttribute('n')
+    let staffN = closestElement(annotElem, 'staff').getAttribute('n')
     // TODO do we need other?
     if (annotElem.hasAttribute('staff')) {
       staffN = annotElem.getAttribute('staff')
@@ -725,7 +726,7 @@ function getLocAttribute (annotElem) {
     if (!staffN) {
       console.warn('WARNING: Could not determine staff number for ' + annotElem)
     }
-    const clefs = [...annotElem.closest('music').querySelectorAll('staff[n="' + staffN + '"] clef, staffDef[n="' + staffN + '"] clef, staffDef[n="' + staffN + '"][clef\\.line], *[*|id="' + annotElem.getAttribute('xml:id') + '"]')]
+    const clefs = [...closestElement(annotElem, 'music').querySelectorAll('staff[n="' + staffN + '"] clef, staffDef[n="' + staffN + '"] clef, staffDef[n="' + staffN + '"][clef\\.line], *[*|id="' + annotElem.getAttribute('xml:id') + '"]')]
     clefs.sort((a, b) => {
       if (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) {
         return -1
@@ -804,7 +805,7 @@ export async function initializeDiploTrans (filename, wzObj, surfaceId, appVersi
 
   diploTemplate.getElementsByTagNameNS('*', 'draft')[0].childNodes.forEach(node => {
     if (node.nodeType === Node.COMMENT_NODE) {
-      node.remove()
+      removeElement(node)
     }
   })
 

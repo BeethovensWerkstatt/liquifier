@@ -22,3 +22,99 @@ export const appendNewElement = (parent, name, ns = 'http://www.w3.org/2000/svg'
   }
   return elem
 }
+
+/**
+ * Find the closest ancestor-or-self matching a selector without relying on Element.closest.
+ *
+ * @param {Element|null|undefined} element - Starting element.
+ * @param {string} selector - Selector to match against.
+ * @returns {Element|null} Matching ancestor or null when none is found.
+ */
+export const closestElement = (element, selector) => {
+  if (!element || !selector) return null
+
+  let current = element
+  while (current && current.nodeType === 1) {
+    if (matchesSelector(current, selector)) return current
+    current = current.parentNode
+  }
+
+  return null
+}
+
+/**
+ * Remove a node without relying on Element.remove.
+ *
+ * @param {Node|null|undefined} element - Node to remove.
+ * @returns {void}
+ */
+export const removeElement = (element) => {
+  if (!element?.parentNode) return
+  element.parentNode.removeChild(element)
+}
+
+/**
+ * Returns whether an element has a CSS class without relying on classList.
+ *
+ * @param {Element|null|undefined} element - Element to inspect.
+ * @param {string} className - Class name to look up.
+ * @returns {boolean} Whether the class is present.
+ */
+export const hasClass = (element, className) => {
+  if (!element || !className) return false
+  return getClassTokens(element).includes(className)
+}
+
+/**
+ * Add a CSS class without relying on classList.
+ *
+ * @param {Element|null|undefined} element - Element to mutate.
+ * @param {string} className - Class name to add.
+ * @returns {void}
+ */
+export const addClass = (element, className) => {
+  if (!element || !className) return
+  const tokens = getClassTokens(element)
+  if (tokens.includes(className)) return
+  tokens.push(className)
+  element.setAttribute('class', tokens.join(' '))
+}
+
+/**
+ * Test whether an element matches a selector in DOM implementations without Element.matches.
+ *
+ * @param {Element} element - Element to test.
+ * @param {string} selector - Selector to match against.
+ * @returns {boolean} Whether the element matches the selector.
+ */
+function matchesSelector (element, selector) {
+  if (!element || !selector) return false
+
+  const root = element.ownerDocument?.querySelectorAll
+    ? element.ownerDocument
+    : getTopAncestor(element)
+
+  if (!root?.querySelectorAll) return false
+
+  return Array.from(root.querySelectorAll(selector)).includes(element)
+}
+
+/**
+ * Return the highest reachable ancestor node.
+ *
+ * @param {Element} element - Starting element.
+ * @returns {Element|Document} Topmost ancestor.
+ */
+function getTopAncestor (element) {
+  let current = element
+  while (current?.parentNode) {
+    current = current.parentNode
+  }
+  return current
+}
+
+function getClassTokens (element) {
+  return String(element.getAttribute?.('class') || '')
+    .split(/\s+/)
+    .filter(Boolean)
+}

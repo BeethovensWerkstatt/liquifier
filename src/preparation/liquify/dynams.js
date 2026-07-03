@@ -1,4 +1,5 @@
 import { computeTextDiff } from '../../utils/textDiff.js'
+import { addClass } from '../../utils/dom.js'
 
 /**
  * Liquifies dynamics elements, handling two cases:
@@ -345,7 +346,7 @@ export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
           } else if (segment.type === 'insert') {
           // AT-only text: hidden at finding/normalization, fades in at supplements
           // Add "supplied" class for CSS styling
-            segmentTspan.classList.add('supplied')
+            addClass(segmentTspan, 'supplied')
 
             setAnimation({
               element: segmentTspan,

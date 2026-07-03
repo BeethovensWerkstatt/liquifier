@@ -634,11 +634,11 @@ export function generateHtmlWrapper (svg, meiSourceDom, meiDtDom, meiAtDom, path
             console.log('fullRenderedX: ', fullRenderedX, ' scaledDataX: ', scaledDataX)
 
         } catch (err) {
-            file.querySelector('img').remove()
+            removeElement(file.querySelector('img'))
             console.warn('Unable to find a note in transcription, removing facsimile', err)
         }
     } else {
-        file.querySelector('img').remove()
+        removeElement(file.querySelector('img'))
         console.warn('Unable to find a note in transcription, removing facsimile')
     }
     */

@@ -1,3 +1,5 @@
+import { removeElement } from '../../utils/dom.js'
+
 /**
  * Merge AT barLine paths sharing the same x position into single continuous lines
  * For each barLine group in the AT, identifies all vertical path segments and groups them
@@ -41,7 +43,7 @@ const adjustAtBarLines = (svg) => {
     })
 
     // Remove all existing paths
-    paths.forEach(path => path.remove())
+    paths.forEach(path => removeElement(path))
 
     // Create merged paths
     linesByX.forEach(({ yCoords, strokeWidth }, x) => {

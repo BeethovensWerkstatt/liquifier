@@ -1,3 +1,5 @@
+import { hasClass } from '../../utils/dom.js'
+
 /**
  * Prepares animations for <hairpin> elements (crescendo/diminuendo wedges)
  * between DT (diplomatic transcript) and AT (annotated transcript).
@@ -48,7 +50,7 @@ export function liquifyHairpins (ftSvg, dtSvg, atMeiDom, tools) {
 
     // Warn about spanning hairpins (partial representations that cross system boundaries)
     // This indicates a data issue where the hairpin should be placed in the correct system
-    if (atHairpinGroup.classList.contains('spanning')) {
+    if (hasClass(atHairpinGroup, 'spanning')) {
       logger.warn(`[liquifyHairpins] Spanning hairpin ${atId} detected - this hairpin crosses system boundaries and may have incorrect DT correspondence data. This should be fixed in the source data.`)
     }
 

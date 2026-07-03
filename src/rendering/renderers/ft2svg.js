@@ -2,6 +2,7 @@ import { DOMParser, XMLSerializer, DOMImplementation } from 'xmldom-qsa'
 
 // preliminaries
 import { shouldRender } from '../../utils/rendering.js'
+import { appendNewElement, closestElement } from '../../utils/dom.js'
 
 // AT preparations
 import { prepareEditedAtDom } from '../../preparation/editedAnnotatedTranscripts.js'
@@ -223,12 +224,12 @@ const retrieveHorizontalPositionFromDt = (dtDom, layoutInfo) => {
 
   dtDom.querySelectorAll('staff').forEach(staff => {
     const staffN = staff.getAttribute('n')
-    const staffDef = staff.closest('*|system').querySelector('staffDef[n="' + staffN + '"]')
+    const staffDef = closestElement(staff, '*|system').querySelector('staffDef[n="' + staffN + '"]')
     const rastrumId = staffDef.getAttribute('decls').split('#')[1]
     const rastrum = layoutInfo.pages.find(page => page.current).rastrums.find(r => r.id === rastrumId)
 
     const rastrumX = rastrum.x
-    staff.closest('section').querySelectorAll('staff[n="' + staffN + '"] *[x], *[staff="' + staffN + '"]').forEach(elem => {
+    closestElement(staff, 'section').querySelectorAll('staff[n="' + staffN + '"] *[x], *[staff="' + staffN + '"]').forEach(elem => {
       if (elem.hasAttribute('x')) {
         const x = parseFloat(elem.getAttribute('x')) + rastrumX
         if (x < minX) minX = x

@@ -1,3 +1,5 @@
+import { closestElement } from '../../utils/dom.js'
+
 /**
  * Animate notes between AT and DT transcriptions, including noteheads, stems, ledger lines, and flags
  * For each note in the AT (fluid transcription):
@@ -29,7 +31,7 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
   const notes = ftSvg.querySelectorAll('g.note:not(.bounding-box)')
   notes.forEach(note => {
     // Skip notes that are inside chords - they will be handled by liquifyChords
-    if (note.closest('g.chord:not(.bounding-box)')) {
+    if (closestElement(note, 'g.chord:not(.bounding-box)')) {
       return
     }
 
@@ -108,7 +110,7 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
       })
 
       // identify relevant ledger lines
-      note.closest('.measure').querySelectorAll('.ledgerLines .lineDash').forEach(ledgerLine => {
+      closestElement(note, '.measure')?.querySelectorAll('.ledgerLines .lineDash').forEach(ledgerLine => {
         if (ledgerLine.hasAttribute('data-related')) {
           const relatedIds = ledgerLine.getAttribute('data-related')
           // Check if this note's ID is included in the space-separated list of related IDs

@@ -1,3 +1,5 @@
+import { closestElement, hasClass } from '../../utils/dom.js'
+
 /**
  * Animate accidentals between AT and DT transcriptions
  * For each accidental in the AT (fluid transcription):
@@ -46,12 +48,12 @@ export const liquifyAccids = (ftSvg, dtSvg, atMeiDom, tools) => {
     // Find the parent note's or chord's animation values (if accid is inside a note/chord)
     // We need to account for the note/chord's movement when calculating accid animation
     // Key signature accidentals don't have parent notes, so skip for them
-    const isKeyAccid = accid.classList.contains('keyAccid')
+    const isKeyAccid = hasClass(accid, 'keyAccid')
     let noteAnimationDiff = { x: 0, y: 0 }
 
     if (!isKeyAccid) {
-      const parentChord = accid.closest('g.chord:not(.bounding-box)')
-      const parentNote = accid.closest('g.note:not(.bounding-box)')
+      const parentChord = closestElement(accid, 'g.chord:not(.bounding-box)')
+      const parentNote = closestElement(accid, 'g.note:not(.bounding-box)')
 
       // Check chord first, as notes inside chords are children of the chord
       const parentToCheck = parentChord || parentNote

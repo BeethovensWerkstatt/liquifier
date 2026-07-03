@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { JSDOM } from 'jsdom'
+import { removeElement } from '../utils/dom.js'
 import { computeApproxBBox } from '../utils/svgGeometry.js'
 
 const XML_NS = 'http://www.w3.org/XML/1998/namespace'
@@ -911,7 +912,7 @@ export function prepareAtForVerovio (atDom) {
       console.warn(parent.localName + ' ' + parent.getAttribute('xml:id') + ' has dots attribute and also dots children.')
     }
     parent.setAttribute('dots', dotAttCount + count)
-    dots.forEach(dot => dot.remove())
+    dots.forEach(dot => removeElement(dot))
     const refs = [...dots].map(dot => dot.getAttribute('corresp')).filter(corresp => corresp !== null).join(' ')
     if (parent.hasAttribute('dot-corresp')) {
       console.warn(parent.localName + ' ' + parent.getAttribute('xml:id') + ' already has dot-corresp attribute.')
@@ -929,7 +930,7 @@ export function prepareAtForVerovio (atDom) {
     if (supplied && supplied.localName === 'supplied') {
       elem.setAttribute('type', 'supplied')
       parent.appendChild(elem.cloneNode(true))
-      supplied.remove()
+      removeElement(supplied)
     }
   })
 }

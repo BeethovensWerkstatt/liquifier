@@ -1,3 +1,5 @@
+import { removeElement } from '../../utils/dom.js'
+
 /**
  * Animate tremolo elements (`bTrem`, `fTrem`) between AT and DT transcriptions.
  *
@@ -237,6 +239,7 @@ function expandGlyphUseToInlineStrokes (ftSvg, trem, glyphUse, logger) {
   if (!d) return []
 
   const subpaths = parsePathToPolygons(d)
+
   if (subpaths.length === 0) return []
 
   const pathTransforms = parseTransformFunctions(path?.getAttribute('transform') || '')
@@ -266,7 +269,7 @@ function expandGlyphUseToInlineStrokes (ftSvg, trem, glyphUse, logger) {
   })
 
   if (created.length > 0) {
-    glyphUse.remove()
+    removeElement(glyphUse)
   }
 
   return created

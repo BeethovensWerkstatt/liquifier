@@ -1,4 +1,5 @@
 import { computeTextDiff } from '../../utils/textDiff.js'
+import { addClass } from '../../utils/dom.js'
 
 /**
  * Prepares animations for <dir> elements (musical directions like "pizz.", "8tel auch 6te", etc.)
@@ -274,7 +275,7 @@ function animateLineByLine (atDirGroup, dtLines, atLines, getNewPos, setAnimatio
 
     // Add data attributes to match AT structure
     lineTspan.setAttribute('data-class', 'text')
-    lineTspan.classList.add('text')
+    addClass(lineTspan, 'text')
 
     // Create segments with animations
     diffSegments.forEach((segment, index) => {
@@ -327,7 +328,7 @@ function animateLineByLine (atDirGroup, dtLines, atLines, getNewPos, setAnimatio
         })
       } else if (segment.type === 'insert') {
         // Inserted text: hidden in finding/normalization, fade in at supplements
-        segmentTspan.classList.add('supplied')
+        addClass(segmentTspan, 'supplied')
         setAnimation({
           element: segmentTspan,
           id: `${atId}_line${i}_seg${index}`,
@@ -365,7 +366,7 @@ function animateLineByLine (atDirGroup, dtLines, atLines, getNewPos, setAnimatio
     if (i < atLines.length - 1) {
       const lbTspan = atTextElement.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'tspan')
       lbTspan.setAttribute('data-class', 'lb')
-      lbTspan.classList.add('lb')
+      addClass(lbTspan, 'lb')
       atTextElement.appendChild(lbTspan)
     }
   }
@@ -558,7 +559,7 @@ function animateMultiCorrespondence (atDirGroup, dtDirData, atLine, getNewPos, s
     // Create a group for this segment
     const segmentGroup = atTextElement.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'g')
     segmentGroup.setAttribute('data-class', 'dir-segment')
-    segmentGroup.classList.add('dir-segment')
+    addClass(segmentGroup, 'dir-segment')
 
     // Create text element for this segment, offset by cumulative width
     const segText = atTextElement.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'text')
@@ -568,7 +569,7 @@ function animateMultiCorrespondence (atDirGroup, dtDirData, atLine, getNewPos, s
 
     const segTspan = atTextElement.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'tspan')
     segTspan.setAttribute('data-class', 'text')
-    segTspan.classList.add('text')
+    addClass(segTspan, 'text')
 
     // For each diff segment within this DT segment
     diffSegments.forEach((diffSeg, diffIndex) => {
@@ -621,7 +622,7 @@ function animateMultiCorrespondence (atDirGroup, dtDirData, atLine, getNewPos, s
         })
       } else if (diffSeg.type === 'insert') {
         // Inserted text: hidden in finding/normalization, fade in at supplements
-        textTspan.classList.add('supplied')
+        addClass(textTspan, 'supplied')
         setAnimation({
           element: textTspan,
           id: `${atId}_seg${globalSegIndex}`,
@@ -725,7 +726,7 @@ function animateFullText (atDirGroup, dtText, atText, dtPos, atPos, getNewPos, s
   // Create wrapper tspan
   const wrapperTspan = atTextElement.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'tspan')
   wrapperTspan.setAttribute('data-class', 'text')
-  wrapperTspan.classList.add('text')
+  addClass(wrapperTspan, 'text')
 
   // Create segments with animations
   diffSegments.forEach((segment, index) => {
@@ -775,7 +776,7 @@ function animateFullText (atDirGroup, dtText, atText, dtPos, atPos, getNewPos, s
         }
       })
     } else if (segment.type === 'insert') {
-      segmentTspan.classList.add('supplied')
+      addClass(segmentTspan, 'supplied')
       setAnimation({
         element: segmentTspan,
         id: `${atId}_seg${index}`,

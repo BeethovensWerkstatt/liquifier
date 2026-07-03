@@ -1,3 +1,5 @@
+import { closestElement } from '../../utils/dom.js'
+
 /**
  * Animate figured bass numbers (<f> elements) between AT and DT transcriptions.
  * For each figured bass number in the AT (fluid transcription):
@@ -32,7 +34,7 @@ export const liquifyFs = (ftSvg, dtSvg, atMeiDom, tools) => {
     if (!dtIds || dtIds.length === 0) {
       logger.debug(`[Fs] No corresp for figured bass number ${atId}`)
       // Keep the parent text at its AT position when no DT match exists
-      const parentText = f.closest('text')
+      const parentText = closestElement(f, 'text')
       if (parentText) {
         setAnimation({
           element: parentText,
@@ -56,7 +58,7 @@ export const liquifyFs = (ftSvg, dtSvg, atMeiDom, tools) => {
     dtIds.forEach(dtId => {
       const dtF = dtSvg.querySelector(`tspan.f[data-id="${dtId}"]`)
       if (!dtF) {
-        const parentText = f.closest('text')
+        const parentText = closestElement(f, 'text')
         if (parentText) {
           setAnimation({
             element: parentText,
@@ -76,8 +78,8 @@ export const liquifyFs = (ftSvg, dtSvg, atMeiDom, tools) => {
       }
 
       // Get positions from the parent text element's x and y attributes
-      const atText = f.closest('text')
-      const dtText = dtF.closest('text')
+      const atText = closestElement(f, 'text')
+      const dtText = closestElement(dtF, 'text')
 
       if (!atText || !dtText) {
         return
