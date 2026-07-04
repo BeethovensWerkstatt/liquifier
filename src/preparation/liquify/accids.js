@@ -1,4 +1,4 @@
-import { closestElement, hasClass } from '../../utils/dom.js'
+import { closestElement, hasClass, queryDirectChild } from '../../utils/dom.js'
 
 /**
  * Animate accidentals between AT and DT transcriptions
@@ -60,7 +60,7 @@ export const liquifyAccids = (ftSvg, dtSvg, atMeiDom, tools) => {
 
       if (parentToCheck) {
         // Extract the parent's animation values from its animateTransform
-        const parentAnimation = parentToCheck.querySelector(':scope > animateTransform[type="translate"]')
+        const parentAnimation = queryDirectChild(parentToCheck, 'animateTransform[type="translate"]')
         if (parentAnimation) {
           const parentValues = parentAnimation.getAttribute('values')
           // Extract the first position (finding/normalization state)

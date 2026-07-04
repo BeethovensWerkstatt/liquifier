@@ -1,4 +1,4 @@
-import { removeElement } from '../../utils/dom.js'
+import { queryDirectChild, removeElement } from '../../utils/dom.js'
 
 /**
  * Prepare AT beam elements for animation
@@ -301,7 +301,7 @@ const calculateDiplomaticBeams = (ftSvg, atMeiDom, beamId, atPolygons, logger) =
   const getNotePosition = (noteGroup, frameIndex) => {
     // The animate element should have been set by liquifyNotes/liquifyChords
     // It's an animateTransform element that is a DIRECT child of the note group (not nested in accidentals etc)
-    const animateElement = noteGroup.querySelector(':scope > animateTransform[attributeName="transform"]')
+    const animateElement = queryDirectChild(noteGroup, 'animateTransform[attributeName="transform"]')
 
     if (!animateElement) {
       // No animation found

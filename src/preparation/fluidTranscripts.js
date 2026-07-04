@@ -1,4 +1,4 @@
-import { appendNewElement, closestElement, removeElement } from '../utils/dom.js'
+import { appendNewElement, closestElement, queryDirectChildren, removeElement } from '../utils/dom.js'
 import { liquifyNotes } from './liquify/notes.js'
 import { liquifyBarlines } from './liquify/barlines.js'
 import { liquifyCurves } from './liquify/curves.js'
@@ -699,7 +699,7 @@ export const adjustAtStaffLines = (svg, atMeiDom, measureBlockMap = buildAtMeasu
     })
 
     // Remove any previously generated system-level rastrum lines for idempotency.
-    system.querySelectorAll(':scope > g.bw-system-rastrum').forEach(group => removeElement(group))
+    queryDirectChildren(system, 'g.bw-system-rastrum').forEach(group => removeElement(group))
 
     const doc = system.ownerDocument || system
     // Keep generated rastrum groups behind existing content while preserving block order.
@@ -997,7 +997,7 @@ function animateUnmatchedBlockContainers (ftSvg, measureBlockMap, matchedStaffLi
   const fullyUnmatchedSystems = new Set()
 
   Array.from(ftSvg.querySelectorAll('g.system:not(.bounding-box)')).forEach(system => {
-    const systemMeasures = Array.from(system.querySelectorAll(':scope > g.measure:not(.bounding-box)'))
+    const systemMeasures = queryDirectChildren(system, 'g.measure:not(.bounding-box)')
     if (systemMeasures.length === 0) return
 
     const hasMatchedMeasure = systemMeasures.some(measure => {

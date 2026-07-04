@@ -81,6 +81,32 @@ export const addClass = (element, className) => {
 }
 
 /**
+ * Return all direct child elements that match a selector without relying on `:scope`.
+ *
+ * @param {Element|null|undefined} element - Parent element whose direct children are inspected.
+ * @param {string} selector - Selector applied to each direct child.
+ * @returns {Element[]} Matching direct child elements.
+ */
+export const queryDirectChildren = (element, selector) => {
+  if (!element || !selector) return []
+
+  return Array.from(element.childNodes || []).filter(child => {
+    return child?.nodeType === 1 && matchesSelector(child, selector)
+  })
+}
+
+/**
+ * Return the first direct child element that matches a selector without relying on `:scope`.
+ *
+ * @param {Element|null|undefined} element - Parent element whose direct children are inspected.
+ * @param {string} selector - Selector applied to each direct child.
+ * @returns {Element|null} First matching direct child or null.
+ */
+export const queryDirectChild = (element, selector) => {
+  return queryDirectChildren(element, selector)[0] || null
+}
+
+/**
  * Test whether an element matches a selector in DOM implementations without Element.matches.
  *
  * @param {Element} element - Element to test.

@@ -1,4 +1,4 @@
-import { removeElement } from '../../utils/dom.js'
+import { queryDirectChild, queryDirectChildren, removeElement } from '../../utils/dom.js'
 
 /**
  * Animate tremolo elements (`bTrem`, `fTrem`) between AT and DT transcriptions.
@@ -35,7 +35,7 @@ export const liquifyTremolos = (ftSvg, dtSvg, atMeiDom, tools) => {
 
     const dtIds = correspMappings.get(atId) || []
     const dtStrokes = collectDtStrokes(dtSvg, dtIds, logger)
-    const glyphUse = trem.querySelector(':scope > use')
+    const glyphUse = queryDirectChild(trem, 'use')
     const atStrokes = glyphUse ? expandGlyphUseToInlineStrokes(ftSvg, trem, glyphUse, logger) : []
 
     if (atStrokes.length === 0) {
@@ -109,12 +109,10 @@ export const liquifyTremolos = (ftSvg, dtSvg, atMeiDom, tools) => {
  * @returns {Element[]}
  */
 function resolveGlyphTargets (trem) {
-  const directUses = Array.from(trem.querySelectorAll(':scope > use'))
+  const directUses = queryDirectChildren(trem, 'use')
   if (directUses.length > 0) return directUses
 
-  const directShapes = Array.from(
-    trem.querySelectorAll(':scope > polygon, :scope > path, :scope > line, :scope > polyline')
-  )
+  const directShapes = queryDirectChildren(trem, 'polygon, path, line, polyline')
   if (directShapes.length > 0) return directShapes
 
   if (!trem.querySelector('g.note, g.chord')) return [trem]
@@ -246,7 +244,7 @@ function expandGlyphUseToInlineStrokes (ftSvg, trem, glyphUse, logger) {
   const useTransforms = parseTransformFunctions(glyphUse.getAttribute('transform') || '')
 
   const doc = trem.ownerDocument
-  const insertBeforeNode = trem.querySelector(':scope > g.chord, :scope > g.note')
+  const insertBeforeNode = queryDirectChild(trem, 'g.chord, g.note')
   const created = []
 
   subpaths.forEach((polyPoints, i) => {
