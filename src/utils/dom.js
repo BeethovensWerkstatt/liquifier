@@ -91,7 +91,7 @@ export const queryDirectChildren = (element, selector) => {
   if (!element || !selector) return []
 
   return Array.from(element.childNodes || []).filter(child => {
-    return child?.nodeType === 1 && matchesSelector(child, selector)
+    return child?.nodeType === 1 && matchesDirectChildSelector(child, selector)
   })
 }
 
@@ -104,6 +104,64 @@ export const queryDirectChildren = (element, selector) => {
  */
 export const queryDirectChild = (element, selector) => {
   return queryDirectChildren(element, selector)[0] || null
+}
+
+/**
+ * Match a direct child against the subset of selectors used by xmldom-qsa-sensitive call sites.
+ * Supports comma-separated selectors, tag names, classes, `:not(.class)`, and
+ * exact/presence attribute selectors.
+ *
+ * @param {Element} element - Child element to test.
+ * @param {string} selector - Selector string.
+ * @returns {boolean} Whether the child matches at least one selector branch.
+ */
+function matchesDirectChildSelector (element, selector) {
+  return selector
+    .split(',')
+    .map(part => part.trim())
+    .filter(Boolean)
+    .some(part => matchesSimpleDirectSelector(element, part))
+}
+
+/**
+ * Match one simple selector branch without relying on querySelectorAll.
+ *
+ * @param {Element} element - Child element to test.
+ * @param {string} selector - Selector branch.
+ * @returns {boolean} Whether the element matches the selector branch.
+ */
+function matchesSimpleDirectSelector (element, selector) {
+  if (!element || !selector) return false
+
+  const negativeClasses = Array.from(selector.matchAll(/:not\(\.([A-Za-z0-9_-]+)\)/g)).map(match => match[1])
+  if (negativeClasses.some(className => hasClass(element, className))) return false
+
+  const attributeMatchers = Array.from(selector.matchAll(/\[([^\]=]+)(?:="([^"]*)")?\]/g)).map(match => {
+    return {
+      name: match[1],
+      value: match[2]
+    }
+  })
+
+  const positiveClasses = Array.from(selector.matchAll(/\.([A-Za-z0-9_-]+)/g)).map(match => match[1])
+  if (positiveClasses.some(className => !hasClass(element, className))) return false
+
+  for (const attributeMatcher of attributeMatchers) {
+    if (!element.hasAttribute?.(attributeMatcher.name)) return false
+    if (attributeMatcher.value !== undefined && element.getAttribute(attributeMatcher.name) !== attributeMatcher.value) {
+      return false
+    }
+  }
+
+  const cleanedSelector = selector
+    .replace(/:not\(\.([A-Za-z0-9_-]+)\)/g, '')
+    .replace(/\[([^\]=]+)(?:="([^"]*)")?\]/g, '')
+    .replace(/\.([A-Za-z0-9_-]+)/g, '')
+    .trim()
+
+  if (!cleanedSelector || cleanedSelector === '*') return true
+
+  return element.localName === cleanedSelector
 }
 
 /**

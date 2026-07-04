@@ -4,8 +4,10 @@ import path from 'node:path'
 import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { JSDOM } from 'jsdom'
+import { DOMParser } from 'xmldom-qsa'
 
 import { getOuterBoundingRect, getPageDimensions, resolvePathFromDocumentReference, readTextFromDocumentReference } from '../src/utils/utils.js'
+import { queryDirectChild } from '../src/utils/dom.js'
 
 test('getOuterBoundingRect returns unchanged rectangle for 0 degree rotation', () => {
   const rect = getOuterBoundingRect(10, 20, 30, 40, 0)
@@ -73,4 +75,22 @@ test('readTextFromDocumentReference reads file content relative to source docume
 
   const content = readTextFromDocumentReference('./svg/page.svg', sourcePath)
   assert.equal(content, '<svg id="ok"/>')
+})
+
+test('queryDirectChild finds animateTransform direct child in xmldom-qsa SVG', () => {
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg">
+      <g data-id="note-1">
+        <g class="notehead"/>
+        <animateTransform attributeName="transform" type="translate" values="1 2;0 0"/>
+      </g>
+    </svg>
+  `
+
+  const doc = new DOMParser().parseFromString(svg, 'image/svg+xml')
+  const note = doc.querySelector('g[data-id="note-1"]')
+  const animateTransform = queryDirectChild(note, 'animateTransform[attributeName="transform"]')
+
+  assert.ok(animateTransform)
+  assert.equal(animateTransform.getAttribute('type'), 'translate')
 })
