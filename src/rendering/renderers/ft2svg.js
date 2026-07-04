@@ -356,6 +356,31 @@ const prepareAssets = ({
   })
 
   /**
+   * Read the AT content offset introduced by the inner `.page-margin` wrapper.
+   *
+   * Liquify modules work in the local coordinate space inside that wrapper, so
+   * DT root coordinates must be converted through both AT transforms.
+   *
+   * @returns {{x: number, y: number}} Inner AT translation in AT-local units.
+   */
+  const getAtContentOffset = () => {
+    const pageMargin = atLayer.querySelector('.page-margin')
+    const transform = pageMargin?.getAttribute('transform') || ''
+    const match = transform.match(/translate\(\s*([\d.-]+)(?:\s*,\s*|\s+)([\d.-]+)\s*\)/)
+
+    if (!match) {
+      return { x: 0, y: 0 }
+    }
+
+    return {
+      x: parseFloat(match[1]) || 0,
+      y: parseFloat(match[2]) || 0
+    }
+  }
+
+  const atContentOffset = getAtContentOffset()
+
+  /**
    * Apply one eight-phase opacity track to a non-musical FT layer.
    *
    * @param {Element|null} element - Layer root.
@@ -382,10 +407,11 @@ const prepareAssets = ({
    * @returns {{x: number, y: number}} DT point converted into AT-local coordinates.
    */
   const getNewPos = (at = { x: 0, y: 0 }, dt = { x: 0, y: 0 }) => {
-    // Invert the AT layer transform so liquify modules can continue to work in AT-local coordinates.
+    // Invert the outer AT transform and the inner page-margin translate so the
+    // result lands in the same local space as the AT notehead/stem coordinates.
     const newPos = {
-      x: Math.round((dt.x - atHorizontalPosition) / atScaling),
-      y: Math.round((dt.y - atVerticalShift) / atScaling)
+      x: Math.round(((dt.x - atHorizontalPosition) / atScaling) - atContentOffset.x),
+      y: Math.round(((dt.y - atVerticalShift) / atScaling) - atContentOffset.y)
     }
 
     logger.debug(`[Position Diff] AT: (${at.x}, ${at.y}), DT: (${dt.x}, ${dt.y}) => newPos: (${newPos.x}, ${newPos.y})`)
