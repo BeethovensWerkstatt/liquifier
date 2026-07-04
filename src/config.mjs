@@ -10,6 +10,7 @@ export const constants = {
   verovioPixelPerVu: verovioPixelDensity,
   verovioGeneralScaling: 10,
   ftStaticScaling: 1,
+  ftRendererDtStaffLineSideMarginMm: 20,
   ftRendererAnimationDuration: '5s',
   ftRendererAnimationRepeatCount: 'indefinite',
   ftRendererReverseAnimations: false

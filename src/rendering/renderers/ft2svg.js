@@ -418,6 +418,108 @@ const convertStaffLineD = (atD, dtPath, getNewPos) => {
 }
 
 /**
+ * Collect the x-range of one DT system's visible content, excluding rastrum lines.
+ *
+ * @param {Element} system - DT system group.
+ * @returns {{min: number, max: number}|null} Content x-range or null.
+ */
+const getDtSystemContentXRange = (system) => {
+  if (!system) return null
+
+  let min = Infinity
+  let max = -Infinity
+  const directChildren = Array.from(system.childNodes || []).filter(child => child?.nodeType === 1)
+
+  directChildren.forEach(child => {
+    const classes = (child.getAttribute?.('class') || '').split(/\s+/)
+    if (classes.includes('rastrum') || classes.includes('bounding-box')) return
+
+    const bbox = computeApproxBBox(child)
+    if (!bbox) return
+
+    min = Math.min(min, bbox.x)
+    max = Math.max(max, bbox.x + bbox.width)
+  })
+
+  if (!Number.isFinite(min) || !Number.isFinite(max)) return null
+  return { min, max }
+}
+
+/**
+ * Clamp one simple DT staff-line path to a target x-range.
+ *
+ * @param {Element} line - DT rastrum path element.
+ * @param {number} minX - New minimum x value.
+ * @param {number} maxX - New maximum x value.
+ * @returns {void}
+ */
+const trimDtStaffLinePath = (line, minX, maxX) => {
+  const parsed = parseLinePath(line?.getAttribute('d'))
+  if (!parsed) return
+
+  const originalMinX = Math.min(parsed.start.x, parsed.end.x)
+  const originalMaxX = Math.max(parsed.start.x, parsed.end.x)
+  const clampedMinX = Math.max(originalMinX, minX)
+  const clampedMaxX = Math.min(originalMaxX, maxX)
+
+  if (!Number.isFinite(clampedMinX) || !Number.isFinite(clampedMaxX) || clampedMaxX <= clampedMinX) {
+    return
+  }
+
+  line.setAttribute('d', `M${clampedMinX} ${parsed.start.y} L${clampedMaxX} ${parsed.end.y}`)
+}
+
+/**
+ * Shorten DT rastrum lines per system using the system content width plus a side margin.
+ *
+ * @param {SVGElement} dtLayer - DT layer inside the FT SVG.
+ * @param {number} sideMargin - Margin added to both sides of the detected content range.
+ * @param {{debug: Function, info: Function, warn: Function, error: Function}} logger - Logger instance.
+ * @returns {void}
+ */
+const trimDtStaffLinesToContent = (dtLayer, sideMargin, logger) => {
+  const dtSystems = Array.from(dtLayer.querySelectorAll('g.system:not(.bounding-box)'))
+  if (dtSystems.length === 0) return
+
+  const rastrumLinesById = new Map()
+  Array.from(dtLayer.querySelectorAll('g.rastrum[data-id]')).forEach(rastrum => {
+    const rastrumId = rastrum.getAttribute('data-id')
+    if (!rastrumId) return
+
+    const lines = Array.from(rastrum.childNodes || []).filter(child => child?.nodeType === 1 && child.localName === 'path')
+    rastrumLinesById.set(rastrumId, lines)
+  })
+
+  dtSystems.forEach(system => {
+    const contentRange = getDtSystemContentXRange(system)
+    if (!contentRange) return
+
+    const minX = contentRange.min - sideMargin
+    const maxX = contentRange.max + sideMargin
+    if (!Number.isFinite(minX) || !Number.isFinite(maxX) || maxX <= minX) return
+
+    const nestedLines = Array.from(system.querySelectorAll('.rastrum:not(.bounding-box) > path'))
+    if (nestedLines.length > 0) {
+      nestedLines.forEach(line => trimDtStaffLinePath(line, minX, maxX))
+      return
+    }
+
+    const seenRastrumIds = new Set()
+    Array.from(system.querySelectorAll('g.staff[data-rastrum]')).forEach(staff => {
+      const rastrumRef = (staff.getAttribute('data-rastrum') || '').trim()
+      const rastrumId = rastrumRef.split(/\s+/)[0]
+      if (!rastrumId || seenRastrumIds.has(rastrumId)) return
+
+      seenRastrumIds.add(rastrumId)
+      const lines = rastrumLinesById.get(rastrumId) || []
+      lines.forEach(line => trimDtStaffLinePath(line, minX, maxX))
+    })
+  })
+
+  logger.debug?.('[trimDtStaffLinesToContent] Trimmed DT staff lines to per-system content ranges')
+}
+
+/**
  * Group FT staff lines by AT reading-order block.
  *
  * @param {SVGElement[]} staffLines - AT staff lines.
@@ -830,6 +932,9 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
       Array.from(dtSvgDom.documentElement.childNodes).forEach(child => {
         ftSvgDom.querySelector('.diplomatic').appendChild(child)
       })
+
+      const dtStaffLineSideMargin = constants.ftRendererDtStaffLineSideMarginMm * currentPage.vrvMeiUnit * constants.verovioGeneralScaling
+      trimDtStaffLinesToContent(ftSvgDom.querySelector('.diplomatic'), dtStaffLineSideMargin, logger)
 
       // This adds the page rotation to individual rastrums, which _should_ be wrong, but seemed necessary at some point?!
       /* ftSvgDom.querySelectorAll('.diplomatic .rastrum[style*="transform: rotate("]').forEach(element => {
