@@ -7,7 +7,9 @@ import { appendNewElement, closestElement } from '../../utils/dom.js'
 // AT preparations
 import { prepareEditedAtDom } from '../../preparation/editedAnnotatedTranscripts.js'
 import { prepareAtForVerovio, addSystemLabelBlocks } from '../../preparation/annotatedTranscripts.js'
+import { adjustAtStaffLines } from '../../preparation/fluidTranscripts.js'
 import { renderContinuousAt } from '../verovioHandler.js'
+import { resolveMatchedStaffLineContextForCurrentDt } from './fluidTranscriptsOld/staffLineContext.js'
 
 // DT preparations
 // import { buildCurrentDtSvgForFluidTranscripts } from '../dt2svg.js'
@@ -259,6 +261,8 @@ function extractCorrespContext (atMeiDom, { currentDtReference = '' } = {}) {
 const setAnimationForFtWithAssets = (descriptor, unmatchedClassByAtId = new Map()) => {
   const { element, id, localName, states } = descriptor
 
+  const digitalFacsimile = states.digitalFacsimile || states.finding || null
+  const writingZone = states.writingZone || digitalFacsimile || states.finding || null
   const finding = states.finding || null
   const normalization = states.normalization || finding
   const readingOrder = states.readingOrder || normalization
@@ -266,11 +270,21 @@ const setAnimationForFtWithAssets = (descriptor, unmatchedClassByAtId = new Map(
   const supplements = states.supplements || regulation
   const interventions = states.interventions || supplements
 
-  const allStates = [null, null, finding, normalization, readingOrder, regulation, supplements, interventions]
-  const hasNullStates = allStates.some(state => state === null)
+  const introVisibilityStates = [null, null, finding, normalization, readingOrder, regulation, supplements, interventions]
+  const allStates = [digitalFacsimile, writingZone, finding, normalization, readingOrder, regulation, supplements, interventions]
+  const hasNullStates = introVisibilityStates.some(state => state === null)
 
-  if (hasNullStates) {
-    const opacityValues = allStates.map(state => (state === null ? '0' : '1'))
+  const validStates = allStates.filter(state => state !== null)
+
+  if (validStates.length === 0) {
+    console.warn(`[setAnimationForFtWithAssets] No valid states for element ${id} (${localName})`)
+    return
+  }
+
+  const animationType = validStates[0].type
+
+  if (hasNullStates && animationType !== 'opacity') {
+    const opacityValues = introVisibilityStates.map(state => (state === null ? '0' : '1'))
     element.setAttribute('opacity', opacityValues[0])
     addTransform(element, 'opacity', opacityValues)
 
@@ -287,14 +301,6 @@ const setAnimationForFtWithAssets = (descriptor, unmatchedClassByAtId = new Map(
     }
   }
 
-  const validStates = allStates.filter(state => state !== null)
-
-  if (validStates.length === 0) {
-    console.warn(`[setAnimationForFtWithAssets] No valid states for element ${id} (${localName})`)
-    return
-  }
-
-  const animationType = validStates[0].type
   const values = allStates.map(state => {
     if (state === null) {
       if (animationType === 'translate') return '0 0'
@@ -309,6 +315,322 @@ const setAnimationForFtWithAssets = (descriptor, unmatchedClassByAtId = new Map(
   } else {
     addTransform(element, animationType, values)
   }
+}
+
+/**
+ * Parse one simple line path in `M x y L x y` form.
+ *
+ * @param {string} d - SVG path data.
+ * @returns {{start: {x: number, y: number}, end: {x: number, y: number}}|null} Parsed endpoints.
+ */
+const parseLinePath = (d) => {
+  const match = String(d || '').match(/M\s*([\d.-]+)\s+([\d.-]+)\s+L\s*([\d.-]+)\s+([\d.-]+)/)
+  if (!match) return null
+
+  return {
+    start: { x: parseFloat(match[1]), y: parseFloat(match[2]) },
+    end: { x: parseFloat(match[3]), y: parseFloat(match[4]) }
+  }
+}
+
+/**
+ * Resolve one inline rotate transform with transform origin.
+ *
+ * @param {string} style - Inline style string.
+ * @returns {{angle: number, origin: {x: number, y: number}}|null} Parsed rotation metadata.
+ */
+const parseRotationStyle = (style = '') => {
+  const rotateMatch = String(style).match(/rotate\(\s*([\d.-]+)deg\s*\)/)
+  const originMatch = String(style).match(/transform-origin:\s*([\d.-]+)px\s+([\d.-]+)px/)
+
+  if (!rotateMatch || !originMatch) return null
+
+  return {
+    angle: parseFloat(rotateMatch[1]) || 0,
+    origin: {
+      x: parseFloat(originMatch[1]) || 0,
+      y: parseFloat(originMatch[2]) || 0
+    }
+  }
+}
+
+/**
+ * Rotate one point around the parsed DT transform origin.
+ *
+ * @param {{x: number, y: number}} point - DT point.
+ * @param {{angle: number, origin: {x: number, y: number}}|null} rotation - Parsed rotation metadata.
+ * @returns {{x: number, y: number}} Rotated point.
+ */
+const applyRotationToPoint = (point, rotation) => {
+  if (!rotation || rotation.angle === 0) return point
+
+  const radians = rotation.angle * Math.PI / 180
+  const dx = point.x - rotation.origin.x
+  const dy = point.y - rotation.origin.y
+
+  return {
+    x: rotation.origin.x + (dx * Math.cos(radians)) - (dy * Math.sin(radians)),
+    y: rotation.origin.y + (dx * Math.sin(radians)) + (dy * Math.cos(radians))
+  }
+}
+
+/**
+ * Find the nearest ancestor carrying a rotate transform in its inline style.
+ *
+ * @param {Element|null|undefined} element - Starting element.
+ * @returns {Element|null} Rotated ancestor or null.
+ */
+const getClosestRotatedAncestor = (element) => {
+  let current = element?.parentNode || null
+
+  while (current && current.nodeType === 1) {
+    const style = current.getAttribute?.('style') || ''
+    if (style.includes('rotate(')) return current
+    current = current.parentNode
+  }
+
+  return null
+}
+
+/**
+ * Convert one DT staff-line path into AT-local coordinates, including DT rastrum rotation.
+ *
+ * @param {string} atD - AT line path data.
+ * @param {Element} dtPath - DT line path element.
+ * @param {Function} getNewPos - DT-to-AT point converter.
+ * @returns {string} DT line geometry expressed in AT-local coordinates.
+ */
+const convertStaffLineD = (atD, dtPath, getNewPos) => {
+  const atLine = parseLinePath(atD)
+  const dtLine = parseLinePath(dtPath?.getAttribute('d'))
+
+  if (!atLine || !dtLine) return atD
+
+  const rotatedAncestor = getClosestRotatedAncestor(dtPath)
+  const rotation = parseRotationStyle(rotatedAncestor?.getAttribute?.('style') || '')
+  const dtStart = applyRotationToPoint(dtLine.start, rotation)
+  const dtEnd = applyRotationToPoint(dtLine.end, rotation)
+
+  const newStart = getNewPos(atLine.start, dtStart)
+  const newEnd = getNewPos(atLine.end, dtEnd)
+
+  return `M${newStart.x} ${newStart.y} L${newEnd.x} ${newEnd.y}`
+}
+
+/**
+ * Group FT staff lines by AT reading-order block.
+ *
+ * @param {SVGElement[]} staffLines - AT staff lines.
+ * @returns {Map<number, SVGElement[]>} Staff lines grouped by block index.
+ */
+const groupFtStaffLinesByBlock = (staffLines) => {
+  const byBlock = new Map()
+
+  staffLines.forEach(line => {
+    const blockRaw = line.getAttribute('data-bw-block')
+    const blockIndex = Number.parseInt(blockRaw, 10)
+    if (!Number.isFinite(blockIndex)) return
+
+    if (!byBlock.has(blockIndex)) byBlock.set(blockIndex, [])
+    byBlock.get(blockIndex).push(line)
+  })
+
+  byBlock.forEach(lines => {
+    lines.sort((a, b) => {
+      const aIdx = Number.parseInt(a.getAttribute('data-bw-line-index') || '0', 10)
+      const bIdx = Number.parseInt(b.getAttribute('data-bw-line-index') || '0', 10)
+      return aIdx - bIdx
+    })
+  })
+
+  return byBlock
+}
+
+/**
+ * Group DT staff lines by AT block using explicit DT system ids.
+ *
+ * @param {SVGElement} dtLayer - DT layer inside the FT SVG.
+ * @param {Set<number>|null} matchedBlocks - AT blocks belonging to the current DT context.
+ * @param {Map<number, string>|null} blockToDtSystemId - Explicit AT block -> DT system id mapping.
+ * @param {{debug: Function, info: Function, warn: Function, error: Function}} logger - Logger instance.
+ * @returns {Map<number, SVGElement[]>} DT staff lines grouped by AT block.
+ */
+const groupDtStaffLinesByMatchedBlocks = (dtLayer, matchedBlocks, blockToDtSystemId, logger) => {
+  const byBlock = new Map()
+  if (!(matchedBlocks instanceof Set) || matchedBlocks.size === 0) return byBlock
+  if (!(blockToDtSystemId instanceof Map) || blockToDtSystemId.size === 0) {
+    logger.warn('[animateFtStaffLines] Missing strict AT block -> DT system mapping; falling back to DT document order.')
+    return byBlock
+  }
+
+  const sortedBlocks = Array.from(matchedBlocks).sort((a, b) => a - b)
+  const dtSystems = Array.from(dtLayer.querySelectorAll('g.system:not(.bounding-box)'))
+  const rastrumLinesById = new Map()
+  const dtSystemById = new Map()
+
+  dtSystems.forEach(system => {
+    const systemId = system.getAttribute('data-id')
+    if (!systemId) return
+    dtSystemById.set(systemId, system)
+  })
+
+  Array.from(dtLayer.querySelectorAll('g.rastrum[data-id]')).forEach(rastrum => {
+    const classes = (rastrum.getAttribute('class') || '').split(/\s+/)
+    if (classes.includes('bounding-box')) return
+
+    const rastrumId = rastrum.getAttribute('data-id')
+    if (!rastrumId) return
+
+    const lines = Array.from(rastrum.childNodes || []).filter(child => child?.nodeType === 1 && child.localName === 'path')
+    rastrumLinesById.set(rastrumId, lines)
+  })
+
+  if (dtSystems.length > 0) {
+    sortedBlocks.forEach(blockIndex => {
+      const systemId = blockToDtSystemId.get(blockIndex)
+      const system = systemId ? dtSystemById.get(systemId) : null
+      if (!system) {
+        logger.warn(`[animateFtStaffLines] Missing DT system '${systemId || 'unknown'}' for AT block ${blockIndex}.`)
+        return
+      }
+
+      const nestedLines = Array.from(system.querySelectorAll('.rastrum:not(.bounding-box) > path'))
+      if (nestedLines.length > 0) {
+        byBlock.set(blockIndex, nestedLines)
+        return
+      }
+
+      const seenRastrumIds = new Set()
+      const orderedRastrumIds = []
+      Array.from(system.querySelectorAll('g.staff[data-rastrum]')).forEach(staff => {
+        const rastrumRef = (staff.getAttribute('data-rastrum') || '').trim()
+        const rastrumId = rastrumRef.split(/\s+/)[0]
+        if (!rastrumId || seenRastrumIds.has(rastrumId)) return
+
+        seenRastrumIds.add(rastrumId)
+        orderedRastrumIds.push(rastrumId)
+      })
+
+      const referencedLines = orderedRastrumIds.flatMap(rastrumId => rastrumLinesById.get(rastrumId) || [])
+      byBlock.set(blockIndex, referencedLines)
+    })
+
+    return byBlock
+  }
+
+  const dtLines = Array.from(dtLayer.querySelectorAll('.rastrum:not(.bounding-box) > path'))
+  if (sortedBlocks.length === 1) {
+    byBlock.set(sortedBlocks[0], dtLines)
+  } else if (sortedBlocks.length > 1 && dtLines.length > 0) {
+    logger.warn('[animateFtStaffLines] DT has no system groups; cannot distribute DT staff lines across multiple matched blocks reliably.')
+  }
+
+  return byBlock
+}
+
+/**
+ * Animate AT staff lines from DT rastrum geometry.
+ *
+ * @param {SVGElement} atLayer - AT layer inside the FT SVG.
+ * @param {SVGElement} dtLayer - DT layer inside the FT SVG.
+ * @param {Object} tools - FT animation helpers.
+ * @param {Function} tools.getNewPos - DT-to-AT point converter.
+ * @param {Function} tools.setAnimation - Phase-aware animation setter.
+ * @param {{debug: Function, info: Function, warn: Function, error: Function}} tools.logger - Logger instance.
+ * @returns {void}
+ */
+const animateFtStaffLines = (atLayer, dtLayer, { getNewPos, setAnimation, logger }, matchedStaffLineContext = null) => {
+  const ftStaffLines = Array.from(atLayer.querySelectorAll('path.rastrum'))
+  const dtStaffLines = Array.from(dtLayer.querySelectorAll('.rastrum:not(.bounding-box) > path'))
+
+  if (ftStaffLines.length === 0) {
+    logger.warn('[animateFtStaffLines] Missing FT staff lines; skipping staff-line animation')
+    return
+  }
+
+  if (dtStaffLines.length === 0) {
+    logger.warn('[animateFtStaffLines] Missing DT staff lines; skipping staff-line animation')
+    return
+  }
+
+  const matchedBlocks = matchedStaffLineContext?.matchedStaffLineBlocks || null
+  const blockToDtSystemId = matchedStaffLineContext?.blockToDtSystemId || null
+  const ftByBlock = groupFtStaffLinesByBlock(ftStaffLines)
+  const dtByBlock = groupDtStaffLinesByMatchedBlocks(dtLayer, matchedBlocks, blockToDtSystemId, logger)
+  const hasStrictBlockMapping = dtByBlock.size > 0 && ftByBlock.size > 0
+
+  if (hasStrictBlockMapping) {
+    Array.from(matchedBlocks).sort((a, b) => a - b).forEach(blockIndex => {
+      const ftLines = ftByBlock.get(blockIndex) || []
+      const dtLinesForBlock = dtByBlock.get(blockIndex) || []
+
+      if (ftLines.length === 0 || dtLinesForBlock.length === 0) {
+        logger.warn(`[animateFtStaffLines] Missing FT or DT staff lines for block ${blockIndex}; skipping this block.`)
+        return
+      }
+
+      const sharedCount = Math.min(ftLines.length, dtLinesForBlock.length)
+      for (let index = 0; index < sharedCount; index++) {
+        const ftLine = ftLines[index]
+        const dtLine = dtLinesForBlock[index]
+        const atD = ftLine.getAttribute('d')
+        const dtAsAtD = convertStaffLineD(atD, dtLine, getNewPos)
+
+        setAnimation({
+          element: ftLine,
+          id: `staff-line-block-${blockIndex}-${index}`,
+          localName: 'staff-line',
+          states: {
+            digitalFacsimile: { type: 'd', val: dtAsAtD },
+            writingZone: { type: 'd', val: dtAsAtD },
+            finding: { type: 'd', val: dtAsAtD },
+            normalization: { type: 'd', val: dtAsAtD },
+            readingOrder: { type: 'd', val: dtAsAtD },
+            regulation: { type: 'd', val: atD },
+            supplements: { type: 'd', val: atD },
+            interventions: { type: 'd', val: atD }
+          }
+        })
+      }
+    })
+
+    return
+  }
+
+  const targetCount = Math.max(ftStaffLines.length, dtStaffLines.length)
+  const expandedFtLines = Array.from({ length: targetCount }).map((_, index) => {
+    const baseLine = ftStaffLines[index % ftStaffLines.length]
+    if (index < ftStaffLines.length) return baseLine
+
+    const clone = baseLine.cloneNode(true)
+    clone.setAttribute('data-bw-staff-clone', String(index))
+    baseLine.parentNode.appendChild(clone)
+    return clone
+  })
+
+  expandedFtLines.forEach((ftLine, index) => {
+    const dtLine = dtStaffLines[index % dtStaffLines.length]
+    if (!dtLine) return
+
+    const atD = ftLine.getAttribute('d')
+    const dtAsAtD = convertStaffLineD(atD, dtLine, getNewPos)
+
+    setAnimation({
+      element: ftLine,
+      id: `staff-line-${index}`,
+      localName: 'staff-line',
+      states: {
+        digitalFacsimile: { type: 'd', val: dtAsAtD },
+        writingZone: { type: 'd', val: dtAsAtD },
+        finding: { type: 'd', val: dtAsAtD },
+        normalization: { type: 'd', val: dtAsAtD },
+        readingOrder: { type: 'd', val: dtAsAtD },
+        regulation: { type: 'd', val: atD },
+        supplements: { type: 'd', val: atD },
+        interventions: { type: 'd', val: atD }
+      }
+    })
+  })
 }
 
 /**
@@ -534,11 +856,17 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
       transcriptionGroup.appendChild(atSvgDom.documentElement.querySelector('defs'))
       transcriptionGroup.appendChild(atSvgDom.documentElement.querySelector('.page-margin'))
 
+      const getAtStaffLinePaths = () => {
+        const normalizedPaths = ftSvgDom.querySelectorAll('.transcription path.rastrum')
+        if (normalizedPaths.length > 0) return normalizedPaths
+        return ftSvgDom.querySelectorAll('.transcription .staff > path')
+      }
+
       // determines conversion factor between DT and AT based on rastrum heights
       const getAtScaling = () => {
         const dtRastrumPaths = ftSvgDom.querySelector('.diplomatic .rastrum').querySelectorAll('path')
         const dtRastrumHeight = parseFloat(dtRastrumPaths[4].getAttribute('d').split(' ')[1]) - parseFloat(dtRastrumPaths[0].getAttribute('d').split(' ')[1])
-        const atRastrumPaths = ftSvgDom.querySelector('.transcription .staff').querySelectorAll('path')
+        const atRastrumPaths = getAtStaffLinePaths()
         const atRastrumHeight = parseFloat(atRastrumPaths[4].getAttribute('d').split(' ')[1]) - parseFloat(atRastrumPaths[0].getAttribute('d').split(' ')[1])
         return dtRastrumHeight / atRastrumHeight * currentPage.vrvMeiUnit / constants.verovioPixelPerVu
       }
@@ -552,7 +880,7 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
 
         const dtBbox = computeApproxBBox(ftSvgDom.querySelector('.diplomatic .draft'))
 
-        const atAllRastrumPaths = ftSvgDom.querySelectorAll('.transcription .staff > path')
+        const atAllRastrumPaths = getAtStaffLinePaths()
         const atTopRastrumY = parseFloat(atAllRastrumPaths[0].getAttribute('d').split(' ')[1])
         const atBottomRastrumY = parseFloat(atAllRastrumPaths[atAllRastrumPaths.length - 1].getAttribute('d').split(' ')[1])
 
@@ -617,8 +945,11 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
         logger
       })
 
+      const matchedStaffLineContext = resolveMatchedStaffLineContextForCurrentDt(data.atDom, data.dtDom, logger)
+
+      animateFtStaffLines(transcriptionGroup, ftSvgDom.querySelector('.diplomatic'), tools, matchedStaffLineContext)
       liquifyMusic(transcriptionGroup, ftSvgDom.querySelector('.diplomatic'), data.editedAtDom || data.atDom, tools)
-      
+      ftSvgDom.querySelector('.diplomatic').setAttribute('style', 'display: none;')
 
       // remove bboxes
       ftSvgDom.querySelectorAll('.rastrum.bounding-box').forEach(bbox => bbox.parentNode.removeChild(bbox))
@@ -741,6 +1072,7 @@ const prepareAtForFt = async (atDom, dtDom, data, verovio, pageDimensions, layou
     const atSvgDom = parser.parseFromString(atSvgString, 'image/svg+xml')
 
     const mod = addSystemLabelBlocks(atSvgDom, editedAtDom, data.dtDom, data.sourceDom, data.reconstructionDom, triple)
+    adjustAtStaffLines(mod, editedAtDom)
     
     data.atSvgDom = mod // store the rendered AT SVG DOM for later use in FT processing
     data.editedAtDom = editedAtDom // store the edited AT DOM for later use in FT processing
