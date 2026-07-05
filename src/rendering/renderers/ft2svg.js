@@ -1054,6 +1054,8 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
 
       animateFtStaffLines(transcriptionGroup, ftSvgDom.querySelector('.diplomatic'), tools, matchedStaffLineContext)
       liquifyMusic(transcriptionGroup, ftSvgDom.querySelector('.diplomatic'), data.editedAtDom || data.atDom, tools)
+      
+      // hide unmodified DT, as it is now included in FT transformation
       ftSvgDom.querySelector('.diplomatic').setAttribute('style', 'display: none;')
 
       // remove bboxes
