@@ -160,46 +160,6 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
         }
       })
 
-      // identify relevant ledger lines
-      // For chords, ledger lines may be related to the chord ID or to individual note IDs within the chord
-      const relatedIds = ['#' + atId]
-
-      // Get all note IDs within this chord
-      const noteElements = chord.querySelectorAll('g.note:not(.bounding-box)')
-      noteElements.forEach(noteEl => {
-        const noteId = noteEl.getAttribute('data-id')
-        if (noteId) {
-          relatedIds.push('#' + noteId)
-        }
-      })
-
-      closestElement(chord, '.measure')?.querySelectorAll('.ledgerLines .lineDash').forEach(ledgerLine => {
-        if (ledgerLine.hasAttribute('data-related')) {
-          const relatedAttr = ledgerLine.getAttribute('data-related')
-          // Check if ANY of the chord's note IDs appear in the ledgerLine's data-related attribute
-          const matchingNoteId = relatedIds.find(noteId => relatedAttr.includes(noteId))
-          if (matchingNoteId) {
-            // Use the position of the matching note for the animation
-            const atVal = atNotesPositions.find(pos => matchingNoteId === '#' + pos.id)?.atVal || '0 0'
-            const dtVal = atNotesPositions.find(pos => matchingNoteId === '#' + pos.id)?.dtVal || '0 0'
-            const ledgerId = ledgerLine.getAttribute('data-id') || `ledger-${atId}`
-            setAnimation({
-              element: ledgerLine,
-              id: ledgerId,
-              localName: 'ledgerLine',
-              states: {
-                finding: { type: 'translate', val: dtVal },
-                normalization: { type: 'translate', val: dtVal },
-                // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
-                regulation: { type: 'translate', val: atVal },
-                supplements: { type: 'translate', val: atVal },
-                interventions: { type: 'translate', val: atVal }
-              }
-            })
-          }
-        }
-      })
-
       // Animate the stem
       const atStem = chord.querySelector('.stem > path')
       if (atStem) {

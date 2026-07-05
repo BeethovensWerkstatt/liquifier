@@ -8,6 +8,7 @@ import { liquifyBeams } from './liquify/beams.js'
 import { liquifyMeterSigs } from './liquify/meterSigs.js'
 import { liquifyClefs } from './liquify/clefs.js'
 import { liquifyChords } from './liquify/chords.js'
+import { liquifyLedgerLines } from './liquify/liquifyLedgerLines.js'
 import { liquifyTrills } from './liquify/trills.js'
 import { liquifyFermatas } from './liquify/fermatas.js'
 import { liquifyPedals } from './liquify/pedals.js'
@@ -51,6 +52,7 @@ export const liquifyMusic = (ftSvg, dtSvg, atMeiDom, tools) => {
   liquifyBarlines(ftSvg, dtSvg, atMeiDom, tools)
   liquifyRests(ftSvg, dtSvg, atMeiDom, tools)
   liquifyChords(ftSvg, dtSvg, atMeiDom, tools)
+  liquifyLedgerLines(ftSvg, dtSvg, atMeiDom, tools)
   liquifyAccids(ftSvg, dtSvg, atMeiDom, tools)
   liquifyClefs(ftSvg, dtSvg, atMeiDom, tools)
   // liquifyDots(ftSvg, dtSvg, atMeiDom, tools)

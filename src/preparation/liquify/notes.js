@@ -109,30 +109,6 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
         }
       })
 
-      // identify relevant ledger lines
-      closestElement(note, '.measure')?.querySelectorAll('.ledgerLines .lineDash').forEach(ledgerLine => {
-        if (ledgerLine.hasAttribute('data-related')) {
-          const relatedIds = ledgerLine.getAttribute('data-related')
-          // Check if this note's ID is included in the space-separated list of related IDs
-          if (relatedIds.includes('#' + atId)) {
-            const ledgerId = ledgerLine.getAttribute('data-id') || `ledger-${atId}`
-            setAnimation({
-              element: ledgerLine,
-              id: ledgerId,
-              localName: 'ledgerLine',
-              states: {
-                finding: { type: 'translate', val: dtVal },
-                normalization: { type: 'translate', val: dtVal },
-                // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
-                regulation: { type: 'translate', val: regSuppVal },
-                supplements: { type: 'translate', val: regSuppVal },
-                interventions: { type: 'translate', val: atVal }
-              }
-            })
-          }
-        }
-      })
-
       // Animate the stem
       const atStem = note.querySelector('.stem > path')
       if (atStem) {
