@@ -1059,6 +1059,11 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
       // remove bboxes
       ftSvgDom.querySelectorAll('.rastrum.bounding-box').forEach(bbox => bbox.parentNode.removeChild(bbox))
 
+      // hide system and page labels
+      ftSvgDom.querySelectorAll('.pageLabelBox, .sysPreview, .pageBg, .pageLabel, .sysLabel').forEach((elem, i) => {
+        addTransform(elem, 'opacity', ['0', '0', '0', '0', '0', '0', '1', '1'])
+      })
+
       const ftSvgString = new XMLSerializer().serializeToString(ftSvgDom)
       await writeData(ftSvgString, triple.fsSvgPath)
       logger.info('Successfully rendered ' + triple.fsSvgPath)
