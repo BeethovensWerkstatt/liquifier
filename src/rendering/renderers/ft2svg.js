@@ -270,9 +270,8 @@ const setAnimationForFtWithAssets = (descriptor, unmatchedClassByAtId = new Map(
   const supplements = states.supplements || regulation
   const interventions = states.interventions || supplements
 
-  const introVisibilityStates = [null, null, finding, normalization, readingOrder, regulation, supplements, interventions]
   const allStates = [digitalFacsimile, writingZone, finding, normalization, readingOrder, regulation, supplements, interventions]
-  const hasNullStates = introVisibilityStates.some(state => state === null)
+  const hasNullStates = allStates.some(state => state === null)
 
   const validStates = allStates.filter(state => state !== null)
 
@@ -284,13 +283,17 @@ const setAnimationForFtWithAssets = (descriptor, unmatchedClassByAtId = new Map(
   const animationType = validStates[0].type
 
   if (hasNullStates && animationType !== 'opacity') {
+    const introVisibilityStates = [null, null, finding, normalization, readingOrder, regulation, supplements, interventions]
     const opacityValues = introVisibilityStates.map(state => (state === null ? '0' : '1'))
     element.setAttribute('opacity', opacityValues[0])
-    addTransform(element, 'opacity', opacityValues)
 
+    let unmatchedClass = null
     if (finding === null || normalization === null) {
-      const unmatchedClass = resolveUnmatchedClassForDescriptor(descriptor, unmatchedClassByAtId)
+      unmatchedClass = resolveUnmatchedClassForDescriptor(descriptor, unmatchedClassByAtId)
       applyClassificationClass(element, unmatchedClass)
+      if (unmatchedClass === 'supplied') {
+        opacityValues[5] = '0'
+      }
       if (unmatchedClass === 'supplied') {
         element.setAttribute('fill', '#999999')
         element.setAttribute('stroke', '#999999')
@@ -299,6 +302,8 @@ const setAnimationForFtWithAssets = (descriptor, unmatchedClassByAtId = new Map(
         element.setAttribute('stroke', '#555555')
       }
     }
+
+    addTransform(element, 'opacity', opacityValues)
   }
 
   const values = allStates.map(state => {
