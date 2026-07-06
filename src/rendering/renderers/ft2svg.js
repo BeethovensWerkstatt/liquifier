@@ -1385,7 +1385,7 @@ const initializeFtSvg = (layoutInfo, dtDom) => {
   image.setAttribute('href', currentPage.iiif.split('#')[0] + '/full/full/0/default.jpg')
   
   // temporary fix for speeding up development
-  if (currentPage.iiif.includes('_Mh_60_05.jpg#')) {
+  /* if (currentPage.iiif.includes('_Mh_60_05.jpg#')) {
     image.setAttribute('href', 'http://localhost:8080/NK01.jpg')
   } else if (currentPage.iiif.includes('_Mh_60_06.jpg#')) {
     image.setAttribute('href', 'http://localhost:8080/NK02.jpg')
@@ -1409,7 +1409,7 @@ const initializeFtSvg = (layoutInfo, dtDom) => {
     image.setAttribute('href', 'http://localhost:8080/NK13.jpg')
   } else if (currentPage.iiif.includes('_Mh_60_16.jpg#')) {
     image.setAttribute('href', 'http://localhost:8080/NK14.jpg')
-  }
+  } */
 
   image.setAttribute('preserveAspectRatio', 'none')
   image.setAttribute('opacity', '1')
