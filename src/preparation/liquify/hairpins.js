@@ -58,7 +58,7 @@ export function liquifyHairpins (ftSvg, dtSvg, atMeiDom, tools) {
     if (!dtHairpinIds || dtHairpinIds.length === 0) {
       // No correspondence in the current DT context (editorial or other Wz).
       logger.debug(`[liquifyHairpins] AT hairpin ${atId} has no current-DT correspondence`)
-      handleEditorialHairpin(atHairpinGroup, atId, setAnimation, applyUnmatchedClass)
+      handleEditorialHairpin(atHairpinGroup, setAnimation, applyUnmatchedClass)
       return
     }
 
@@ -84,8 +84,8 @@ export function liquifyHairpins (ftSvg, dtSvg, atMeiDom, tools) {
  * @param {Function} setAnimation - Animation descriptor writer for phase transitions.
  * @returns {void} No return value.
  */
-function handleEditorialHairpin (atHairpinGroup, atId, setAnimation, applyUnmatchedClass) {
-  applyUnmatchedClass(atHairpinGroup, atId)
+function handleEditorialHairpin (atHairpinGroup, setAnimation, applyUnmatchedClass) {
+  applyUnmatchedClass(atHairpinGroup)
 
   setAnimation({
     element: atHairpinGroup,
@@ -160,16 +160,16 @@ function handleSingleCorrespondence (atHairpinGroup, dtHairpinId, atId, dtSvg, t
   // Each is an array of {x, y} points
 
   // Convert coordinates and animate each leg
-  animateHairpinLeg(atPolylines[0], atLegs.upper, dtLegs.upper, `${atId}-upper`, getNewPos, setAnimation, logger)
+  animateHairpinLeg(atPolylines[0], atLegs.upper, dtLegs.upper, getNewPos, setAnimation, logger)
 
   // For the lower leg, we need to either use an existing polyline or create a new one
   if (atPolylines.length > 1) {
-    animateHairpinLeg(atPolylines[1], atLegs.lower, dtLegs.lower, `${atId}-lower`, getNewPos, setAnimation, logger)
+    animateHairpinLeg(atPolylines[1], atLegs.lower, dtLegs.lower, getNewPos, setAnimation, logger)
   } else {
     // Clone the first polyline for the lower leg
     const lowerPolyline = atPolylines[0].cloneNode(true)
     atHairpinGroup.appendChild(lowerPolyline)
-    animateHairpinLeg(lowerPolyline, atLegs.lower, dtLegs.lower, `${atId}-lower`, getNewPos, setAnimation, logger)
+    animateHairpinLeg(lowerPolyline, atLegs.lower, dtLegs.lower, getNewPos, setAnimation, logger)
   }
 }
 
@@ -310,13 +310,12 @@ function parsePolylinePoints (pointsAttr) {
  * @param {SVGPolylineElement} polyline - The polyline element to animate
  * @param {Array<*>} atPoints - Collection of values used by this function.
  * @param {Array<*>} dtPoints - Collection of values used by this function.
- * @param {string} id - Unique ID for this leg animation
  * @param {Function} getNewPos - Position transformation function
  * @param {Function} setAnimation - Animation setter function
  * @param {{debug: Function, info: Function, warn: Function, error: Function}} logger - Logger instance
  * @returns {Object} Resulting object.
  */
-function animateHairpinLeg (polyline, atPoints, dtPoints, id, getNewPos, setAnimation, logger) {
+function animateHairpinLeg (polyline, atPoints, dtPoints, getNewPos, setAnimation, logger) {
   // Update the polyline's base points attribute to match this leg's AT position
   const basePointsStr = atPoints.map(p => `${p.x},${p.y}`).join(' ')
   polyline.setAttribute('points', basePointsStr)
@@ -329,7 +328,7 @@ function animateHairpinLeg (polyline, atPoints, dtPoints, id, getNewPos, setAnim
 
     // If directions have opposite signs, reverse DT points to match AT direction
     if ((atDirection > 0 && dtDirection < 0) || (atDirection < 0 && dtDirection > 0)) {
-      logger.debug(`[liquifyHairpins] Reversing DT leg direction for ${id} (AT: ${atDirection > 0 ? 'L→R' : 'R→L'}, DT: ${dtDirection > 0 ? 'L→R' : 'R→L'})`)
+      logger.debug(`[liquifyHairpins] Reversing DT leg direction (AT: ${atDirection > 0 ? 'L→R' : 'R→L'}, DT: ${dtDirection > 0 ? 'L→R' : 'R→L'})`)
       dtPoints.reverse()
     }
   }
@@ -355,7 +354,7 @@ function animateHairpinLeg (polyline, atPoints, dtPoints, id, getNewPos, setAnim
   const atPointsStr = atPoints.map(p => `${p.x},${p.y}`).join(' ')
   const findingsPointsStr = findingsPoints.map(p => `${p.x},${p.y}`).join(' ')
 
-  logger.debug(`[liquifyHairpins] Animating leg ${id}: AT ${atPointsStr} -> finding ${findingsPointsStr}`)
+  logger.debug(`[liquifyHairpins] Animating hairpin leg: AT ${atPointsStr} -> finding ${findingsPointsStr}`)
 
   // Apply animation
   setAnimation({

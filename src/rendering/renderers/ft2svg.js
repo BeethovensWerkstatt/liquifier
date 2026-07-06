@@ -1,4 +1,5 @@
 import { DOMParser, XMLSerializer, DOMImplementation } from 'xmldom-qsa'
+import { createRequire } from 'node:module'
 
 // preliminaries
 import { shouldRender } from '../../utils/rendering.js'
@@ -7,9 +8,8 @@ import { appendNewElement, closestElement } from '../../utils/dom.js'
 // AT preparations
 import { prepareEditedAtDom } from '../../preparation/editedAnnotatedTranscripts.js'
 import { prepareAtForVerovio, addSystemLabelBlocks } from '../../preparation/annotatedTranscripts.js'
-import { adjustAtStaffLines } from '../../preparation/fluidTranscripts.js'
+import { adjustAtStaffLines, resolveMatchedStaffLineContextForCurrentDt } from '../../preparation/fluidTranscripts.js'
 import { renderContinuousAt } from '../verovioHandler.js'
-import { resolveMatchedStaffLineContextForCurrentDt } from './fluidTranscriptsOld/staffLineContext.js'
 
 // DT preparations
 // import { buildCurrentDtSvgForFluidTranscripts } from '../dt2svg.js'
@@ -29,9 +29,8 @@ import { computeApproxBBox } from '../../utils/svgGeometry.js'
 import { resolvePathFromDocumentReference, readTextFromDocumentReference } from '../../utils/utils.js'
 
 import { constants } from '../../config.mjs'
-// eslint-disable-next-line
-import pkg from '../../../package.json' with { type: 'json' }
-const appVersion = pkg.version
+const require = createRequire(import.meta.url)
+const { version: appVersion } = require('../../../package.json')
 
 /**
  * Add a translate animation to one SVG element for the FT renderer's eight-step sequence.
@@ -755,7 +754,7 @@ const animateFtStaffLines = (atLayer, dtLayer, { getNewPos, setAnimation, logger
  *   scaleFactor: number,
  *   correspMappings: Map<string, string[]>,
  *   stateModel: string,
- *   getChoiceVerticalOffset: Function,
+ *   getRegSuppTranslate: Function,
  *   applyUnmatchedClass: Function,
  *   setAnimation: Function,
  *   logger: Object
@@ -874,14 +873,14 @@ const prepareAssets = ({
   }
 
   /**
-   * Apply the unmatched-material class associated with one AT id.
+   * Apply the unmatched-material class associated with one animated element.
    *
    * @param {Element} element - Element to classify.
-   * @param {string} atId - AT id used for lookup.
    * @returns {string} Applied class name.
    */
-  const applyUnmatchedClass = (element, atId) => {
-    const className = unmatchedClassByAtId.get(atId) || 'supplied'
+  const applyUnmatchedClass = (element) => {
+    const atId = resolveAtIdForClassification(element)
+    const className = atId ? (unmatchedClassByAtId.get(atId) || 'supplied') : 'supplied'
     applyClassificationClass(element, className)
     return className
   }
@@ -892,7 +891,7 @@ const prepareAssets = ({
     scaleFactor: atScaling !== 0 ? (1 / atScaling) : 1,
     correspMappings,
     stateModel: 'fluidTranscripts',
-    getChoiceVerticalOffset: () => 0,
+    getRegSuppTranslate: () => '0 0',
     applyUnmatchedClass,
     setAnimation: descriptor => setAnimationForFtWithAssets(descriptor, unmatchedClassByAtId),
     logger
@@ -920,11 +919,11 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
 
       // get first draft of FT, which holds Facsimile and Shapes, and will get transcriptions inserted
       const ftSvgDom = initializeFtSvg(layoutInfo, data.dtDom)
-      
+
       // handle diplomatic transcription
       const dtSvgDom = await prepareDtForFt(data.dtDom, data.sourceDom, data, layoutInfo, logger, triple.sourceFullPath)
       // result is also available as data.dtSvgDom = dtSvgDom
-      
+
       // copy DT content into FT SVG
       Array.from(dtSvgDom.documentElement.childNodes).forEach(child => {
         ftSvgDom.querySelector('.diplomatic').appendChild(child)
@@ -976,10 +975,6 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
 
       // determine vertical position of AT
       const getAtVerticalShift = () => {
-        const dtAllRastrumPaths = ftSvgDom.querySelectorAll('.diplomatic .rastrum > path')
-        const dtTopRastrumY = parseFloat(dtAllRastrumPaths[0].getAttribute('d').split(' ')[1])
-        const dtBottomRastrumY = parseFloat(dtAllRastrumPaths[dtAllRastrumPaths.length - 1].getAttribute('d').split(' ')[1])
-
         const dtBbox = computeApproxBBox(ftSvgDom.querySelector('.diplomatic .draft'))
 
         const atAllRastrumPaths = getAtStaffLinePaths()
@@ -1015,23 +1010,22 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
           // decide if other components (DT, facsimile, shapes) need to be repositioned horizontally
           const wzBegin = ftSvgDom.querySelector('g.pb[data-corresp$="#' + currentPage.id + '"] + g.writingZone > rect.pageLabelBox')
           const wzBeginX = wzBegin ? parseFloat(wzBegin.getAttribute('x')) : 0
-          
+
           const dtScaling = 1 // parseFloat(ftSvgDom.querySelector('.diplomatic').getAttribute('transform').match(/scale\((.*)\)/)[1])
-          
+
           if (wzBeginX > 0) {
             ftSvgDom.querySelectorAll('.facsimileBg, .shapes').forEach(layer => {
               layer.setAttribute('transform', 'translate(' + wzBeginX * atScaling + ',0)')
             })
             ftSvgDom.querySelector('.diplomatic').setAttribute('transform', 'scale(' + dtScaling + ') translate(' + (wzBeginX / dtScaling * atScaling) + ',0)')
           }
-
         }
         atX = atX * currentPage.vrvMeiUnit * constants.verovioGeneralScaling
 
         return atX
       }
       const atHorizontalPosition = getAtHorizontalPosition()
-      
+
       // apply positioning to AT
       transcriptionGroup.setAttribute('transform', 'translate(' + atHorizontalPosition + ',' + atVerticalShift + ') scale(' + atScaling + ')')
 
@@ -1051,7 +1045,7 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
 
       animateFtStaffLines(transcriptionGroup, ftSvgDom.querySelector('.diplomatic'), tools, matchedStaffLineContext)
       liquifyMusic(transcriptionGroup, ftSvgDom.querySelector('.diplomatic'), data.editedAtDom || data.atDom, tools)
-      
+
       // hide unmodified DT, as it is now included in FT transformation
       ftSvgDom.querySelector('.diplomatic').setAttribute('style', 'display: none;')
 
@@ -1116,7 +1110,7 @@ const prepareDtForFt = async (dtDom, sourceDom, data, layoutInfo, logger, path) 
  * @param {Object} layoutInfo - The layout information extracted from the source document, including rastrum positions and page dimensions, used to calculate the horizontal position.
  * @return {Object} An object containing the minimum x position (minX), maximum x position (maxX), and the width of the content (width) in the DT, calculated based on the positions of elements in relation to their staff and rastrum positions.
  * This function iterates through all staff elements in the DT, retrieves their corresponding rastrum positions from the layout information, and analyzes the x and x2 attributes of elements within each staff to determine the overall horizontal position of the content in the DT. The resulting minX, maxX, and width values can be used for positioning the AT content in relation to the DT content in the FT SVG.
- */ 
+ */
 const retrieveHorizontalPositionFromDt = (dtDom, layoutInfo) => {
   let minX = Infinity
   let maxX = -Infinity
@@ -1182,7 +1176,7 @@ const prepareAtForFt = async (atDom, dtDom, data, verovio, pageDimensions, layou
 
     const mod = addSystemLabelBlocks(atSvgDom, editedAtDom, data.dtDom, data.sourceDom, data.reconstructionDom, triple)
     adjustAtStaffLines(mod, editedAtDom)
-    
+
     data.atSvgDom = mod // store the rendered AT SVG DOM for later use in FT processing
     data.editedAtDom = editedAtDom // store the edited AT DOM for later use in FT processing
     return mod
@@ -1244,7 +1238,7 @@ const extractLayoutInfo = (data, pageDimensions, logger, sourceFullPath) => {
         // console.log(334.2, 'outerRectMm', outerRectMm)
         // console.log(334.3, 'pageInfo', pageInfo)
         // console.log(334.4, 'pageDimensions', pageDimensions)
-      
+
         pageInfo.utils = {}
         pageInfo.utils.mmToPx = (mm) => mm * ratio
         pageInfo.utils.pxToMm = (px) => px / ratio
@@ -1283,7 +1277,7 @@ const extractLayoutInfo = (data, pageDimensions, logger, sourceFullPath) => {
   } catch (error) {
     logger.error('Error extracting layout information for Fluid Transcripts: ' + error.message + '. ' + error.stack)
   }
-  
+
   return layoutInfo
 }
 
@@ -1308,7 +1302,7 @@ const initializeFtSvg = (layoutInfo, dtDom) => {
 
   const viewBoxWidth = Math.round(currentPage.mm.width * vrvGeneralScaling * vrvUnit)
   const viewBoxHeight = Math.round(currentPage.mm.height * vrvGeneralScaling * vrvUnit)
-  
+
   svg.setAttribute('viewBox', '0 0 ' + viewBoxWidth + ' ' + viewBoxHeight)
   svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
   svg.setAttribute('version', '1.1')
@@ -1357,7 +1351,7 @@ const initializeFtSvg = (layoutInfo, dtDom) => {
   const contentGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g')
   contentGroup.setAttribute('class', 'content')
 
-  // TODO: it is a bit odd to use vrvPixelPerVu here, this needs to be clarified. However, it gives the most reasonable positions for the time being. 
+  // TODO: it is a bit odd to use vrvPixelPerVu here, this needs to be clarified. However, it gives the most reasonable positions for the time being.
   const pageX = currentPage.utils.pxToMm(currentPage.px.iiifPlacement.x) * vrvGeneralScaling * vrvPixelPerVu
   const pageY = currentPage.utils.pxToMm(currentPage.px.iiifPlacement.y) * vrvGeneralScaling * vrvPixelPerVu
   const pageW = currentPage.utils.pxToMm(currentPage.px.width) * vrvGeneralScaling * vrvUnit
@@ -1375,7 +1369,7 @@ const initializeFtSvg = (layoutInfo, dtDom) => {
   image.setAttribute('width', String(pageW))
   image.setAttribute('height', String(pageH))
   image.setAttribute('href', currentPage.iiif.split('#')[0] + '/full/full/0/default.jpg')
-  
+
   // temporary fix for speeding up development
   /* if (currentPage.iiif.includes('_Mh_60_05.jpg#')) {
     image.setAttribute('href', 'http://localhost:8080/NK01.jpg')
@@ -1405,52 +1399,9 @@ const initializeFtSvg = (layoutInfo, dtDom) => {
 
   image.setAttribute('preserveAspectRatio', 'none')
   image.setAttribute('opacity', '1')
-  
+
   facsimileGroup.appendChild(image)
 
-  // Debug: Add dot raster
-  const addDebugDots = () => {
-    const rasterGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g')
-    rasterGroup.setAttribute('class', 'raster')
-    contentGroup.appendChild(rasterGroup)
-
-    for (let x = 0; x <= 30; x += 1) {
-      for (let y = 0; y <= 23; y += 1) {
-        const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
-        dot.setAttribute('cx', x * 10 * vrvGeneralScaling * vrvUnit)
-        dot.setAttribute('cy', y * 10 * vrvGeneralScaling * vrvUnit)
-        dot.setAttribute('r', 25)
-        dot.setAttribute('fill', '#ff0000cc ')
-        if (x % 5 === 0 || y % 5 === 0) {
-          dot.setAttribute('fill', '#0000ffcc ')
-        }
-        rasterGroup.appendChild(dot)
-      }
-    }
-
-    const dot1 = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
-    dot1.setAttribute('cx', 53 * vrvGeneralScaling * vrvUnit)
-    dot1.setAttribute('cy', 13 * vrvGeneralScaling * vrvUnit)
-    dot1.setAttribute('r', 25)
-    dot1.setAttribute('fill', '#00ff00cc ')
-    rasterGroup.appendChild(dot1)
-
-    const dot2 = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
-    dot2.setAttribute('cx', 51.5 * vrvGeneralScaling * vrvUnit)
-    dot2.setAttribute('cy', 24 * vrvGeneralScaling * vrvUnit)
-    dot2.setAttribute('r', 25)
-    dot2.setAttribute('fill', '#00ff00cc ')
-    rasterGroup.appendChild(dot2)
-
-    const dot3 = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
-    dot3.setAttribute('cx', 21 * vrvGeneralScaling * vrvUnit)
-    dot3.setAttribute('cy', 14.2 * vrvGeneralScaling * vrvUnit)
-    dot3.setAttribute('r', 25)
-    dot3.setAttribute('fill', '#00ff00cc ')
-    rasterGroup.appendChild(dot3)
-  }
-  // addDebugDots()
-    
   // Add shapes layer if shapes graphic is available
   const shapesGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g')
   shapesGroup.setAttribute('class', 'shapes')
@@ -1462,7 +1413,7 @@ const initializeFtSvg = (layoutInfo, dtDom) => {
   shapesRoot.setAttribute('y', String(pageY))
   shapesRoot.setAttribute('width', String(pageW))
   shapesRoot.setAttribute('height', String(pageH))
-  
+
   if (currentPage.fragment?.rotate?.deg !== 0) {
     const rotateAngle = currentPage.fragment.rotate.deg * -1
     const rotateCenterX = currentPage.utils.pxToMm(currentPage.fragment.rotate.handle.x) * vrvGeneralScaling * vrvUnit
@@ -1497,7 +1448,7 @@ const initializeFtSvg = (layoutInfo, dtDom) => {
   // Add DT
   const diplomaticGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g')
   diplomaticGroup.setAttribute('class', 'diplomatic')
-  
+
   contentGroup.appendChild(diplomaticGroup)
 
   svg.appendChild(contentGroup)

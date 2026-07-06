@@ -40,8 +40,7 @@ test('liquifyAccids compensates inherited note translation for AT x/y-positioned
     correspMappings: new Map([['accid-1', ['dt-accid-1']]]),
     setAnimation: descriptor => animationCalls.push(descriptor),
     logger: { debug () {}, info () {}, warn () {}, error () {} },
-    stateModel: 'fluidTranscript',
-    getChoiceVerticalOffset: () => 0
+    getRegSuppTranslate: () => '0 0'
   })
 
   assert.equal(animationCalls.length, 1)
@@ -88,8 +87,7 @@ test('liquifyAccids reuses notehead animation for accidentals inside chord notes
     correspMappings: new Map([['accid-1', ['dt-accid-1']]]),
     setAnimation: descriptor => animationCalls.push(descriptor),
     logger: { debug () {}, info () {}, warn () {}, error () {} },
-    stateModel: 'fluidTranscript',
-    getChoiceVerticalOffset: () => 0
+    getRegSuppTranslate: () => '0 0'
   })
 
   assert.equal(animationCalls.length, 1)
@@ -134,8 +132,7 @@ test('liquifyAccids derives parent note compensation from notehead geometry when
     ]),
     setAnimation: descriptor => animationCalls.push(descriptor),
     logger: { debug () {}, info () {}, warn () {}, error () {} },
-    stateModel: 'fluidTranscript',
-    getChoiceVerticalOffset: () => 0
+    getRegSuppTranslate: () => '0 0'
   })
 
   assert.equal(animationCalls.length, 1)

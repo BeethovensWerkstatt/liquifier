@@ -14,12 +14,11 @@ import { hasClass, queryDirectChild } from '../../utils/dom.js'
  * @param {Map<string, string[]>} tools.correspMappings - AT element id to DT ids mapping
  * @param {Function} tools.setAnimation - Phase-aware animation descriptor writer
  * @param {Object} tools.logger - Logger instance
- * @param {string} tools.stateModel - Active state model (fluidTranscript or fluidSystems)
- * @param {Function} tools.getChoiceVerticalOffset - Returns fluidSystems vertical override per element id
+ * @param {Function} tools.getRegSuppTranslate - Returns regulation/supplements translate for one element id
  * @returns {string} Resulting string.
  */
 export const liquifyAccids = (ftSvg, dtSvg, atMeiDom, tools) => {
-  const { getNewPos, correspMappings, setAnimation, logger, stateModel, getChoiceVerticalOffset } = tools
+  const { getNewPos, correspMappings, setAnimation, logger, getRegSuppTranslate } = tools
 
   // TODO: Implement keyAccids!
 
@@ -174,10 +173,7 @@ export const liquifyAccids = (ftSvg, dtSvg, atMeiDom, tools) => {
         // Apply relative animation to the parent accid group
         const atVal = '0 0'
         const dtVal = `${diffX} ${diffY}`
-        const choiceYOffset = stateModel === 'fluidSystems' ? getChoiceVerticalOffset(atId) : 0
-        const regSuppVal = Number.isFinite(choiceYOffset) && choiceYOffset !== 0
-          ? `0 ${choiceYOffset}`
-          : atVal
+        const regSuppVal = getRegSuppTranslate(atId)
         setAnimation({
           element: currentAccid,
           states: {

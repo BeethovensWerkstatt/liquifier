@@ -67,7 +67,7 @@ export function liquifyDirs (ftSvg, dtSvg, atMeiDom, tools) {
         return
       }
 
-      applyUnmatchedClass(atDirGroup, atId)
+      applyUnmatchedClass(atDirGroup)
 
       // Find the text element and all its tspans to apply fade-in animation
       const textElement = atDirGroup.querySelector('text')
@@ -80,7 +80,7 @@ export function liquifyDirs (ftSvg, dtSvg, atMeiDom, tools) {
       const textTspans = textElement.querySelectorAll('tspan[data-class="text"]')
 
       textTspans.forEach((tspan, index) => {
-        applyUnmatchedClass(tspan, atId)
+        applyUnmatchedClass(tspan)
 
         // Apply opacity animation (fade in from supplements)
         setAnimation({

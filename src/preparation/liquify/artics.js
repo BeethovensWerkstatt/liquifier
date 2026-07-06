@@ -15,12 +15,11 @@
  * @param {Map<string, string[]>} tools.correspMappings - AT element id to DT ids mapping
  * @param {Function} tools.setAnimation - Phase-aware animation descriptor writer
  * @param {Object} tools.logger - Logger instance
- * @param {string} tools.stateModel - Active state model (fluidTranscript or fluidSystems)
- * @param {Function} tools.getChoiceVerticalOffset - Returns fluidSystems vertical override per element id
+ * @param {Function} tools.getRegSuppTranslate - Returns regulation/supplements translate for one element id
  * @returns {number} Resulting numeric value.
  */
 export const liquifyArtics = (ftSvg, dtSvg, atMeiDom, tools) => {
-  const { getNewPos, correspMappings, setAnimation, logger, stateModel, getChoiceVerticalOffset } = tools
+  const { getNewPos, correspMappings, setAnimation, logger, getRegSuppTranslate } = tools
 
   // Get all articulation groups from fluid transcription (excluding bounding boxes)
   const artics = ftSvg.querySelectorAll('g.artic:not(.bounding-box)')
@@ -149,10 +148,7 @@ export const liquifyArtics = (ftSvg, dtSvg, atMeiDom, tools) => {
 
     // Add animation to the artic group
     const atVal = '0 0'
-    const choiceYOffset = stateModel === 'fluidSystems' ? getChoiceVerticalOffset(atId) : 0
-    const regSuppVal = Number.isFinite(choiceYOffset) && choiceYOffset !== 0
-      ? `0 ${choiceYOffset}`
-      : atVal
+    const regSuppVal = getRegSuppTranslate(atId)
 
     setAnimation({
       element: atArtic,

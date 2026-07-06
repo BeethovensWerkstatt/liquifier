@@ -65,6 +65,209 @@ function buildAtMeasureBlockMap (atMeiDom) {
 }
 
 /**
+ * Resolve AT blocks that belong to the currently rendered DT page context,
+ * including strict block -> DT system id references from AT sb@corresp.
+ *
+ * @param {Document} atDom - Annotated transcript MEI DOM.
+ * @param {Document} dtDom - Diplomatic transcript MEI DOM.
+ * @param {{debug: Function, info: Function, warn: Function, error: Function}} logger - Logger instance.
+ * @returns {{matchedStaffLineBlocks: Set<number>|null, blockToDtSystemId: Map<number, string>|null, errorMessage: string|null}} Resolution context.
+ */
+export function resolveMatchedStaffLineContextForCurrentDt (atDom, dtDom, logger) {
+  const dtPageReferenceSet = collectDtPageReferenceSet(dtDom)
+  if (dtPageReferenceSet.size === 0) {
+    const errorMessage = '[renderFluidTranscriptsSvg] No pb@target or pb@corresp in DT; cannot resolve strict staff-line block mapping.'
+    logger.warn(errorMessage)
+    return { matchedStaffLineBlocks: null, blockToDtSystemId: null, errorMessage }
+  }
+
+  const pageByBlock = buildAtBlockPageReferenceMap(atDom)
+  if (pageByBlock.size === 0) {
+    const errorMessage = '[renderFluidTranscriptsSvg] No AT block page mapping from pb attributes; cannot resolve strict staff-line block mapping.'
+    logger.warn(errorMessage)
+    return { matchedStaffLineBlocks: null, blockToDtSystemId: null, errorMessage }
+  }
+
+  const matchedBlocks = new Set()
+  pageByBlock.forEach((pageReference, blockIndex) => {
+    if (dtPageReferenceSet.has(pageReference)) {
+      matchedBlocks.add(blockIndex)
+    }
+  })
+
+  if (matchedBlocks.size === 0) {
+    const errorMessage = '[renderFluidTranscriptsSvg] AT block mapping produced no DT page matches; cannot resolve strict staff-line block mapping.'
+    logger.warn(errorMessage)
+    return { matchedStaffLineBlocks: null, blockToDtSystemId: null, errorMessage }
+  }
+
+  const systemByBlock = buildAtBlockDtSystemMap(atDom)
+  const blockToDtSystemId = new Map()
+  const missingSystemBlocks = []
+
+  Array.from(matchedBlocks).sort((a, b) => a - b).forEach(blockIndex => {
+    const systemId = systemByBlock.get(blockIndex)
+    if (!systemId) {
+      missingSystemBlocks.push(blockIndex)
+      return
+    }
+    blockToDtSystemId.set(blockIndex, systemId)
+  })
+
+  if (missingSystemBlocks.length > 0) {
+    const errorMessage = `[renderFluidTranscriptsSvg] Missing AT sb@corresp DT system mapping for matched blocks: ${missingSystemBlocks.join(', ')}.`
+    logger.warn(errorMessage)
+    return { matchedStaffLineBlocks: null, blockToDtSystemId: null, errorMessage }
+  }
+
+  return { matchedStaffLineBlocks: matchedBlocks, blockToDtSystemId, errorMessage: null }
+}
+
+/**
+ * Build AT block -> DT system id mapping from sb corresp/target attributes.
+ *
+ * @param {Document} atDom - Annotated transcript MEI DOM.
+ * @returns {Map<number, string>} Mapping from AT block index to DT system id.
+ */
+function buildAtBlockDtSystemMap (atDom) {
+  const blockMap = buildAtMeasureBlockMap(atDom)
+  const systemByBlock = new Map()
+  if (!atDom || blockMap.size === 0) return systemByBlock
+
+  const sections = atDom.querySelectorAll('section')
+  sections.forEach(section => {
+    let currentSystemId = null
+
+    Array.from(section.querySelectorAll('sb, measure')).forEach(node => {
+      if (node.localName === 'sb') {
+        const systemId = getFirstDiplomaticCorrespId(node.getAttribute('corresp')) || getFirstDiplomaticCorrespId(node.getAttribute('target'))
+        currentSystemId = systemId || null
+        return
+      }
+
+      if (node.localName !== 'measure') return
+
+      const measureId = node.getAttribute('xml:id')
+      const blockIndex = blockMap.get(measureId)
+      if (!Number.isFinite(blockIndex)) return
+
+      if (currentSystemId && !systemByBlock.has(blockIndex)) {
+        systemByBlock.set(blockIndex, currentSystemId)
+      }
+    })
+  })
+
+  return systemByBlock
+}
+
+/**
+ * Build AT block -> page reference mapping using section traversal order.
+ *
+ * @param {Document} atDom - Annotated transcript MEI DOM.
+ * @returns {Map<number, string>} Mapping from AT block index to normalized page reference.
+ */
+function buildAtBlockPageReferenceMap (atDom) {
+  const blockMap = buildAtMeasureBlockMap(atDom)
+  const pageByBlock = new Map()
+  if (!atDom || blockMap.size === 0) return pageByBlock
+
+  const sections = atDom.querySelectorAll('section')
+  sections.forEach(section => {
+    let currentPageReference = null
+
+    Array.from(section.querySelectorAll('pb, measure')).forEach(node => {
+      if (node.localName === 'pb') {
+        const pageRef = normalizePbReference(node.getAttribute('corresp')) || normalizePbReference(node.getAttribute('target'))
+        currentPageReference = pageRef || null
+        return
+      }
+
+      if (node.localName !== 'measure') return
+      if (!currentPageReference) return
+
+      const measureId = node.getAttribute('xml:id')
+      const blockIndex = blockMap.get(measureId)
+      if (!Number.isFinite(blockIndex)) return
+
+      pageByBlock.set(blockIndex, currentPageReference)
+    })
+  })
+
+  return pageByBlock
+}
+
+/**
+ * Collect DT page references from pb attributes.
+ *
+ * @param {Document} dom - MEI DOM to inspect.
+ * @returns {Set<string>} Normalized DT page references.
+ */
+function collectDtPageReferenceSet (dom) {
+  const values = new Set()
+  if (!dom) return values
+
+  dom.querySelectorAll('pb[target], pb[corresp]').forEach(pb => {
+    const targetRef = normalizePbReference(pb.getAttribute('target'))
+    const correspRef = normalizePbReference(pb.getAttribute('corresp'))
+    const pageRef = targetRef || correspRef
+    if (!pageRef) return
+    values.add(pageRef)
+  })
+
+  return values
+}
+
+/**
+ * Normalize a page reference value from pb attributes.
+ *
+ * @param {string} [value=''] - Raw pb attribute value.
+ * @returns {string|null} Normalized page reference, or null when empty.
+ */
+function normalizePbReference (value = '') {
+  const token = String(value).trim().split(/\s+/)[0]
+  if (!token) return null
+
+  const hashIndex = token.indexOf('#')
+  if (hashIndex >= 0 && hashIndex < token.length - 1) {
+    return token.slice(hashIndex + 1).trim()
+  }
+
+  return token
+}
+
+/**
+ * Returns the first diplomatic corresp id from one attribute value.
+ *
+ * @param {string} [value=''] - Raw corresp or target attribute value.
+ * @returns {string|null} First diplomatic id or null.
+ */
+function getFirstDiplomaticCorrespId (value = '') {
+  const diplomaticIds = getDiplomaticCorrespIds(value)
+  return diplomaticIds[0] || null
+}
+
+/**
+ * Extract all diplomatic corresp ids from one attribute value.
+ *
+ * @param {string} [value=''] - Raw corresp or target attribute value.
+ * @returns {string[]} Diplomatic ids in source order.
+ */
+function getDiplomaticCorrespIds (value = '') {
+  return String(value)
+    .trim()
+    .split(/\s+/)
+    .map(token => token.trim())
+    .filter(Boolean)
+    .filter(token => token.includes('#'))
+    .filter(token => {
+      const fileRef = token.split('#')[0]
+      return fileRef === '' || fileRef.includes('/diplomaticTranscripts/') || fileRef.endsWith('_dt.xml')
+    })
+    .map(token => token.slice(token.indexOf('#') + 1).trim())
+    .filter(Boolean)
+}
+
+/**
  * Calculate the center of DT system based on rastrum bounding boxes
  * Takes into account rotation and the visible viewBox area
  *
@@ -614,29 +817,27 @@ export const generateFluidTranscription = ({
     ? options.choiceVerticalOffsets
     : new Map()
 
-  // Expose a no-op getter outside fluidTranscripts so liquify modules can call one API.
   /**
-   * Returns choice vertical offset from the current data context.
+   * Returns the regulation/supplements translate value for one AT element.
    *
    * @param {string} elementId - Identifier for the target element.
-   * @returns {number} Resulting numeric value.
+   * @returns {string} Translate value in `x y` form.
    */
-  const getChoiceVerticalOffset = (elementId) => {
-    if (stateModel !== 'fluidTranscripts') return 0
-    if (!elementId) return 0
+  const getRegSuppTranslate = (elementId) => {
+    if (!elementId) return '0 0'
     const offset = choiceVerticalOffsets.get(elementId)
-    return Number.isFinite(offset) ? offset : 0
+    return Number.isFinite(offset) && offset !== 0 ? `0 ${offset}` : '0 0'
   }
 
   /**
-   * Applies the unmatched classification class for an AT element id.
+   * Applies the unmatched classification class resolved from an element.
    *
    * @param {Element} element - SVG element to classify.
-   * @param {string} atId - AT xml:id used for classification lookup.
    * @returns {string} Applied class name.
    */
-  const applyUnmatchedClass = (element, atId) => {
-    const className = unmatchedClassByAtId.get(atId) || 'supplied'
+  const applyUnmatchedClass = (element) => {
+    const atId = resolveAtIdForClassification(element)
+    const className = atId ? (unmatchedClassByAtId.get(atId) || 'supplied') : 'supplied'
     applyClassificationClass(element, className)
     return className
   }
@@ -661,7 +862,7 @@ export const generateFluidTranscription = ({
     stateModel,
     matchedStaffLineBlocks,
     measureBlockMap,
-    getChoiceVerticalOffset,
+    getRegSuppTranslate,
     applyUnmatchedClass,
     setAnimation: setAnimationForMode,
     logger: safeLogger
@@ -1227,7 +1428,7 @@ const animateStaffLines = (ftSvg, dtSvg, convertD, setAnimation, logger, matched
  * @param {number} tools.scaleFactor - DT-to-AT scale factor
  * @param {Map<string, string[]>} tools.correspMappings - AT element id to DT ids mapping
  * @param {string} tools.stateModel - Active state model (fluidTranscript or fluidSystems)
- * @param {Function} tools.getChoiceVerticalOffset - Returns fluidSystems vertical override per element id
+ * @param {Function} tools.getRegSuppTranslate - Returns regulation/supplements translate for one element id
  * @param {Function} tools.setAnimation - Phase-aware animation descriptor writer
  * @param {Object} tools.logger - Logger instance
  * @returns {void} No return value.
@@ -1327,11 +1528,10 @@ const addTransform = (node, attribute, values = []) => {
  * Resolves AT id for an animation target.
  *
  * @param {Element} element - Animated element.
- * @param {string} fallbackId - Descriptor id fallback.
  * @returns {string|null} Resolved AT id when available.
  */
-function resolveAtIdForClassification (element, fallbackId) {
-  if (!element) return fallbackId || null
+function resolveAtIdForClassification (element) {
+  if (!element) return null
 
   const ownId = element.getAttribute?.('data-id')
   if (ownId) return ownId
@@ -1339,7 +1539,7 @@ function resolveAtIdForClassification (element, fallbackId) {
   const ancestorId = closestElement(element, '[data-id]')?.getAttribute?.('data-id')
   if (ancestorId) return ancestorId
 
-  return fallbackId || null
+  return null
 }
 
 /**
@@ -1362,14 +1562,14 @@ function applyClassificationClass (element, className) {
 }
 
 /**
- * Resolves unmatched class name for a descriptor.
+ * Resolves unmatched class name for an animated element.
  *
- * @param {Object} descriptor - Animation descriptor.
+ * @param {Element} element - Animated element.
  * @param {Map<string, string>} unmatchedClassByAtId - AT id to class mapping.
  * @returns {string} Class to apply.
  */
-function resolveUnmatchedClassForDescriptor (descriptor, unmatchedClassByAtId) {
-  const atId = resolveAtIdForClassification(descriptor.element, descriptor.id)
+function resolveUnmatchedClassForElement (element, unmatchedClassByAtId) {
+  const atId = resolveAtIdForClassification(element)
   if (!atId) return 'supplied'
   return unmatchedClassByAtId.get(atId) || 'supplied'
 }
@@ -1392,13 +1592,11 @@ function resolveUnmatchedClassForDescriptor (descriptor, unmatchedClassByAtId) {
  *
  * @param {Object} descriptor - Animation descriptor with the following structure:
  * @param {SVGElement} descriptor.element - The SVG element to animate
- * @param {string} descriptor.id - The element's ID (for logging)
- * @param {string} descriptor.localName - The element's type (e.g., 'note', 'artic')
  * @param {Object} descriptor.states - State definitions for each phase
  * @returns {string} Resulting string.
  */
 const setAnimationFluidTranscript = (descriptor, unmatchedClassByAtId = new Map()) => {
-  const { element, id, localName, states } = descriptor
+  const { element, states } = descriptor
 
   const finding = states.finding || null
   const normalization = states.normalization || finding
@@ -1416,7 +1614,7 @@ const setAnimationFluidTranscript = (descriptor, unmatchedClassByAtId = new Map(
     addTransform(element, 'opacity', opacityValues)
 
     if (finding === null || normalization === null) {
-      const unmatchedClass = resolveUnmatchedClassForDescriptor(descriptor, unmatchedClassByAtId)
+      const unmatchedClass = resolveUnmatchedClassForElement(element, unmatchedClassByAtId)
       applyClassificationClass(element, unmatchedClass)
       if (unmatchedClass === 'supplied') {
         element.setAttribute('fill', '#999999')
@@ -1430,10 +1628,7 @@ const setAnimationFluidTranscript = (descriptor, unmatchedClassByAtId = new Map(
 
   const validStates = allStates.filter(state => state !== null)
 
-  if (validStates.length === 0) {
-    console.warn(`[setAnimationFluidTranscript] No valid states for element ${id} (${localName})`)
-    return
-  }
+  if (validStates.length === 0) return
 
   const animationType = validStates[0].type
   const values = allStates.map(state => {
@@ -1501,7 +1696,7 @@ export const resolveFluidSystemsStates = (states = {}) => {
  * @returns {string} Resulting string.
  */
 const setAnimationFluidSystems = (descriptor, unmatchedClassByAtId = new Map()) => {
-  const { element, id, localName, states } = descriptor
+  const { element, states } = descriptor
   const resolvedStates = resolveFluidSystemsStates(states)
   const {
     digitalFacsimile,
@@ -1536,7 +1731,7 @@ const setAnimationFluidSystems = (descriptor, unmatchedClassByAtId = new Map()) 
     }
 
     if (finding === null || normalization === null) {
-      const unmatchedClass = resolveUnmatchedClassForDescriptor(descriptor, unmatchedClassByAtId)
+      const unmatchedClass = resolveUnmatchedClassForElement(element, unmatchedClassByAtId)
       applyClassificationClass(element, unmatchedClass)
       if (unmatchedClass === 'supplied') {
         element.setAttribute('fill', '#999999')
@@ -1550,10 +1745,7 @@ const setAnimationFluidSystems = (descriptor, unmatchedClassByAtId = new Map()) 
 
   const validStates = allStates.filter(state => state !== null)
 
-  if (validStates.length === 0) {
-    console.warn(`[setAnimationFluidSystems] No valid states for element ${id} (${localName})`)
-    return
-  }
+  if (validStates.length === 0) return
 
   const animationType = validStates[0].type
   const values = allStates.map(state => {

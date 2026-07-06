@@ -3,8 +3,7 @@ import assert from 'node:assert/strict'
 import { JSDOM } from 'jsdom'
 
 import { buildCurrentDtSvgForFluidTranscripts } from '../src/rendering/renderers/dt2svg.js'
-import { resolveFluidTranscriptsOverlayPlacement } from '../src/rendering/renderers/fluidTranscripts/overlay.js'
-import { resolveMatchedStaffLineContextForCurrentDt } from '../src/rendering/renderers/fluidTranscripts/staffLineContext.js'
+import { resolveMatchedStaffLineContextForCurrentDt } from '../src/preparation/fluidTranscripts.js'
 
 const parser = new (new JSDOM().window.DOMParser)()
 
@@ -131,98 +130,3 @@ test('resolveMatchedStaffLineContextForCurrentDt fails when matched block lacks 
   assert.ok(warnings.some(msg => msg.includes('Missing AT sb@corresp DT system mapping')))
 })
 
-test('resolveFluidTranscriptsOverlayPlacement anchors overlay by AT stream and DT writing-zone center', () => {
-  const overlayContext = {
-    surfaceId: 'surf1',
-    facsimile: {
-      imageMm: {
-        y: 0
-      },
-      heightPx: 1000,
-      mmPerPx: 0.1,
-      mediaFragMm: {
-        x: -2,
-        y: -5,
-        w: 100,
-        h: 200
-      }
-    }
-  }
-
-  const dtDom = parser.parseFromString(`
-    <mei xmlns="http://www.music-encoding.org/ns/mei">
-      <music><body><mdiv><score><section>
-        <pb target="../D-BNba_MH_60_Engelmann.xml#surf1"/>
-      </section></score></mdiv></body></music>
-      <meiHead><fileDesc><sourceDesc>
-        <source target="../D-BNba_MH_60_Engelmann.xml#wz1"/>
-      </sourceDesc></fileDesc></meiHead>
-    </mei>
-  `, 'text/xml')
-
-  const sourceDom = parser.parseFromString(`
-    <mei xmlns="http://www.music-encoding.org/ns/mei">
-      <music>
-        <facsimile>
-          <surface xml:id="surf1">
-            <zone xml:id="z1" data="#wz1" ulx="100" uly="100" lrx="500" lry="500"/>
-          </surface>
-        </facsimile>
-      </music>
-    </mei>
-  `, 'text/xml')
-
-  const fluidSvg = parser.parseFromString(`
-    <svg xmlns="http://www.w3.org/2000/svg">
-      <path class="rastrum" d="M0 900 L1000 900"/>
-      <path class="rastrum" d="M0 2700 L1000 2700"/>
-    </svg>
-  `, 'image/svg+xml')
-
-  const positionalData = {
-    pages: [
-      { currentPage: false, precedingWidth: 0, atCenterY: 40 },
-      { currentPage: true, precedingWidth: 125.5, atCenterY: 65 }
-    ]
-  }
-
-  const placement = resolveFluidTranscriptsOverlayPlacement({
-    overlayContext,
-    positionalData,
-    fluidSvg,
-    dtDom,
-    sourceDom
-  })
-
-  assert.equal(placement.unitsPerMm, 90)
-  assert.equal(placement.xOffsetMm, 125.5)
-  assert.equal(placement.xOffsetUnits, 11295)
-  assert.equal(placement.yOffsetMm, -10)
-  assert.equal(placement.yOffsetUnits, -900)
-})
-
-test('resolveFluidTranscriptsOverlayPlacement falls back to zero offsets when active page is unavailable', () => {
-  const overlayContext = {
-    facsimile: {
-      mediaFragMm: {
-        x: 0,
-        y: 0,
-        w: 100,
-        h: 100
-      }
-    }
-  }
-
-  const placement = resolveFluidTranscriptsOverlayPlacement({
-    overlayContext,
-    positionalData: { pages: [] }
-  })
-
-  assert.deepEqual(placement, {
-    xOffsetMm: 0,
-    yOffsetMm: 0,
-    xOffsetUnits: 0,
-    yOffsetUnits: 0,
-    unitsPerMm: 90
-  })
-})

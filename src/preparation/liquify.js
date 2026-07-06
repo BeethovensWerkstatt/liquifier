@@ -41,7 +41,7 @@ import { liquifyStaffGrpBraces } from './liquify/staffGrpBraces.js'
  * @param {number} tools.scaleFactor - DT-to-AT scale factor
  * @param {Map<string, string[]>} tools.correspMappings - AT element id to DT ids mapping
  * @param {string} tools.stateModel - Active state model (fluidTranscript or fluidSystems)
- * @param {Function} tools.getChoiceVerticalOffset - Returns fluidSystems vertical override per element id
+ * @param {Function} tools.getRegSuppTranslate - Returns regulation/supplements translate for one element id
  * @param {Function} tools.setAnimation - Phase-aware animation descriptor writer
  * @param {Object} tools.logger - Logger instance
  * @returns {void} No return value.

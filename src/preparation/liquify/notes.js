@@ -21,12 +21,11 @@ import { closestElement } from '../../utils/dom.js'
  * @param {Function} tools.getNewPos - Converts DT coordinates into FT coordinate space
  * @param {Map<string, string[]>} tools.correspMappings - AT element id to DT ids mapping
  * @param {Function} tools.setAnimation - Phase-aware animation descriptor writer
- * @param {string} tools.stateModel - Active state model (fluidTranscript or fluidSystems)
- * @param {Function} tools.getChoiceVerticalOffset - Returns fluidSystems vertical override per element id
+ * @param {Function} tools.getRegSuppTranslate - Returns regulation/supplements translate for one element id
  * @returns {number} Resulting numeric value.
  */
 export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
-  const { scaleFactor, getNewPos, correspMappings, setAnimation, stateModel, getChoiceVerticalOffset } = tools
+  const { scaleFactor, getNewPos, correspMappings, setAnimation, getRegSuppTranslate } = tools
 
   const notes = ftSvg.querySelectorAll('g.note:not(.bounding-box)')
   notes.forEach(note => {
@@ -86,10 +85,7 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
       const newHeadPos = getNewPos(atHead, dtHead)
       const atVal = '0 0'
       const dtVal = parseFloat(newHeadPos.x - atHead.x) + ' ' + parseFloat(newHeadPos.y - atHead.y)
-      const choiceYOffset = stateModel === 'fluidSystems' ? getChoiceVerticalOffset(atId) : 0
-      const regSuppVal = Number.isFinite(choiceYOffset) && choiceYOffset !== 0
-        ? `0 ${choiceYOffset}`
-        : atVal
+      const regSuppVal = getRegSuppTranslate(atId)
 
       setAnimation({
         element: note,

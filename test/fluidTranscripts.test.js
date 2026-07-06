@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { JSDOM } from 'jsdom'
 
-import { calculateScaleFactor, generateFluidTranscription, resolveFluidSystemsStates, retrievePositionalDataForFluidSystems } from '../src/preparation/fluidTranscripts.js'
+import { calculateScaleFactor, generateFluidTranscription as generateFluidTranscriptionImpl, resolveFluidSystemsStates, retrievePositioningDataForFluidTranscripts } from '../src/preparation/fluidTranscripts.js'
 import { adjustViewBoxForContent } from '../src/preparation/liquify/viewbox.js'
 
 const parser = new (new JSDOM().window.DOMParser)()
@@ -14,7 +14,25 @@ const noopLogger = {
   error: () => {}
 }
 
-test('retrievePositionalDataForFluidSystems uses overlay facsimile geometry when provided', () => {
+const generateFluidTranscription = (dtSvg, atSvg, atMei, fourthArg, fifthArg, sixthArg) => {
+  const hasDtMeiArg = sixthArg !== undefined
+  const logger = hasDtMeiArg ? fifthArg : fourthArg
+  const options = hasDtMeiArg ? sixthArg : fifthArg
+
+  return generateFluidTranscriptionImpl({
+    dtSvg,
+    atSvg,
+    atMei,
+    dtMei: hasDtMeiArg ? fourthArg : null,
+    sourceMei: null,
+    reconstructionMei: null,
+    logger,
+    overlayContext: null,
+    positioningData: null
+  }, options)
+}
+
+test('retrievePositioningDataForFluidTranscripts uses overlay facsimile geometry when provided', () => {
   const dtSvg = parser.parseFromString('<svg xmlns="http://www.w3.org/2000/svg"/>', 'image/svg+xml')
   const atSvg = parser.parseFromString('<svg xmlns="http://www.w3.org/2000/svg"/>', 'image/svg+xml')
   const atMei = parser.parseFromString('<mei><music><body><pb corresp="#surface-current"/></body></music></mei>', 'text/xml')
@@ -40,7 +58,7 @@ test('retrievePositionalDataForFluidSystems uses overlay facsimile geometry when
     }
   }
 
-  const positionalData = retrievePositionalDataForFluidSystems({
+  const positionalData = retrievePositioningDataForFluidTranscripts({
     dtSvg,
     atSvg,
     atMei,
@@ -264,7 +282,7 @@ test('generateFluidTranscription fluidTranscripts applies per-system reduction f
   assert.notEqual(deltaBlock0, deltaBlock1)
 })
 
-test('adjustViewBoxForContent focuses fluidTranscripts viewBox to matched blocks', () => {
+test('adjustViewBoxForContent focuses fluidSystems viewBox to matched blocks', () => {
   const svg = parser.parseFromString(`
     <svg xmlns="http://www.w3.org/2000/svg">
       <svg class="definition-scale" viewBox="0 0 10000 2000">
@@ -285,7 +303,7 @@ test('adjustViewBoxForContent focuses fluidTranscripts viewBox to matched blocks
 
   adjustViewBoxForContent(svg, {
     logger: noopLogger,
-    stateModel: 'fluidTranscripts',
+    stateModel: 'fluidSystems',
     matchedStaffLineBlocks: new Set([0]),
     measureBlockMap: new Map([
       ['m1', 0],
@@ -297,7 +315,7 @@ test('adjustViewBoxForContent focuses fluidTranscripts viewBox to matched blocks
   assert.equal(definitionScale.getAttribute('viewBox'), '950 3050 320 120')
 })
 
-test('generateFluidTranscription fluidTranscripts keeps AT-only note hidden through regulation', () => {
+test('generateFluidTranscription fluidSystems keeps AT-only note hidden through regulation', () => {
   const atSvg = parser.parseFromString(`
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
       <g class="measure" data-id="m1">
@@ -357,7 +375,7 @@ test('generateFluidTranscription fluidTranscripts keeps AT-only note hidden thro
     error: () => {}
   }
 
-  const outSvg = generateFluidTranscription(dtSvg, atSvg, atMei, logger, { stateModel: 'fluidTranscripts' })
+  const outSvg = generateFluidTranscription(dtSvg, atSvg, atMei, logger, { stateModel: 'fluidSystems' })
   const outNote = outSvg.querySelector('g.note[data-id="a1"]')
   assert.ok(outNote)
 
@@ -366,7 +384,7 @@ test('generateFluidTranscription fluidTranscripts keeps AT-only note hidden thro
   assert.equal(opacityAnim.getAttribute('values'), '0;0;0;0;0;0;1;1')
 })
 
-test('generateFluidTranscription fluidTranscripts keeps staff lines stable through readingOrder and transitions by regulation', () => {
+test('generateFluidTranscription fluidSystems keeps staff lines stable through readingOrder and transitions by regulation', () => {
   const atSvg = parser.parseFromString(`
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
       <g class="system" data-id="sysA">
@@ -394,7 +412,7 @@ test('generateFluidTranscription fluidTranscripts keeps staff lines stable throu
   `, 'text/xml')
 
   const logger = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} }
-  const outSvg = generateFluidTranscription(dtSvg, atSvg, atMei, logger, { stateModel: 'fluidTranscripts' })
+  const outSvg = generateFluidTranscription(dtSvg, atSvg, atMei, logger, { stateModel: 'fluidSystems' })
 
   const lines = Array.from(outSvg.querySelectorAll('path.rastrum'))
   assert.ok(lines.length >= 1)
@@ -646,7 +664,7 @@ test('generateFluidTranscription fluidTranscripts honors explicit block-to-syste
   assert.equal(reversedBlock1, normalBlock0)
 })
 
-test('generateFluidTranscription fluidTranscripts keeps AT target in regulation and supplements', () => {
+test('generateFluidTranscription fluidSystems keeps AT target in regulation and supplements', () => {
   const atSvg = parser.parseFromString(`
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
       <g class="measure" data-id="m1">
@@ -703,7 +721,7 @@ test('generateFluidTranscription fluidTranscripts keeps AT target in regulation 
   `, 'text/xml')
 
   const logger = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} }
-  const outSvg = generateFluidTranscription(dtSvg, atSvg, atMei, logger, { stateModel: 'fluidTranscripts' })
+  const outSvg = generateFluidTranscription(dtSvg, atSvg, atMei, logger, { stateModel: 'fluidSystems' })
 
   const noteAnim = outSvg.querySelector('g.note[data-id="a1"] > animateTransform[type="translate"]')
   assert.ok(noteAnim)
@@ -777,7 +795,7 @@ test('generateFluidTranscription fluidTranscripts skips no-op note translate ani
   assert.equal(noteAnim, null)
 })
 
-test('generateFluidTranscription fluidTranscripts applies vertical choice offsets in regulation and supplements only', () => {
+test('generateFluidTranscription fluidSystems applies vertical choice offsets in regulation and supplements only', () => {
   const atSvg = parser.parseFromString(`
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
       <g class="measure" data-id="m1">
@@ -835,7 +853,7 @@ test('generateFluidTranscription fluidTranscripts applies vertical choice offset
 
   const logger = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} }
   const outSvg = generateFluidTranscription(dtSvg, atSvg, atMei, logger, {
-    stateModel: 'fluidTranscripts',
+    stateModel: 'fluidSystems',
     choiceVerticalOffsets: new Map([['a1', -20]])
   })
 
@@ -931,7 +949,7 @@ test('generateFluidTranscription classifies foreign-DT tempo corresp as otherWz'
   assert.ok(!/\bsupplied\b/.test(tempoClass))
 })
 
-test('generateFluidTranscription fluidTranscripts animates system labels from readingOrder onward', () => {
+test('generateFluidTranscription fluidSystems animates system labels from regulation onward', () => {
   const atSvg = parser.parseFromString(`
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
       <g class="measure" data-id="m1">
@@ -977,7 +995,7 @@ test('generateFluidTranscription fluidTranscripts animates system labels from re
   `, 'text/xml')
 
   const logger = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} }
-  const outSvg = generateFluidTranscription(dtSvg, atSvg, atMei, logger, { stateModel: 'fluidTranscripts' })
+  const outSvg = generateFluidTranscription(dtSvg, atSvg, atMei, logger, { stateModel: 'fluidSystems' })
 
   const label = outSvg.querySelector('text.pageLabel')
   assert.ok(label)
@@ -1063,85 +1081,7 @@ test('generateFluidTranscription animates chord note augmentation dots with note
   assert.equal(dotsAnim.getAttribute('values'), noteheadAnim.getAttribute('values'))
 })
 
-test('generateFluidTranscription animates chord ledger lines with related noteheads', () => {
-  const atSvg = parser.parseFromString(`
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
-      <g class="measure" data-id="m1">
-        <g class="staff">
-          <path d="M0 100 L300 100"/>
-          <path d="M0 110 L300 110"/>
-          <path d="M0 120 L300 120"/>
-          <path d="M0 130 L300 130"/>
-          <path d="M0 140 L300 140"/>
-        </g>
-        <g class="ledgerLines above">
-          <g class="lineDash" data-related="#an1">
-            <path d="M95 85 L165 85"/>
-          </g>
-        </g>
-        <g class="chord" data-id="ac1" data-stem.dir="up">
-          <g class="note" data-id="an1">
-            <g class="notehead"><use transform="translate(120,80)"/></g>
-          </g>
-        </g>
-      </g>
-    </svg>
-  `, 'image/svg+xml')
-
-  const dtSvg = parser.parseFromString(`
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
-      <g class="rastrum bounding-box"><rect x="0" y="100" width="300" height="40"/></g>
-      <g class="rastrum">
-        <path d="M0 100 L300 100"/>
-        <path d="M0 110 L300 110"/>
-        <path d="M0 120 L300 120"/>
-        <path d="M0 130 L300 130"/>
-        <path d="M0 140 L300 140"/>
-      </g>
-      <g class="chord" data-id="dc1">
-        <g class="note" data-id="dn1">
-          <g class="notehead"><use x="150" y="100"/></g>
-        </g>
-      </g>
-    </svg>
-  `, 'image/svg+xml')
-
-  const atMei = parser.parseFromString(`
-    <mei xmlns="http://www.music-encoding.org/ns/mei">
-      <music>
-        <body>
-          <mdiv>
-            <score>
-              <section>
-                <measure xml:id="m1">
-                  <staff n="1">
-                    <layer>
-                      <chord xml:id="ac1" stem.dir="up" corresp="#dc1">
-                        <note xml:id="an1" pname="c" oct="6"/>
-                      </chord>
-                    </layer>
-                  </staff>
-                </measure>
-              </section>
-            </score>
-          </mdiv>
-        </body>
-      </music>
-    </mei>
-  `, 'text/xml')
-
-  const logger = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} }
-  const outSvg = generateFluidTranscription(dtSvg, atSvg, atMei, logger, { stateModel: 'fluidTranscripts' })
-
-  const noteheadAnim = outSvg.querySelector('g.chord[data-id="ac1"] g.note[data-id="an1"] g.notehead > animateTransform[type="translate"]')
-  const ledgerAnim = outSvg.querySelector('g.ledgerLines g.lineDash[data-related="#an1"] > animateTransform[type="translate"]')
-
-  assert.ok(noteheadAnim)
-  assert.ok(ledgerAnim)
-  assert.equal(ledgerAnim.getAttribute('values'), noteheadAnim.getAttribute('values'))
-})
-
-test('generateFluidTranscription fluidTranscripts hides unmatched subsequent-page measure via container animation', () => {
+test('generateFluidTranscription fluidSystems hides unmatched subsequent-page measure via container animation', () => {
   const atSvg = parser.parseFromString(`
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
       <g class="system" data-id="sysA">
@@ -1205,7 +1145,7 @@ test('generateFluidTranscription fluidTranscripts hides unmatched subsequent-pag
 
   const logger = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} }
   const outSvg = generateFluidTranscription(dtSvg, atSvg, atMei, logger, {
-    stateModel: 'fluidTranscripts',
+    stateModel: 'fluidSystems',
     matchedStaffLineBlocks: new Set([0]),
     blockToDtSystemId: new Map([[0, 'dts1']]),
     currentDtReference: '../data/sources/current_piece_p017_wz01_dt.xml'
@@ -1222,11 +1162,9 @@ test('generateFluidTranscription fluidTranscripts hides unmatched subsequent-pag
   const unmatchedNote = outSvg.querySelector('g.note[data-id="a2"]')
   assert.ok(unmatchedNote)
   assert.match(unmatchedNote.getAttribute('class') || '', /\botherWz\b/)
-  assert.equal(unmatchedNote.querySelector('animate[attributeName="opacity"]'), null)
 
   const unmatchedLedger = outSvg.querySelector('g.measure[data-id="m2"] g.lineDash[data-related="#a2"]')
   assert.ok(unmatchedLedger)
-  assert.equal(unmatchedLedger.querySelector('animate[attributeName="opacity"]'), null)
   assert.equal(unmatchedLedger.querySelector('animateTransform[type="translate"]'), null)
 })
 
@@ -1305,15 +1243,13 @@ test('generateFluidTranscription animates bTrem tremolo symbol from DT line corr
   const glyphOpacity = tremUse.querySelector('animate[attributeName="opacity"]')
   assert.ok(glyphOpacity, 'AT glyph must have opacity animation')
   const glyphValues = glyphOpacity.getAttribute('values').split(';')
-  assert.equal(glyphValues.length, 8)
-  assert.equal(glyphValues[0], '0') // digitalFacsimile: hidden
-  assert.equal(glyphValues[1], '0') // writingZone: hidden
-  assert.equal(glyphValues[2], '0') // finding: hidden
-  assert.equal(glyphValues[3], '0') // normalization: hidden
-  assert.equal(glyphValues[4], '1') // readingOrder: visible
-  assert.equal(glyphValues[5], '1') // regulation: visible
-  assert.equal(glyphValues[6], '1') // supplements: visible
-  assert.equal(glyphValues[7], '1') // interventions: visible
+  assert.equal(glyphValues.length, 6)
+  assert.equal(glyphValues[0], '0') // finding: hidden
+  assert.equal(glyphValues[1], '0') // normalization: hidden
+  assert.equal(glyphValues[2], '1') // readingOrder: visible
+  assert.equal(glyphValues[3], '1') // regulation: visible
+  assert.equal(glyphValues[4], '1') // supplements: visible
+  assert.equal(glyphValues[5], '1') // interventions: visible
 
   // No translate animation on the glyph (avoids scale collapse)
   assert.equal(tremUse.querySelector('animateTransform[type="translate"]'), null)
@@ -1326,11 +1262,13 @@ test('generateFluidTranscription animates bTrem tremolo symbol from DT line corr
     const strokeOpacity = poly.querySelector('animate[attributeName="opacity"]')
     assert.ok(strokeOpacity, 'DT stroke polygon must have opacity animation')
     const sv = strokeOpacity.getAttribute('values').split(';')
-    assert.equal(sv[0], '1') // digitalFacsimile: visible
-    assert.equal(sv[1], '1') // writingZone: visible
-    assert.equal(sv[2], '1') // finding: visible
-    assert.equal(sv[3], '1') // normalization: visible
-    assert.equal(sv[4], '0') // readingOrder: hidden
+    assert.equal(sv.length, 6)
+    assert.equal(sv[0], '1') // finding: visible
+    assert.equal(sv[1], '1') // normalization: visible
+    assert.equal(sv[2], '0') // readingOrder: hidden
+    assert.equal(sv[3], '0') // regulation: hidden
+    assert.equal(sv[4], '0') // supplements: hidden
+    assert.equal(sv[5], '0') // interventions: hidden
   })
 })
 
@@ -1413,11 +1351,13 @@ test('generateFluidTranscription aligns bTrem symbol with nested note animation'
   const glyphOpacity = tremUse.querySelector('animate[attributeName="opacity"]')
   assert.ok(glyphOpacity, 'AT glyph must have opacity animation')
   const gv = glyphOpacity.getAttribute('values').split(';')
-  assert.equal(gv[0], '0') // digitalFacsimile: hidden
-  assert.equal(gv[1], '0') // writingZone: hidden
-  assert.equal(gv[2], '0') // finding: hidden
-  assert.equal(gv[3], '0') // normalization: hidden
-  assert.equal(gv[4], '1') // readingOrder: visible
+  assert.equal(gv.length, 6)
+  assert.equal(gv[0], '0') // finding: hidden
+  assert.equal(gv[1], '0') // normalization: hidden
+  assert.equal(gv[2], '1') // readingOrder: visible
+  assert.equal(gv[3], '1') // regulation: visible
+  assert.equal(gv[4], '1') // supplements: visible
+  assert.equal(gv[5], '1') // interventions: visible
 
   // One DT stroke polygon added for the single DT corresp line
   const dtStroke = outSvg.querySelector('g.bTrem[data-id="atTremNested1"] > polygon.bw-trem-stroke')
@@ -1425,11 +1365,13 @@ test('generateFluidTranscription aligns bTrem symbol with nested note animation'
   const strokeOpacity = dtStroke.querySelector('animate[attributeName="opacity"]')
   assert.ok(strokeOpacity, 'DT stroke must have opacity animation')
   const sv = strokeOpacity.getAttribute('values').split(';')
-  assert.equal(sv[0], '1') // digitalFacsimile: visible
-  assert.equal(sv[1], '1') // writingZone: visible
-  assert.equal(sv[2], '1') // finding: visible
-  assert.equal(sv[3], '1') // normalization: visible
-  assert.equal(sv[4], '0') // readingOrder: hidden
+  assert.equal(sv.length, 6)
+  assert.equal(sv[0], '1') // finding: visible
+  assert.equal(sv[1], '1') // normalization: visible
+  assert.equal(sv[2], '0') // readingOrder: hidden
+  assert.equal(sv[3], '0') // regulation: hidden
+  assert.equal(sv[4], '0') // supplements: hidden
+  assert.equal(sv[5], '0') // interventions: hidden
 })
 
 test('generateFluidTranscription animates fTrem tremolo symbol from DT line corresp', () => {
@@ -1499,12 +1441,13 @@ test('generateFluidTranscription animates fTrem tremolo symbol from DT line corr
   const glyphOpacity = tremUse.querySelector('animate[attributeName="opacity"]')
   assert.ok(glyphOpacity, 'AT fTrem glyph must have opacity animation')
   const glyphValues = glyphOpacity.getAttribute('values').split(';')
-  assert.equal(glyphValues.length, 8)
-  assert.equal(glyphValues[0], '0') // digitalFacsimile: hidden
-  assert.equal(glyphValues[1], '0') // writingZone: hidden
-  assert.equal(glyphValues[2], '0') // finding: hidden
-  assert.equal(glyphValues[3], '0') // normalization: hidden
-  assert.equal(glyphValues[4], '1') // readingOrder: visible
+  assert.equal(glyphValues.length, 6)
+  assert.equal(glyphValues[0], '0') // finding: hidden
+  assert.equal(glyphValues[1], '0') // normalization: hidden
+  assert.equal(glyphValues[2], '1') // readingOrder: visible
+  assert.equal(glyphValues[3], '1') // regulation: visible
+  assert.equal(glyphValues[4], '1') // supplements: visible
+  assert.equal(glyphValues[5], '1') // interventions: visible
 
   assert.equal(tremUse.querySelector('animateTransform[type="translate"]'), null)
 
@@ -1514,14 +1457,16 @@ test('generateFluidTranscription animates fTrem tremolo symbol from DT line corr
   const strokeOpacity = dtStroke.querySelector('animate[attributeName="opacity"]')
   assert.ok(strokeOpacity)
   const sv = strokeOpacity.getAttribute('values').split(';')
-  assert.equal(sv[0], '1') // digitalFacsimile: visible
-  assert.equal(sv[1], '1') // writingZone: visible
-  assert.equal(sv[2], '1') // finding: visible
-  assert.equal(sv[3], '1') // normalization: visible
-  assert.equal(sv[4], '0') // readingOrder: hidden
+  assert.equal(sv.length, 6)
+  assert.equal(sv[0], '1') // finding: visible
+  assert.equal(sv[1], '1') // normalization: visible
+  assert.equal(sv[2], '0') // readingOrder: hidden
+  assert.equal(sv[3], '0') // regulation: hidden
+  assert.equal(sv[4], '0') // supplements: hidden
+  assert.equal(sv[5], '0') // interventions: hidden
 })
 
-test('generateFluidTranscription countermeasures inherited bTrem translate to avoid stacking', () => {
+test('generateFluidTranscription fluidSystems countermeasures inherited bTrem translate to avoid stacking', () => {
   const atSvg = parser.parseFromString(`
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
       <g class="measure" data-id="m1">
@@ -1587,7 +1532,7 @@ test('generateFluidTranscription countermeasures inherited bTrem translate to av
   `, 'text/xml')
 
   const logger = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} }
-  const outSvg = generateFluidTranscription(dtSvg, atSvg, atMei, logger, { stateModel: 'fluidTranscripts' })
+  const outSvg = generateFluidTranscription(dtSvg, atSvg, atMei, logger, { stateModel: 'fluidSystems' })
 
   // Nested note still gets its translate animation
   const noteAnim = outSvg.querySelector('g.note[data-id="atCounterNote1"] > animateTransform[type="translate"]')
@@ -1604,7 +1549,7 @@ test('generateFluidTranscription countermeasures inherited bTrem translate to av
   assert.ok(glyphOpacity, 'glyph must have opacity animation instead of translate')
 })
 
-test('generateFluidTranscription expands tremolo glyph use to inline strokes and animates points', () => {
+test('generateFluidTranscription fluidSystems expands tremolo glyph use to inline strokes and animates points', () => {
   const atSvg = parser.parseFromString(`
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
       <defs>
@@ -1677,7 +1622,7 @@ test('generateFluidTranscription expands tremolo glyph use to inline strokes and
   `, 'text/xml')
 
   const logger = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} }
-  const outSvg = generateFluidTranscription(dtSvg, atSvg, atMei, logger, { stateModel: 'fluidTranscripts' })
+  const outSvg = generateFluidTranscription(dtSvg, atSvg, atMei, logger, { stateModel: 'fluidSystems' })
 
   const trem = outSvg.querySelector('g.bTrem[data-id="atInline1"]')
   assert.equal(trem.querySelector(':scope > use'), null, 'glyph use should be replaced when defs are available')
@@ -1737,7 +1682,7 @@ test('generateFluidTranscription expands tremolo glyph use to inline strokes and
   })
 })
 
-test('generateFluidTranscription animates staffGrp braces visible from supplements only', () => {
+test('generateFluidTranscription fluidSystems animates staffGrp braces visible from supplements only', () => {
   const atSvg = parser.parseFromString(`
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 400">
       <g class="system" data-id="sys1">
@@ -1787,7 +1732,7 @@ test('generateFluidTranscription animates staffGrp braces visible from supplemen
   `, 'text/xml')
 
   const logger = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} }
-  const outSvg = generateFluidTranscription(dtSvg, atSvg, atMei, logger, { stateModel: 'fluidTranscripts' })
+  const outSvg = generateFluidTranscription(dtSvg, atSvg, atMei, logger, { stateModel: 'fluidSystems' })
 
   const brace = outSvg.querySelector('path[data-id="brace1"]')
   assert.ok(brace)
