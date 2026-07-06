@@ -920,7 +920,7 @@ const prepareAssets = ({
  */
 export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDimensions, recreate, logger }) {
   if (shouldRender(recreate, [triple.dtDate], triple.dtSvgDate)) {
-    logger.info('Rendering Fluid Transcripts for ' + triple.fsSvgPath)
+    logger.info('Rendering Fluid Transcripts for ' + triple.ftSvgPath)
 
     try {
       const layoutInfo = extractLayoutInfo(data, pageDimensions, logger, triple.sourceFullPath)
@@ -1072,8 +1072,8 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
       })
 
       const ftSvgString = new XMLSerializer().serializeToString(ftSvgDom)
-      await writeData(ftSvgString, triple.fsSvgPath)
-      logger.info('Successfully rendered ' + triple.fsSvgPath)
+      await writeData(ftSvgString, triple.ftSvgPath)
+      logger.info('Successfully rendered ' + triple.ftSvgPath)
     } catch (error) {
       logger.error('Error rendering Fluid transcript: ' + error.message)
       logger.debug('Source file: ' + triple.sourceFullPath)

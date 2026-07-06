@@ -12,10 +12,10 @@ import { writeData } from '../../../filehandlers/filehandler.js'
  * @returns {Promise<void>} Promise resolving after log write.
  */
 export async function writeFluidTranscriptsErrorLog ({ triple, error, issues = [], severity = 'error' }) {
-  if (!triple?.fsSvgPath) return
+  if (!triple?.ftSvgPath) return
   if (!error && issues.length === 0) return
 
-  const errorLogPath = buildFluidTranscriptsErrorLogPath(triple.fsSvgPath)
+  const errorLogPath = buildFluidTranscriptsErrorLogPath(triple.ftSvgPath)
   const reason = error instanceof Error ? error.message : String(error || '')
   const uniqueIssueLines = Array.from(new Set(issues.map(formatFluidTranscriptsIssueLine).filter(Boolean)))
   const lines = [
@@ -24,7 +24,7 @@ export async function writeFluidTranscriptsErrorLog ({ triple, error, issues = [
     `severity=${severity}`,
     `inputDt=${triple.dtFullPath || triple.dt || ''}`,
     `inputAt=${triple.atFullPath || triple.at || ''}`,
-    `outputFs=${triple.fsSvgPath}`
+    `outputFt=${triple.ftSvgPath}`
   ]
 
   if (reason) {
@@ -44,11 +44,11 @@ export async function writeFluidTranscriptsErrorLog ({ triple, error, issues = [
 /**
  * Builds fluid transcripts error log path for the current output file.
  *
- * @param {string} fsSvgPath - Fluid transcripts output SVG path.
+ * @param {string} ftSvgPath - Fluid transcripts output SVG path.
  * @returns {string} Error log output path.
  */
-function buildFluidTranscriptsErrorLogPath (fsSvgPath) {
-  const segments = fsSvgPath.split(path.sep)
+function buildFluidTranscriptsErrorLogPath (ftSvgPath) {
+  const segments = ftSvgPath.split(path.sep)
   const sourcesIndex = segments.indexOf('sources')
   if (sourcesIndex >= 0) {
     segments[sourcesIndex] = 'errorLogs'
@@ -56,7 +56,7 @@ function buildFluidTranscriptsErrorLogPath (fsSvgPath) {
     segments.splice(Math.max(0, segments.length - 1), 0, 'errorLogs')
   }
 
-  segments[segments.length - 1] = segments[segments.length - 1].replace(/_fs\.svg$/, '_fs.error.log')
+  segments[segments.length - 1] = segments[segments.length - 1].replace(/_ft\.svg$/, '_ft.error.log')
   return segments.join(path.sep)
 }
 

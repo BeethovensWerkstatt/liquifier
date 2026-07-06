@@ -32,11 +32,11 @@ import { resolveMatchedStaffLineContextForCurrentDt } from './staffLineContext.j
  * @returns {Promise<void>} Promise resolving when rendering completes.
  */
 export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDimensions, recreate, logger }) {
-  const { atDate, dtDate, fsSvgPath, fsSvgDate } = triple
+  const { atDate, dtDate, ftSvgPath, ftSvgDate } = triple
   const systemLabelIssues = []
 
-  if (!shouldRender(recreate, [atDate, dtDate], fsSvgDate)) {
-    logger.info('Skipping Fluid Transcripts for ' + fsSvgPath)
+  if (!shouldRender(recreate, [atDate, dtDate], ftSvgDate)) {
+    logger.info('Skipping Fluid Transcripts for ' + ftSvgPath)
     return
   }
 
@@ -189,7 +189,7 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
 
     // Step 6: write output and issue logs.
     const fluidSvgString = serializer.serializeToString(fluidSvg)
-    await writeData(fluidSvgString, fsSvgPath)
+    await writeData(fluidSvgString, ftSvgPath)
 
     if (systemLabelIssues.length > 0) {
       const warningMessage = `[renderFluidTranscriptsSvg] Non-fatal system label issues detected (${systemLabelIssues.length}); see fluid transcripts error log for details.`
