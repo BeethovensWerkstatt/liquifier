@@ -1,4 +1,4 @@
-import { closestElement, hasClass, queryDirectChild } from '../../utils/dom.js'
+import { hasClass, queryDirectChild } from '../../utils/dom.js'
 
 /**
  * Animate accidentals between AT and DT transcriptions
@@ -50,25 +50,60 @@ export const liquifyAccids = (ftSvg, dtSvg, atMeiDom, tools) => {
     // Key signature accidentals don't have parent notes, so skip for them
     const isKeyAccid = hasClass(accid, 'keyAccid')
     let noteAnimationDiff = { x: 0, y: 0 }
+    let parentNote = null
+    let parentChord = null
 
     if (!isKeyAccid) {
-      const parentChord = closestElement(accid, 'g.chord:not(.bounding-box)')
-      const parentNote = closestElement(accid, 'g.note:not(.bounding-box)')
+      let currentAncestor = accid.parentNode
+      while (currentAncestor?.nodeType === 1) {
+        if (!parentNote && currentAncestor.localName === 'g' && hasClass(currentAncestor, 'note') && !hasClass(currentAncestor, 'bounding-box')) {
+          parentNote = currentAncestor
+        }
 
-      // Check chord first, as notes inside chords are children of the chord
-      const parentToCheck = parentChord || parentNote
+        if (!parentChord && currentAncestor.localName === 'g' && hasClass(currentAncestor, 'chord') && !hasClass(currentAncestor, 'bounding-box')) {
+          parentChord = currentAncestor
+        }
 
-      if (parentToCheck) {
-        // Extract the parent's animation values from its animateTransform
-        const parentAnimation = queryDirectChild(parentToCheck, 'animateTransform[type="translate"]')
+        if (parentNote && parentChord) break
+        currentAncestor = currentAncestor.parentNode
+      }
+
+      const parentNoteId = parentNote?.getAttribute('data-id')
+      const parentNoteDtIds = parentNoteId ? correspMappings.get(parentNoteId) : null
+      const parentDtId = parentNoteDtIds?.[0]
+      const parentDtNote = parentDtId ? dtSvg.querySelector(`g.note[data-id="${parentDtId}"]`) : null
+      const parentAtHeadUse = parentNote?.querySelector('.notehead > use')
+      const parentDtHeadUse = parentDtNote?.querySelector('.notehead > use')
+
+      if (parentAtHeadUse && parentDtHeadUse) {
+        const parentAtTransform = parentAtHeadUse.getAttribute('transform')?.match(/translate\(\s*([\d.-]+)\s*,\s*([\d.-]+)\s*\)/)
+        const parentAtX = parentAtTransform ? parseFloat(parentAtTransform[1]) : parseFloat(parentAtHeadUse.getAttribute('x'))
+        const parentAtY = parentAtTransform ? parseFloat(parentAtTransform[2]) : parseFloat(parentAtHeadUse.getAttribute('y'))
+        const parentDtX = parseFloat(parentDtHeadUse.getAttribute('x'))
+        const parentDtY = parseFloat(parentDtHeadUse.getAttribute('y'))
+
+        if (Number.isFinite(parentAtX) && Number.isFinite(parentAtY) && Number.isFinite(parentDtX) && Number.isFinite(parentDtY)) {
+          const parentNewPos = getNewPos({ x: parentAtX, y: parentAtY }, { x: parentDtX, y: parentDtY })
+          noteAnimationDiff = {
+            x: parentNewPos.x - parentAtX,
+            y: parentNewPos.y - parentAtY
+          }
+          logger.debug(`[Accid] Parent note diff from geometry: (${noteAnimationDiff.x}, ${noteAnimationDiff.y})`)
+        }
+      }
+
+      if (noteAnimationDiff.x === 0 && noteAnimationDiff.y === 0) {
+        const parentAnimation =
+          queryDirectChild(parentNote, 'animateTransform[type="translate"]') ||
+          queryDirectChild(queryDirectChild(parentNote, 'g.notehead'), 'animateTransform[type="translate"]') ||
+          queryDirectChild(parentChord, 'animateTransform[type="translate"]')
+
         if (parentAnimation) {
           const parentValues = parentAnimation.getAttribute('values')
-          // Extract the first position (finding/normalization state)
-          // Pattern: "x y;..." where we want the first x y values
           const parentMatch = parentValues?.match(/^\s*([-\d.]+)\s+([-\d.]+)/)
           if (parentMatch) {
             noteAnimationDiff = { x: parseFloat(parentMatch[1]), y: parseFloat(parentMatch[2]) }
-            logger.debug(`[Accid] Parent ${parentChord ? 'chord' : 'note'} animation diff: (${noteAnimationDiff.x}, ${noteAnimationDiff.y})`)
+            logger.debug(`[Accid] Parent animation diff: (${noteAnimationDiff.x}, ${noteAnimationDiff.y})`)
           }
         }
       }
@@ -112,12 +147,10 @@ export const liquifyAccids = (ftSvg, dtSvg, atMeiDom, tools) => {
       const atUse = currentAccid.querySelector('use')
       const dtUse = dtAccid.querySelector('use')
       if (atUse && dtUse) {
-        // AT accidentals use transform="translate(x, y) scale(...)" on the use element
         const atTransform = atUse.getAttribute('transform')?.match(/translate\(\s*([\d.-]+)\s*,\s*([\d.-]+)\s*\)/)
-        if (!atTransform) return
-
-        const atX = parseFloat(atTransform[1])
-        const atY = parseFloat(atTransform[2])
+        const atX = atTransform ? parseFloat(atTransform[1]) : parseFloat(atUse.getAttribute('x'))
+        const atY = atTransform ? parseFloat(atTransform[2]) : parseFloat(atUse.getAttribute('y'))
+        if (!Number.isFinite(atX) || !Number.isFinite(atY)) return
 
         // DT accidentals use x and y attributes on the use element
         const dtX = parseFloat(dtUse.getAttribute('x') || 0)
