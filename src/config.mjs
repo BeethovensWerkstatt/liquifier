@@ -13,5 +13,17 @@ export const constants = {
   ftRendererDtStaffLineSideMarginMm: 20,
   ftRendererAnimationDuration: '5s',
   ftRendererAnimationRepeatCount: 'indefinite',
-  ftRendererReverseAnimations: false
+  ftRendererReverseAnimations: false,
+  ftAssetPhaseOpacityValues: {
+    facsimileBg: ['1', '1', '0.5', '0', '0', '0', '0', '0'],
+    shapes: ['0', '1', '0', '0', '0', '0', '0', '0'],
+    diplomatic: ['0', '0', '1', '1', '1', '1', '1', '1'],
+    transcription: ['0', '0', '1', '1', '1', '1', '1', '1'],
+    labelsHiddenUntilEnd: ['0', '0', '0', '0', '0', '0', '1', '1']
+  },
+  ftWritingZoneHighlight: {
+    opacity: '1',
+    fill: '#00b7ff',
+    style: 'stroke: #028cc2; stroke-width: 2px;'
+  }
 }
