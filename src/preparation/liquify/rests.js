@@ -33,8 +33,6 @@ export function liquifyRests (ftSvg, dtSvg, atMeiDom, tools) {
     if (!dtIds || dtIds.length === 0) {
       setAnimation({
         element: rest,
-        id: atId,
-        localName: 'rest',
         states: {
           finding: null,
           normalization: null,
@@ -63,8 +61,6 @@ export function liquifyRests (ftSvg, dtSvg, atMeiDom, tools) {
       if (!dtRest) {
         setAnimation({
           element: rest,
-          id: atId,
-          localName: 'rest',
           states: {
             finding: null,
             normalization: null,
@@ -98,8 +94,6 @@ export function liquifyRests (ftSvg, dtSvg, atMeiDom, tools) {
       const dtVal = `${diffX} ${diffY}`
       setAnimation({
         element: rest,
-        id: atId,
-        localName: 'rest',
         states: {
           finding: { type: 'translate', val: dtVal },
           normalization: { type: 'translate', val: dtVal },

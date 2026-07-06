@@ -51,8 +51,6 @@ export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
         logger.debug(`[liquifyDynams] No DT correspondence for dynam ${atId}, fading in (editorial)`)
         setAnimation({
           element: atDynam,
-          id: atId,
-          localName: 'dynam',
           states: {
             finding: null,
             normalization: null,
@@ -120,8 +118,6 @@ export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
         logger.debug(`[liquifyDynams] No matching DT element found for dynam ${atId}, fading in`)
         setAnimation({
           element: atDynam,
-          id: atId,
-          localName: 'dynam',
           states: {
             finding: null,
             normalization: null,
@@ -140,8 +136,6 @@ export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
         logger.warn('[liquifyDynams] No text element found in DT dynam')
         setAnimation({
           element: atDynam,
-          id: atId,
-          localName: 'dynam',
           states: {
             finding: null,
             normalization: null,
@@ -162,8 +156,6 @@ export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
         logger.warn(`[liquifyDynams] Invalid DT position for dynam ${atId}: x=${dtX}, y=${dtY}`)
         setAnimation({
           element: atDynam,
-          id: atId,
-          localName: 'dynam',
           states: {
             finding: null,
             normalization: null,
@@ -203,8 +195,6 @@ export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
         // Add position animation to the dynam group (moves both DT text and AT symbol together)
         setAnimation({
           element: atDynam,
-          id: atId,
-          localName: 'dynam',
           states: {
             finding: { type: 'translate', val: `${translateX} ${translateY}` },
             normalization: { type: 'translate', val: `${translateX} ${translateY}` },
@@ -218,8 +208,6 @@ export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
         // Animate DT text: visible at finding and normalization, fades out between normalization and supplements
         setAnimation({
           element: dtTextClone,
-          id: `${atId}-dt`,
-          localName: 'dynam-dt-text',
           states: {
             finding: { type: 'opacity', val: '1' },
             normalization: { type: 'opacity', val: '1' },
@@ -233,8 +221,6 @@ export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
         // Animate AT symbol: hidden at finding and normalization, fades in between normalization and supplements
         setAnimation({
           element: atElement,
-          id: `${atId}-at`,
-          localName: 'dynam-at-symbol',
           states: {
             finding: { type: 'opacity', val: '0' },
             normalization: { type: 'opacity', val: '0' },
@@ -303,8 +289,6 @@ export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
           // Common text: visible throughout
             setAnimation({
               element: segmentTspan,
-              id: `${atId}-text-common-${index}`,
-              localName: 'dynam-text-common',
               states: {
                 finding: { type: 'opacity', val: '1' },
                 normalization: { type: 'opacity', val: '1' },
@@ -318,8 +302,6 @@ export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
           // DT-only text: visible at finding/normalization, hidden and doesn't occupy space from supplements
             setAnimation({
               element: segmentTspan,
-              id: `${atId}-text-delete-${index}`,
-              localName: 'dynam-text-delete',
               states: {
                 finding: { type: 'opacity', val: '1' },
                 normalization: { type: 'opacity', val: '1' },
@@ -332,8 +314,6 @@ export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
             // Make it not occupy space when hidden
             setAnimation({
               element: segmentTspan,
-              id: `${atId}-text-delete-display-${index}`,
-              localName: 'dynam-text-delete-display',
               states: {
                 finding: { type: 'display', val: 'inline' },
                 normalization: { type: 'display', val: 'inline' },
@@ -350,8 +330,6 @@ export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
 
             setAnimation({
               element: segmentTspan,
-              id: `${atId}-text-insert-${index}`,
-              localName: 'dynam-text-insert',
               states: {
                 finding: { type: 'opacity', val: '0' },
                 normalization: { type: 'opacity', val: '0' },
@@ -364,8 +342,6 @@ export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
             // Make it not occupy space when hidden
             setAnimation({
               element: segmentTspan,
-              id: `${atId}-text-insert-display-${index}`,
-              localName: 'dynam-text-insert-display',
               states: {
                 finding: { type: 'display', val: 'none' },
                 normalization: { type: 'display', val: 'none' },
@@ -381,8 +357,6 @@ export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
         // Animate the position of the entire dynam group
         setAnimation({
           element: atDynam,
-          id: atId,
-          localName: 'dynam',
           states: {
             finding: { type: 'translate', val: `${translateX} ${translateY}` },
             normalization: { type: 'translate', val: `${translateX} ${translateY}` },

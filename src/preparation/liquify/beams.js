@@ -490,8 +490,6 @@ export const liquifyBeams = (ftSvg, dtSvg, atMeiDom, tools) => {
       const polygons = beam.querySelectorAll('polygon')
       polygons.forEach(polygon => setAnimation({
         element: polygon,
-        id: `${atId}-polygon`,
-        localName: 'beam-polygon',
         states: {
           finding: null,
           normalization: null,
@@ -529,8 +527,6 @@ export const liquifyBeams = (ftSvg, dtSvg, atMeiDom, tools) => {
       atPolygons.forEach((polygon, index) => {
         setAnimation({
           element: polygon,
-          id: `${atId}-polygon`,
-          localName: 'beam-polygon',
           states: {
             finding: null,
             normalization: null,
@@ -577,8 +573,6 @@ export const liquifyBeams = (ftSvg, dtSvg, atMeiDom, tools) => {
 
       setAnimation({
         element: atPolygon,
-        id: `${atId}-polygon-${i}`,
-        localName: 'beam-polygon',
         states: {
           finding: { type: 'points', val: findingsPoints },
           normalization: { type: 'points', val: diplomaticPoints },
@@ -594,8 +588,6 @@ export const liquifyBeams = (ftSvg, dtSvg, atMeiDom, tools) => {
     for (let i = minCount; i < atSorted.length; i++) {
       setAnimation({
         element: atSorted[i].element,
-        id: `${atId}-polygon-${i}`,
-        localName: 'beam-polygon',
         states: {
           finding: null,
           normalization: null,

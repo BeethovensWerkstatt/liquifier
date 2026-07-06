@@ -19,14 +19,10 @@ export const liquifyStaffGrpBraces = (ftSvg, dtSvg, atMeiDom, tools) => {
 
   const braces = ftSvg.querySelectorAll('g.system + path')
 
-  braces.forEach((brace, index) => {
-    const braceId = brace.getAttribute('data-id') || brace.getAttribute('id') || `staffGrpBrace-${index}`
-
+  braces.forEach(brace => {
     brace.setAttribute('opacity', '0')
     setAnimation({
       element: brace,
-      id: `${braceId}-staffGrpBrace`,
-      localName: 'staffGrpBrace',
       states: {
         digitalFacsimile: { type: 'opacity', val: '0' },
         writingZone: { type: 'opacity', val: '0' },

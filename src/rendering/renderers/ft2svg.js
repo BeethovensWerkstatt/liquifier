@@ -90,11 +90,10 @@ const addTransform = (node, attribute, values = []) => {
  * Resolve the AT id for a rendered SVG node, falling back to the nearest annotated ancestor.
  *
  * @param {Element|null|undefined} element - Animated SVG element.
- * @param {string} fallbackId - Descriptor-level fallback id.
  * @returns {string|null} Resolved AT id when available.
  */
-function resolveAtIdForClassification (element, fallbackId) {
-  if (!element) return fallbackId || null
+function resolveAtIdForClassification (element) {
+  if (!element) return null
 
   const ownId = element.getAttribute?.('data-id')
   if (ownId) return ownId
@@ -102,7 +101,7 @@ function resolveAtIdForClassification (element, fallbackId) {
   const ancestorId = closestElement(element, '[data-id]')?.getAttribute?.('data-id')
   if (ancestorId) return ancestorId
 
-  return fallbackId || null
+  return null
 }
 
 /**
@@ -125,14 +124,14 @@ function applyClassificationClass (element, className) {
 }
 
 /**
- * Determine which unmatched-material class should be used for one animation descriptor.
+ * Determine which unmatched-material class should be used for one animated element.
  *
- * @param {Object} descriptor - Animation descriptor.
+ * @param {Element|null|undefined} element - Animated SVG element.
  * @param {Map<string, string>} unmatchedClassByAtId - AT id to unmatched class mapping.
  * @returns {string} Classification class name.
  */
-function resolveUnmatchedClassForDescriptor (descriptor, unmatchedClassByAtId) {
-  const atId = resolveAtIdForClassification(descriptor.element, descriptor.id)
+function resolveUnmatchedClassForElement (element, unmatchedClassByAtId) {
+  const atId = resolveAtIdForClassification(element)
   if (!atId) return 'supplied'
   return unmatchedClassByAtId.get(atId) || 'supplied'
 }
@@ -259,7 +258,7 @@ function extractCorrespContext (atMeiDom, { currentDtReference = '' } = {}) {
  * @returns {void}
  */
 const setAnimationForFtWithAssets = (descriptor, unmatchedClassByAtId = new Map()) => {
-  const { element, id, localName, states } = descriptor
+  const { element, states } = descriptor
 
   const digitalFacsimile = states.digitalFacsimile || states.finding || null
   const writingZone = states.writingZone || digitalFacsimile || states.finding || null
@@ -275,10 +274,7 @@ const setAnimationForFtWithAssets = (descriptor, unmatchedClassByAtId = new Map(
 
   const validStates = allStates.filter(state => state !== null)
 
-  if (validStates.length === 0) {
-    console.warn(`[setAnimationForFtWithAssets] No valid states for element ${id} (${localName})`)
-    return
-  }
+  if (validStates.length === 0) return
 
   const animationType = validStates[0].type
 
@@ -289,7 +285,7 @@ const setAnimationForFtWithAssets = (descriptor, unmatchedClassByAtId = new Map(
 
     let unmatchedClass = null
     if (finding === null || normalization === null) {
-      unmatchedClass = resolveUnmatchedClassForDescriptor(descriptor, unmatchedClassByAtId)
+      unmatchedClass = resolveUnmatchedClassForElement(element, unmatchedClassByAtId)
       applyClassificationClass(element, unmatchedClass)
       if (unmatchedClass === 'supplied') {
         opacityValues[5] = '0'
@@ -685,8 +681,6 @@ const animateFtStaffLines = (atLayer, dtLayer, { getNewPos, setAnimation, logger
 
         setAnimation({
           element: ftLine,
-          id: `staff-line-block-${blockIndex}-${index}`,
-          localName: 'staff-line',
           states: {
             digitalFacsimile: { type: 'd', val: dtAsAtD },
             writingZone: { type: 'd', val: dtAsAtD },
@@ -724,8 +718,6 @@ const animateFtStaffLines = (atLayer, dtLayer, { getNewPos, setAnimation, logger
 
     setAnimation({
       element: ftLine,
-      id: `staff-line-${index}`,
-      localName: 'staff-line',
       states: {
         digitalFacsimile: { type: 'd', val: dtAsAtD },
         writingZone: { type: 'd', val: dtAsAtD },

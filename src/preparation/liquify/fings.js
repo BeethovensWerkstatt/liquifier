@@ -26,8 +26,6 @@ export const liquifyFings = (ftSvg, dtSvg, atMeiDom, tools) => {
       logger.debug(`[Fings] No corresp for fingering ${atId}`)
       setAnimation({
         element: fing,
-        id: atId,
-        localName: 'fing',
         states: {
           finding: null,
           normalization: null,
@@ -47,8 +45,6 @@ export const liquifyFings = (ftSvg, dtSvg, atMeiDom, tools) => {
       if (!dtFing) {
         setAnimation({
           element: fing,
-          id: atId,
-          localName: 'fing',
           states: {
             finding: null,
             normalization: null,
@@ -103,8 +99,6 @@ export const liquifyFings = (ftSvg, dtSvg, atMeiDom, tools) => {
       const dtVal = `${diffX} ${diffY}`
       setAnimation({
         element: fing,
-        id: atId,
-        localName: 'fing',
         states: {
           finding: { type: 'translate', val: dtVal },
           normalization: { type: 'translate', val: dtVal },

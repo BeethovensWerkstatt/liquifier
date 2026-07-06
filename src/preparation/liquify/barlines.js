@@ -90,8 +90,6 @@ export const liquifyBarlines = (ftSvg, dtSvg, atMeiDom, tools) => {
       atBarline.forEach((barLine) =>
         setAnimation({
           element: barLine,
-          id: `${atId}-barline`,
-          localName: 'barline',
           states: {
             finding: null,
             normalization: null,
@@ -115,8 +113,6 @@ export const liquifyBarlines = (ftSvg, dtSvg, atMeiDom, tools) => {
       atBarline.forEach((barLine) =>
         setAnimation({
           element: barLine,
-          id: `${atId}-barline`,
-          localName: 'barline',
           states: {
             finding: null,
             normalization: null,
@@ -153,8 +149,6 @@ export const liquifyBarlines = (ftSvg, dtSvg, atMeiDom, tools) => {
         // Should not happen after filtering, but handle it anyway
         setAnimation({
           element: currentBarLine,
-          id: `${atId}-barline-${index}`,
-          localName: 'barline',
           states: {
             finding: null,
             normalization: null,
@@ -186,8 +180,6 @@ export const liquifyBarlines = (ftSvg, dtSvg, atMeiDom, tools) => {
 
       setAnimation({
         element: currentBarLine,
-        id: `${atId}-barline-${index}`,
-        localName: 'barline',
         states: {
           finding: { type: 'd', val: dtVal },
           normalization: { type: 'd', val: dtVal },

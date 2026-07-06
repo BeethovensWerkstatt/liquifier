@@ -57,8 +57,6 @@ export const liquifyTremolos = (ftSvg, dtSvg, atMeiDom, tools) => {
 
       setAnimation({
         element: atPoly,
-        id: `${atId}-stroke-${i}`,
-        localName: 'tremolo-stroke',
         states: {
           digitalFacsimile: { type: 'points', val: findingsPoints },
           writingZone: { type: 'points', val: findingsPoints },
@@ -77,8 +75,6 @@ export const liquifyTremolos = (ftSvg, dtSvg, atMeiDom, tools) => {
       const normalizationPoints = applyOffsetToPoints(atPoints, normalizationOffset)
       setAnimation({
         element: sortedAt[i],
-        id: `${atId}-stroke-${i}`,
-        localName: 'tremolo-stroke',
         states: {
           finding: null,
           normalization: { type: 'points', val: normalizationPoints },
@@ -137,8 +133,6 @@ function applyOpacityFallback (trem, atId, dtStrokes, getNewPos, setAnimation) {
     glyph.setAttribute('opacity', '0')
     setAnimation({
       element: glyph,
-      id: `${atId}-tremolo-glyph-${i}`,
-      localName: 'tremolo',
       states: {
         digitalFacsimile: { type: 'opacity', val: '0' },
         writingZone: { type: 'opacity', val: '0' },
@@ -163,8 +157,6 @@ function applyOpacityFallback (trem, atId, dtStrokes, getNewPos, setAnimation) {
 
     setAnimation({
       element: newPoly,
-      id: `${atId}-dt-stroke-${i}`,
-      localName: 'tremolo',
       states: {
         digitalFacsimile: { type: 'opacity', val: '1' },
         writingZone: { type: 'opacity', val: '1' },
@@ -295,8 +287,6 @@ function createDtOnlyStroke (trem, atId, index, dtPoints, getNewPos, setAnimatio
 
   setAnimation({
     element: poly,
-    id: `${atId}-stroke-dt-only-${index}`,
-    localName: 'tremolo-stroke',
     states: {
       finding: { type: 'opacity', val: '1' },
       normalization: { type: 'opacity', val: '1' },

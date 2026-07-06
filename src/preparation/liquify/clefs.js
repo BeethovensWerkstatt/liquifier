@@ -21,8 +21,6 @@ export const liquifyClefs = (ftSvg, dtSvg, atMeiDom, tools) => {
     if (!dtIds || dtIds.length === 0) {
       setAnimation({
         element: clef,
-        id: atId,
-        localName: 'clef',
         states: {
           finding: null,
           normalization: null,
@@ -56,8 +54,6 @@ export const liquifyClefs = (ftSvg, dtSvg, atMeiDom, tools) => {
       if (!dtClef) {
         setAnimation({
           element: currentClef,
-          id: `${atId}-${index}`,
-          localName: 'clef',
           states: {
             finding: null,
             normalization: null,
@@ -103,8 +99,6 @@ export const liquifyClefs = (ftSvg, dtSvg, atMeiDom, tools) => {
         const dtVal = `${diffX} ${diffY}`
         setAnimation({
           element: currentClef,
-          id: `${atId}-${index}`,
-          localName: 'clef',
           states: {
             finding: { type: 'translate', val: dtVal },
             normalization: { type: 'translate', val: dtVal },

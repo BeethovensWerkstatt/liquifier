@@ -49,8 +49,6 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
     if (!dtIds || dtIds.length === 0) {
       setAnimation({
         element: note,
-        id: atId,
-        localName: 'note',
         states: {
           finding: null,
           normalization: null,
@@ -68,8 +66,6 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
       if (!dtNote) {
         setAnimation({
           element: note,
-          id: atId,
-          localName: 'note',
           states: {
             finding: null,
             normalization: null,
@@ -97,8 +93,6 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
 
       setAnimation({
         element: note,
-        id: atId,
-        localName: 'note',
         states: {
           finding: { type: 'translate', val: dtVal },
           normalization: { type: 'translate', val: dtVal },
@@ -194,8 +188,6 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
 
         setAnimation({
           element: atStem,
-          id: `${atId}-stem`,
-          localName: 'stem',
           states: {
             finding: { type: 'd', val: findingsD },
             normalization: { type: 'd', val: diplomaticD },
@@ -217,8 +209,6 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
           // Add translate animation: flags follow the stem endpoint
           setAnimation({
             element: flag,
-            id: `${atId}-flag`,
-            localName: 'flag',
             states: {
               finding: { type: 'translate', val: `0 ${findingsDiff}` },
               normalization: { type: 'translate', val: `0 ${diplomaticDiff}` },

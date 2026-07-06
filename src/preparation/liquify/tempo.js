@@ -39,8 +39,6 @@ export function liquifyTempo (ftSvg, dtSvg, atMeiDom, tools) {
         logger.debug(`[liquifyTempo] No DT correspondence for tempo ${atId}, fading in (editorial)`)
         setAnimation({
           element: atTempo,
-          id: atId,
-          localName: 'tempo',
           states: {
             finding: null,
             normalization: null,
@@ -90,8 +88,6 @@ export function liquifyTempo (ftSvg, dtSvg, atMeiDom, tools) {
         logger.warn(`[liquifyTempo] Invalid DT position for tempo ${atId}: x=${dtX}, y=${dtY}`)
         setAnimation({
           element: atTempo,
-          id: atId,
-          localName: 'tempo',
           states: {
             finding: null,
             normalization: null,
@@ -167,8 +163,6 @@ export function liquifyTempo (ftSvg, dtSvg, atMeiDom, tools) {
           // Common text: visible throughout
           setAnimation({
             element: segmentTspan,
-            id: `${atId}-text-common-${index}`,
-            localName: 'tempo-text-common',
             states: {
               finding: { type: 'opacity', val: '1' },
               normalization: { type: 'opacity', val: '1' },
@@ -182,8 +176,6 @@ export function liquifyTempo (ftSvg, dtSvg, atMeiDom, tools) {
           // DT-only text: visible at finding/normalization, hidden and doesn't occupy space from supplements
           setAnimation({
             element: segmentTspan,
-            id: `${atId}-text-delete-${index}`,
-            localName: 'tempo-text-delete',
             states: {
               finding: { type: 'opacity', val: '1' },
               normalization: { type: 'opacity', val: '1' },
@@ -196,8 +188,6 @@ export function liquifyTempo (ftSvg, dtSvg, atMeiDom, tools) {
           // Make it not occupy space when hidden
           setAnimation({
             element: segmentTspan,
-            id: `${atId}-text-delete-display-${index}`,
-            localName: 'tempo-text-delete-display',
             states: {
               finding: { type: 'display', val: 'inline' },
               normalization: { type: 'display', val: 'inline' },
@@ -214,8 +204,6 @@ export function liquifyTempo (ftSvg, dtSvg, atMeiDom, tools) {
 
           setAnimation({
             element: segmentTspan,
-            id: `${atId}-text-insert-${index}`,
-            localName: 'tempo-text-insert',
             states: {
               finding: { type: 'opacity', val: '0' },
               normalization: { type: 'opacity', val: '0' },
@@ -228,8 +216,6 @@ export function liquifyTempo (ftSvg, dtSvg, atMeiDom, tools) {
           // Make it not occupy space when hidden
           setAnimation({
             element: segmentTspan,
-            id: `${atId}-text-insert-display-${index}`,
-            localName: 'tempo-text-insert-display',
             states: {
               finding: { type: 'display', val: 'none' },
               normalization: { type: 'display', val: 'none' },
@@ -245,8 +231,6 @@ export function liquifyTempo (ftSvg, dtSvg, atMeiDom, tools) {
       // Animate the position of the entire tempo group
       setAnimation({
         element: atTempo,
-        id: atId,
-        localName: 'tempo',
         states: {
           finding: { type: 'translate', val: `${translateX} ${translateY}` },
           normalization: { type: 'translate', val: `${translateX} ${translateY}` },

@@ -24,8 +24,6 @@ export const liquifyTrills = (ftSvg, dtSvg, atMeiDom, tools) => {
       logger.debug(`[Trills] No corresp for trill ${atId}`)
       setAnimation({
         element: trill,
-        id: atId,
-        localName: 'trill',
         states: {
           finding: null,
           normalization: null,
@@ -45,8 +43,6 @@ export const liquifyTrills = (ftSvg, dtSvg, atMeiDom, tools) => {
       if (!dtTrill) {
         setAnimation({
           element: trill,
-          id: atId,
-          localName: 'trill',
           states: {
             finding: null,
             normalization: null,
@@ -98,8 +94,6 @@ export const liquifyTrills = (ftSvg, dtSvg, atMeiDom, tools) => {
       // Apply animation to the trill use element
       setAnimation({
         element: trill,
-        id: atId,
-        localName: 'trill',
         states: {
           finding: { type: 'translate', val: dtVal },
           normalization: { type: 'translate', val: dtVal },

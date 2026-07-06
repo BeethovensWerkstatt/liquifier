@@ -85,8 +85,6 @@ export function liquifyDirs (ftSvg, dtSvg, atMeiDom, tools) {
         // Apply opacity animation (fade in from supplements)
         setAnimation({
           element: tspan,
-          id: `${atId}_editorial_${index}`,
-          localName: 'tspan',
           states: {
             finding: { type: 'opacity', val: '0' },
             normalization: { type: 'opacity', val: '0' },
@@ -100,8 +98,6 @@ export function liquifyDirs (ftSvg, dtSvg, atMeiDom, tools) {
         // Apply display animation (hidden until supplements)
         setAnimation({
           element: tspan,
-          id: `${atId}_editorial_${index}_display`,
-          localName: 'tspan',
           states: {
             finding: { type: 'display', val: 'none' },
             normalization: { type: 'display', val: 'none' },
@@ -287,8 +283,6 @@ function animateLineByLine (atDirGroup, dtLines, atLines, getNewPos, setAnimatio
         // Common text: visible throughout, opacity 1
         setAnimation({
           element: segmentTspan,
-          id: `${atId}_line${i}_seg${index}`,
-          localName: 'tspan',
           states: {
             finding: { type: 'opacity', val: '1' },
             normalization: { type: 'opacity', val: '1' },
@@ -302,8 +296,6 @@ function animateLineByLine (atDirGroup, dtLines, atLines, getNewPos, setAnimatio
         // Deleted text: visible in finding/normalization, fade out, then hide
         setAnimation({
           element: segmentTspan,
-          id: `${atId}_line${i}_seg${index}`,
-          localName: 'tspan',
           states: {
             finding: { type: 'opacity', val: '1' },
             normalization: { type: 'opacity', val: '1' },
@@ -315,8 +307,6 @@ function animateLineByLine (atDirGroup, dtLines, atLines, getNewPos, setAnimatio
         })
         setAnimation({
           element: segmentTspan,
-          id: `${atId}_line${i}_seg${index}_display`,
-          localName: 'tspan',
           states: {
             finding: { type: 'display', val: 'inline' },
             normalization: { type: 'display', val: 'inline' },
@@ -331,8 +321,6 @@ function animateLineByLine (atDirGroup, dtLines, atLines, getNewPos, setAnimatio
         addClass(segmentTspan, 'supplied')
         setAnimation({
           element: segmentTspan,
-          id: `${atId}_line${i}_seg${index}`,
-          localName: 'tspan',
           states: {
             finding: { type: 'opacity', val: '0' },
             normalization: { type: 'opacity', val: '0' },
@@ -344,8 +332,6 @@ function animateLineByLine (atDirGroup, dtLines, atLines, getNewPos, setAnimatio
         })
         setAnimation({
           element: segmentTspan,
-          id: `${atId}_line${i}_seg${index}_display`,
-          localName: 'tspan',
           states: {
             finding: { type: 'display', val: 'none' },
             normalization: { type: 'display', val: 'none' },
@@ -375,8 +361,6 @@ function animateLineByLine (atDirGroup, dtLines, atLines, getNewPos, setAnimatio
   if (translateX !== 0 || translateY !== 0) {
     setAnimation({
       element: atDirGroup,
-      id: atId,
-      localName: 'dir',
       states: {
         finding: { type: 'translate', val: `${translateX} ${translateY}` },
         normalization: { type: 'translate', val: `${translateX} ${translateY}` },
@@ -540,7 +524,6 @@ function animateMultiCorrespondence (atDirGroup, dtDirData, atLine, getNewPos, s
   // - Sequential x-position in AT (cumulativeXOffset tracks this)
   // - Text content with opacity/display animations for text diff
   // - Transform animation to move to DT position (if segment has DT correspondence)
-  let globalSegIndex = 0
   let cumulativeXOffset = 0 // Cumulative x-offset for sequential rendering in AT state
 
   segments.forEach((seg, segIndex) => {
@@ -581,8 +564,6 @@ function animateMultiCorrespondence (atDirGroup, dtDirData, atLine, getNewPos, s
         // Common text: visible throughout
         setAnimation({
           element: textTspan,
-          id: `${atId}_seg${globalSegIndex}`,
-          localName: 'tspan',
           states: {
             finding: { type: 'opacity', val: '1' },
             normalization: { type: 'opacity', val: '1' },
@@ -596,8 +577,6 @@ function animateMultiCorrespondence (atDirGroup, dtDirData, atLine, getNewPos, s
         // Deleted text: visible in finding/normalization, then fade out
         setAnimation({
           element: textTspan,
-          id: `${atId}_seg${globalSegIndex}`,
-          localName: 'tspan',
           states: {
             finding: { type: 'opacity', val: '1' },
             normalization: { type: 'opacity', val: '1' },
@@ -609,8 +588,6 @@ function animateMultiCorrespondence (atDirGroup, dtDirData, atLine, getNewPos, s
         })
         setAnimation({
           element: textTspan,
-          id: `${atId}_seg${globalSegIndex}_display`,
-          localName: 'tspan',
           states: {
             finding: { type: 'display', val: 'inline' },
             normalization: { type: 'display', val: 'inline' },
@@ -625,8 +602,6 @@ function animateMultiCorrespondence (atDirGroup, dtDirData, atLine, getNewPos, s
         addClass(textTspan, 'supplied')
         setAnimation({
           element: textTspan,
-          id: `${atId}_seg${globalSegIndex}`,
-          localName: 'tspan',
           states: {
             finding: { type: 'opacity', val: '0' },
             normalization: { type: 'opacity', val: '0' },
@@ -638,8 +613,6 @@ function animateMultiCorrespondence (atDirGroup, dtDirData, atLine, getNewPos, s
         })
         setAnimation({
           element: textTspan,
-          id: `${atId}_seg${globalSegIndex}_display`,
-          localName: 'tspan',
           states: {
             finding: { type: 'display', val: 'none' },
             normalization: { type: 'display', val: 'none' },
@@ -652,7 +625,6 @@ function animateMultiCorrespondence (atDirGroup, dtDirData, atLine, getNewPos, s
       }
 
       segTspan.appendChild(textTspan)
-      globalSegIndex++
     })
 
     segText.appendChild(segTspan)
@@ -662,8 +634,6 @@ function animateMultiCorrespondence (atDirGroup, dtDirData, atLine, getNewPos, s
     if (dtPos && (translateX !== 0 || translateY !== 0)) {
       setAnimation({
         element: segmentGroup,
-        id: `${atId}_group${segIndex}`,
-        localName: 'g',
         states: {
           finding: { type: 'translate', val: `${translateX} ${translateY}` },
           normalization: { type: 'translate', val: `${translateX} ${translateY}` },
@@ -737,8 +707,6 @@ function animateFullText (atDirGroup, dtText, atText, dtPos, atPos, getNewPos, s
     if (segment.type === 'common') {
       setAnimation({
         element: segmentTspan,
-        id: `${atId}_seg${index}`,
-        localName: 'tspan',
         states: {
           finding: { type: 'opacity', val: '1' },
           normalization: { type: 'opacity', val: '1' },
@@ -751,8 +719,6 @@ function animateFullText (atDirGroup, dtText, atText, dtPos, atPos, getNewPos, s
     } else if (segment.type === 'delete') {
       setAnimation({
         element: segmentTspan,
-        id: `${atId}_seg${index}`,
-        localName: 'tspan',
         states: {
           finding: { type: 'opacity', val: '1' },
           normalization: { type: 'opacity', val: '1' },
@@ -764,8 +730,6 @@ function animateFullText (atDirGroup, dtText, atText, dtPos, atPos, getNewPos, s
       })
       setAnimation({
         element: segmentTspan,
-        id: `${atId}_seg${index}_display`,
-        localName: 'tspan',
         states: {
           finding: { type: 'display', val: 'inline' },
           normalization: { type: 'display', val: 'inline' },
@@ -779,8 +743,6 @@ function animateFullText (atDirGroup, dtText, atText, dtPos, atPos, getNewPos, s
       addClass(segmentTspan, 'supplied')
       setAnimation({
         element: segmentTspan,
-        id: `${atId}_seg${index}`,
-        localName: 'tspan',
         states: {
           finding: { type: 'opacity', val: '0' },
           normalization: { type: 'opacity', val: '0' },
@@ -792,8 +754,6 @@ function animateFullText (atDirGroup, dtText, atText, dtPos, atPos, getNewPos, s
       })
       setAnimation({
         element: segmentTspan,
-        id: `${atId}_seg${index}_display`,
-        localName: 'tspan',
         states: {
           finding: { type: 'display', val: 'none' },
           normalization: { type: 'display', val: 'none' },
@@ -820,8 +780,6 @@ function animateFullText (atDirGroup, dtText, atText, dtPos, atPos, getNewPos, s
   if (diffX !== 0 || diffY !== 0) {
     setAnimation({
       element: atDirGroup,
-      id: atId,
-      localName: 'dir',
       states: {
         finding: { type: 'translate', val: `${diffX} ${diffY}` },
         normalization: { type: 'translate', val: `${diffX} ${diffY}` },

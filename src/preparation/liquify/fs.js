@@ -38,8 +38,6 @@ export const liquifyFs = (ftSvg, dtSvg, atMeiDom, tools) => {
       if (parentText) {
         setAnimation({
           element: parentText,
-          id: `${atId}-text`,
-          localName: 'f-text',
           states: {
             finding: null,
             normalization: null,
@@ -62,8 +60,6 @@ export const liquifyFs = (ftSvg, dtSvg, atMeiDom, tools) => {
         if (parentText) {
           setAnimation({
             element: parentText,
-            id: `${atId}-text`,
-            localName: 'f-text',
             states: {
               finding: null,
               normalization: null,
@@ -119,8 +115,6 @@ export const liquifyFs = (ftSvg, dtSvg, atMeiDom, tools) => {
       const dtVal = `${diffX} ${diffY}`
       setAnimation({
         element: atText,
-        id: `${atId}-text`,
-        localName: 'f-text',
         states: {
           finding: { type: 'translate', val: dtVal },
           normalization: { type: 'translate', val: dtVal },

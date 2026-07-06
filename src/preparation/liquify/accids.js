@@ -31,8 +31,6 @@ export const liquifyAccids = (ftSvg, dtSvg, atMeiDom, tools) => {
     if (!dtIds || dtIds.length === 0) {
       setAnimation({
         element: accid,
-        id: atId,
-        localName: 'accid',
         states: {
           finding: null,
           normalization: null,
@@ -130,8 +128,6 @@ export const liquifyAccids = (ftSvg, dtSvg, atMeiDom, tools) => {
       if (!dtAccid) {
         setAnimation({
           element: currentAccid,
-          id: `${atId}-${index}`,
-          localName: 'accid',
           states: {
             finding: null,
             normalization: null,
@@ -184,8 +180,6 @@ export const liquifyAccids = (ftSvg, dtSvg, atMeiDom, tools) => {
           : atVal
         setAnimation({
           element: currentAccid,
-          id: `${atId}-${index}`,
-          localName: 'accid',
           states: {
             finding: { type: 'translate', val: dtVal },
             normalization: { type: 'translate', val: dtVal },

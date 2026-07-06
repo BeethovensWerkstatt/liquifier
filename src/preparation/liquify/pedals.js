@@ -25,8 +25,6 @@ export const liquifyPedals = (ftSvg, dtSvg, atMeiDom, tools) => {
       logger.debug(`[Pedals] No corresp for pedal ${atId}`)
       setAnimation({
         element: pedal,
-        id: atId,
-        localName: 'pedal',
         states: {
           finding: null,
           normalization: null,
@@ -46,8 +44,6 @@ export const liquifyPedals = (ftSvg, dtSvg, atMeiDom, tools) => {
       if (!dtPedal) {
         setAnimation({
           element: pedal,
-          id: atId,
-          localName: 'pedal',
           states: {
             finding: null,
             normalization: null,
@@ -104,8 +100,6 @@ export const liquifyPedals = (ftSvg, dtSvg, atMeiDom, tools) => {
       const dtVal = `${diffX} ${diffY}`
       setAnimation({
         element: pedal,
-        id: atId,
-        localName: 'pedal',
         states: {
           finding: { type: 'translate', val: dtVal },
           normalization: { type: 'translate', val: dtVal },

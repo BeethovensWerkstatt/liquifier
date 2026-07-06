@@ -21,8 +21,6 @@ export const liquifyMeterSigs = (ftSvg, dtSvg, atMeiDom, tools) => {
     if (!dtIds || dtIds.length === 0) {
       setAnimation({
         element: meterSig,
-        id: atId,
-        localName: 'meterSig',
         states: {
           finding: null,
           normalization: null,
@@ -56,8 +54,6 @@ export const liquifyMeterSigs = (ftSvg, dtSvg, atMeiDom, tools) => {
       if (!dtMeterSig) {
         setAnimation({
           element: currentMeterSig,
-          id: `${atId}-${index}`,
-          localName: 'meterSig',
           states: {
             finding: null,
             normalization: null,
@@ -103,8 +99,6 @@ export const liquifyMeterSigs = (ftSvg, dtSvg, atMeiDom, tools) => {
         const dtVal = `${diffX} ${diffY}`
         setAnimation({
           element: currentMeterSig,
-          id: `${atId}-${index}`,
-          localName: 'meterSig',
           states: {
             finding: { type: 'translate', val: dtVal },
             normalization: { type: 'translate', val: dtVal },

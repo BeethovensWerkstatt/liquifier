@@ -940,8 +940,6 @@ function animateSystemLabels (ftSvg, setAnimation, stateModel) {
 
     setAnimation({
       element,
-      id: `system-label-${index}`,
-      localName: 'system-label',
       states: {
         digitalFacsimile: { type: 'opacity', val: '0' },
         writingZone: { type: 'opacity', val: '0' },
@@ -1010,9 +1008,6 @@ function animateUnmatchedBlockContainers (ftSvg, measureBlockMap, matchedStaffLi
       fullyUnmatchedSystems.add(system)
     }
   })
-
-  let containerIndex = 0
-
   fullyUnmatchedSystems.forEach(system => {
     system.setAttribute('data-bw-unmatched-container', 'true')
     applyClassificationClass(system, 'otherWz')
@@ -1020,8 +1015,6 @@ function animateUnmatchedBlockContainers (ftSvg, measureBlockMap, matchedStaffLi
 
     setAnimation({
       element: system,
-      id: `unmatched-system-${containerIndex++}`,
-      localName: 'system',
       states: {
         digitalFacsimile: { type: 'opacity', val: '0' },
         writingZone: { type: 'opacity', val: '0' },
@@ -1044,8 +1037,6 @@ function animateUnmatchedBlockContainers (ftSvg, measureBlockMap, matchedStaffLi
 
     setAnimation({
       element: measure,
-      id: `unmatched-measure-${containerIndex++}`,
-      localName: 'measure',
       states: {
         digitalFacsimile: { type: 'opacity', val: '0' },
         writingZone: { type: 'opacity', val: '0' },
@@ -1114,8 +1105,6 @@ const animateStaffLines = (ftSvg, dtSvg, convertD, setAnimation, logger, matched
 
       setAnimation({
         element: ftLine,
-        id: `staff-line-${i}`,
-        localName: 'staff-line',
         states: {
           digitalFacsimile: { type: 'd', val: newD },
           writingZone: { type: 'd', val: newD },
@@ -1143,8 +1132,6 @@ const animateStaffLines = (ftSvg, dtSvg, convertD, setAnimation, logger, matched
       line.setAttribute('opacity', '0')
       setAnimation({
         element: line,
-        id: `staff-line-block-${blockIndex}-unmatched-${idx}`,
-        localName: 'staff-line',
         states: {
           digitalFacsimile: { type: 'opacity', val: '0' },
           writingZone: { type: 'opacity', val: '0' },
@@ -1181,8 +1168,6 @@ const animateStaffLines = (ftSvg, dtSvg, convertD, setAnimation, logger, matched
 
       setAnimation({
         element: ftLine,
-        id: `staff-line-block-${blockIndex}-${i}`,
-        localName: 'staff-line',
         states: {
           digitalFacsimile: { type: 'd', val: newD },
           writingZone: { type: 'd', val: newD },
@@ -1213,8 +1198,6 @@ const animateStaffLines = (ftSvg, dtSvg, convertD, setAnimation, logger, matched
 
         setAnimation({
           element: clone,
-          id: `staff-line-block-${blockIndex}-dt-extra-${i}`,
-          localName: 'staff-line',
           states: {
             finding: { type: 'd', val: newD },
             normalization: { type: 'd', val: newD },
@@ -1401,8 +1384,6 @@ function resolveUnmatchedClassForDescriptor (descriptor, unmatchedClassByAtId) {
  * Example:
  * {
  * element: noteElement,
- * id: 'note-123',
- * localName: 'note',
  * states: {
  * finding: { type: 'translate', val: '0 0' },
  * interventions: { type: 'translate', val: '100 50' }

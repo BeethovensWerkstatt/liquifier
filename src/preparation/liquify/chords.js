@@ -47,8 +47,6 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
       if (!dtChord) {
         setAnimation({
           element: chord,
-          id: atId,
-          localName: 'chord',
           states: {
             finding: null,
             normalization: null,
@@ -128,8 +126,6 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
           const atHeadUse = atNote.querySelector('.notehead')
           setAnimation({
             element: atHeadUse,
-            id: `${atHead.id}-notehead`,
-            localName: 'notehead',
             states: {
               finding: { type: 'translate', val: dtVal },
               normalization: { type: 'translate', val: dtVal },
@@ -145,8 +141,6 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
           dotGroups.forEach((dotGroup, dotIndex) => {
             setAnimation({
               element: dotGroup,
-              id: `${atHead.id}-dots-${dotIndex}`,
-              localName: 'dots',
               states: {
                 finding: { type: 'translate', val: dtVal },
                 normalization: { type: 'translate', val: dtVal },
@@ -204,8 +198,6 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
             stemVals = [atNotesPositions[atNotesPositions.length - 1].atVal, atNotesPositions[atNotesPositions.length - 1].dtVal]
             setAnimation({
               element: atStem,
-              id: `${atId}-stem`,
-              localName: 'stem',
               states: {
                 finding: { type: 'translate', val: atNotesPositions[0].dtVal },
                 normalization: { type: 'translate', val: atNotesPositions[0].dtVal },
@@ -224,8 +216,6 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
             stemVals = [atNotesPositions[atNotesPositions.length - 1].atVal, atNotesPositions[atNotesPositions.length - 1].dtVal]
             setAnimation({
               element: atStem,
-              id: `${atId}-stem`,
-              localName: 'stem',
               states: {
                 finding: { type: 'translate', val: atNotesPositions[0].dtVal },
                 normalization: { type: 'translate', val: atNotesPositions[0].dtVal },
@@ -247,8 +237,6 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
             stemVals = [atNotesPositions[0].atVal, atNotesPositions[0].dtVal]
             setAnimation({
               element: atStem,
-              id: `${atId}-stem`,
-              localName: 'stem',
               states: {
                 finding: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].dtVal },
                 normalization: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].dtVal },
@@ -267,8 +255,6 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
             stemVals = [atNotesPositions[0].atVal, atNotesPositions[0].dtVal]
             setAnimation({
               element: atStem,
-              id: `${atId}-stem`,
-              localName: 'stem',
               states: {
                 finding: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].dtVal },
                 normalization: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].dtVal },
@@ -283,8 +269,6 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
 
         setAnimation({
           element: atStem,
-          id: `${atId}-stem-d`,
-          localName: 'stem',
           states: {
             finding: { type: 'd', val: findingsD },
             normalization: { type: 'd', val: diplomaticD },
@@ -310,8 +294,6 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
           // Add translate animation: flags follow the stem endpoint
           setAnimation({
             element: flag,
-            id: `${atId}-flag`,
-            localName: 'flag',
             states: {
               finding: { type: 'translate', val: findingsFlagVal },
               normalization: { type: 'translate', val: diplomaticFlagVal },

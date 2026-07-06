@@ -89,8 +89,6 @@ function handleEditorialHairpin (atHairpinGroup, atId, setAnimation, applyUnmatc
 
   setAnimation({
     element: atHairpinGroup,
-    id: atId,
-    localName: 'hairpin',
     states: {
       finding: null,
       normalization: null,
@@ -362,8 +360,6 @@ function animateHairpinLeg (polyline, atPoints, dtPoints, id, getNewPos, setAnim
   // Apply animation
   setAnimation({
     element: polyline,
-    id,
-    localName: 'hairpin-leg',
     states: {
       finding: { type: 'points', val: findingsPointsStr },
       normalization: { type: 'points', val: findingsPointsStr },

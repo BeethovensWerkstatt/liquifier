@@ -21,8 +21,6 @@ export const liquifyCurves = (ftSvg, dtSvg, atMeiDom, tools) => {
       const atPath = curve.querySelector('path')
       setAnimation({
         element: atPath || curve,
-        id: atId,
-        localName: 'curve',
         states: {
           finding: null,
           normalization: null,
@@ -45,8 +43,6 @@ export const liquifyCurves = (ftSvg, dtSvg, atMeiDom, tools) => {
       const atPath = curve.querySelector('path')
       setAnimation({
         element: atPath || curve,
-        id: atId,
-        localName: 'curve',
         states: {
           finding: null,
           normalization: null,
@@ -83,8 +79,6 @@ export const liquifyCurves = (ftSvg, dtSvg, atMeiDom, tools) => {
         const atPath = currentCurve.querySelector('path')
         setAnimation({
           element: atPath || currentCurve,
-          id: `${atId}-${index}`,
-          localName: 'curve',
           states: {
             finding: null,
             normalization: null,
@@ -106,8 +100,6 @@ export const liquifyCurves = (ftSvg, dtSvg, atMeiDom, tools) => {
         const newD = convertD(atD, dtD)
         setAnimation({
           element: atPath,
-          id: `${atId}-path-${index}`,
-          localName: 'curve-path',
           states: {
             finding: { type: 'd', val: newD },
             normalization: { type: 'd', val: newD },

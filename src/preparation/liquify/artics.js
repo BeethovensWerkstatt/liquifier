@@ -43,8 +43,6 @@ export const liquifyArtics = (ftSvg, dtSvg, atMeiDom, tools) => {
       logger.debug(`[liquifyArtics] No DT correspondence for artic ${atId}, fading out (editorial)`)
       setAnimation({
         element: atArtic,
-        id: atId,
-        localName: 'artic',
         states: {
           finding: null,
           normalization: null,
@@ -90,8 +88,6 @@ export const liquifyArtics = (ftSvg, dtSvg, atMeiDom, tools) => {
       logger.debug(`[liquifyArtics] No matching DT element found for artic ${atId}, fading out`)
       setAnimation({
         element: atArtic,
-        id: atId,
-        localName: 'artic',
         states: {
           finding: null,
           normalization: null,
@@ -110,8 +106,6 @@ export const liquifyArtics = (ftSvg, dtSvg, atMeiDom, tools) => {
       logger.warn('[liquifyArtics] No use element found in DT artic')
       setAnimation({
         element: atArtic,
-        id: atId,
-        localName: 'artic',
         states: {
           finding: null,
           normalization: null,
@@ -132,8 +126,6 @@ export const liquifyArtics = (ftSvg, dtSvg, atMeiDom, tools) => {
       logger.warn(`[liquifyArtics] Invalid DT position for artic ${atId}: x=${dtX}, y=${dtY}`)
       setAnimation({
         element: atArtic,
-        id: atId,
-        localName: 'artic',
         states: {
           finding: null,
           normalization: null,
@@ -164,8 +156,6 @@ export const liquifyArtics = (ftSvg, dtSvg, atMeiDom, tools) => {
 
     setAnimation({
       element: atArtic,
-      id: atId,
-      localName: 'artic',
       states: {
         finding: { type: 'translate', val: `${translateX} ${translateY}` },
         normalization: { type: 'translate', val: `${translateX} ${translateY}` },

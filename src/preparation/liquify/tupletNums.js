@@ -41,8 +41,6 @@ export const liquifyTupletNums = (ftSvg, dtSvg, atMeiDom, tools) => {
     // - Remain visible in regulation, supplements, and interventions
     setAnimation({
       element: tupletNum,
-      id: tupletId,
-      localName: 'tupletNum',
       states: {
         finding: null,
         normalization: null,

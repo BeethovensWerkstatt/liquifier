@@ -24,8 +24,6 @@ export const liquifyFermatas = (ftSvg, dtSvg, atMeiDom, tools) => {
       logger.debug(`[Fermatas] No corresp for fermata ${atId}`)
       setAnimation({
         element: fermata,
-        id: atId,
-        localName: 'fermata',
         states: {
           finding: null,
           normalization: null,
@@ -45,8 +43,6 @@ export const liquifyFermatas = (ftSvg, dtSvg, atMeiDom, tools) => {
       if (!dtFermata) {
         setAnimation({
           element: fermata,
-          id: atId,
-          localName: 'fermata',
           states: {
             finding: null,
             normalization: null,
@@ -103,8 +99,6 @@ export const liquifyFermatas = (ftSvg, dtSvg, atMeiDom, tools) => {
       const dtVal = `${diffX} ${diffY}`
       setAnimation({
         element: fermata,
-        id: atId,
-        localName: 'fermata',
         states: {
           finding: { type: 'translate', val: dtVal },
           normalization: { type: 'translate', val: dtVal },
