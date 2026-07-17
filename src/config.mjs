@@ -11,6 +11,7 @@ export const constants = {
   verovioGeneralScaling: 10,
   ftStaticScaling: 1,
   ftRendererDtStaffLineSideMarginMm: 20,
+  ftReadingOrderSystemDistanceMm: 1,
   ftRendererAnimationDuration: '5s',
   ftRendererAnimationRepeatCount: 'indefinite',
   ftRendererReverseAnimations: false,

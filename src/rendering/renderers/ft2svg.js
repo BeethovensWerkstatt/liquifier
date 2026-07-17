@@ -178,9 +178,10 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
       })
 
       const matchedStaffLineContext = resolveMatchedStaffLineContextForCurrentDt(data.atDom, data.dtDom, logger)
+      const readingOrderSystemDistance = constants.ftReadingOrderSystemDistanceMm * currentPage.vrvMeiUnit * constants.verovioGeneralScaling
 
       animateFtStaffLines(transcriptionGroup, ftSvgDom.querySelector('.diplomatic'), tools, matchedStaffLineContext)
-      animateFtReadingOrderSystems(transcriptionGroup, ftSvgDom.querySelector('.diplomatic'), data.editedAtDom || data.atDom, tools)
+      animateFtReadingOrderSystems(transcriptionGroup, ftSvgDom.querySelector('.diplomatic'), data.editedAtDom || data.atDom, tools, readingOrderSystemDistance)
       liquifyMusic(transcriptionGroup, ftSvgDom.querySelector('.diplomatic'), data.editedAtDom || data.atDom, tools)
 
       // hide unmodified DT, as it is now included in FT transformation

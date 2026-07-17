@@ -316,9 +316,10 @@ const getDtSystemStaffLines = (dtSystem, dtLayer) => {
  * @param {SVGElement} dtLayer - Diplomatic-transcript SVG layer.
  * @param {Document} atMeiDom - Annotated transcript MEI DOM.
  * @param {{getNewPos: Function, setAnimation: Function, logger: Object}} tools - Animation utilities.
+ * @param {number} readingOrderSystemDistance - Phase-five gap between adjacent systems in SVG units.
  * @returns {void} No return value.
  */
-export const animateFtReadingOrderSystems = (atLayer, dtLayer, atMeiDom, { getNewPos, setAnimation, logger }) => {
+export const animateFtReadingOrderSystems = (atLayer, dtLayer, atMeiDom, { getNewPos, setAnimation, logger }, readingOrderSystemDistance = 0) => {
   const systemBeginById = new Map(
     Array.from(atLayer.querySelectorAll('g.systemBegin[data-system-id]'))
       .map(system => [system.getAttribute('data-system-id'), system])
@@ -354,7 +355,7 @@ export const animateFtReadingOrderSystems = (atLayer, dtLayer, atMeiDom, { getNe
 
     if (nextLeft === null) nextLeft = atBounds.minX
     const readingOrderOffset = `${Math.round(nextLeft - dtBounds.minX)} ${Math.round(((atBounds.minY + atBounds.maxY) / 2) - ((dtBounds.minY + dtBounds.maxY) / 2))}`
-    nextLeft += dtBounds.maxX - dtBounds.minX
+    nextLeft += (dtBounds.maxX - dtBounds.minX) + readingOrderSystemDistance
     const states = {
       digitalFacsimile: { type: 'translate', val: '0 0' },
       writingZone: { type: 'translate', val: '0 0' },

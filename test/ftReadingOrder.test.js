@@ -30,7 +30,7 @@ test('animateFtReadingOrderSystems uses sb corresp and moves the matched system 
     getNewPos: (at, dt) => dt,
     setAnimation: descriptor => recorded.push(descriptor),
     logger: { warn: () => {} }
-  })
+  }, 25)
 
   assert.equal(recorded.length, 4)
   const topSystem = recorded.find(({ element }) => element.getAttribute('class') === 'systemBegin' && element.getAttribute('data-system-id') === 'sb-top')
@@ -43,8 +43,8 @@ test('animateFtReadingOrderSystems uses sb corresp and moves the matched system 
   assert.ok(bottomRastrum)
   assert.equal(topSystem.states.readingOrder.val, '100 60')
   assert.equal(topRastrum.states.readingOrder.val, '100 60')
-  assert.equal(bottomSystem.states.readingOrder.val, '250 280')
-  assert.equal(bottomRastrum.states.readingOrder.val, '250 280')
+  assert.equal(bottomSystem.states.readingOrder.val, '275 280')
+  assert.equal(bottomRastrum.states.readingOrder.val, '275 280')
   assert.equal(topSystem.states.regulation.val, '0 0')
   assert.equal(topRastrum.states.regulation.val, '0 0')
 })
