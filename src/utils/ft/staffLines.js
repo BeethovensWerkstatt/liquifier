@@ -243,6 +243,134 @@ const groupDtStaffLinesByMatchedBlocks = (dtLayer, matchedBlocks, blockToDtSyste
   return byBlock
 }
 
+const getLineBounds = (lineNodes, transformPoint = point => point) => {
+  let minX = Infinity
+  let maxX = -Infinity
+  let minY = Infinity
+  let maxY = -Infinity
+
+  lineNodes.forEach(line => {
+    const segment = parseLinePath(line.getAttribute('d'))
+    if (!segment) return
+
+    ;[segment.start, segment.end].map(transformPoint).forEach(point => {
+      if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) return
+      minX = Math.min(minX, point.x)
+      maxX = Math.max(maxX, point.x)
+      minY = Math.min(minY, point.y)
+      maxY = Math.max(maxY, point.y)
+    })
+  })
+
+  if (!Number.isFinite(minX) || !Number.isFinite(maxX) || !Number.isFinite(minY) || !Number.isFinite(maxY)) return null
+
+  return { minX, maxX, minY, maxY }
+}
+
+const getDtSystemIdByAtSbId = (atMeiDom, dtLayer) => {
+  const dtSystemIds = new Set(Array.from(dtLayer.querySelectorAll('g.system[data-id]')).map(system => system.getAttribute('data-id')))
+  const mapping = new Map()
+
+  atMeiDom.querySelectorAll('sb[corresp]').forEach(sb => {
+    const sbId = sb.getAttribute('xml:id')
+    if (!sbId) return
+
+    const dtSystemId = String(sb.getAttribute('corresp'))
+      .trim()
+      .split(/\s+/)
+      .map(token => token.split('#')[1] || '')
+      .find(candidate => dtSystemIds.has(candidate))
+
+    if (dtSystemId) mapping.set(sbId, dtSystemId)
+  })
+
+  return mapping
+}
+
+const getDtSystemStaffLines = (dtSystem, dtLayer) => {
+  const nestedLines = Array.from(dtSystem.querySelectorAll('.rastrum:not(.bounding-box) > path'))
+  if (nestedLines.length > 0) return nestedLines
+
+  const rastrumById = new Map(
+    Array.from(dtLayer.querySelectorAll('g.rastrum[data-id]'))
+      .filter(rastrum => !(rastrum.getAttribute('class') || '').split(/\s+/).includes('bounding-box'))
+      .map(rastrum => [
+        rastrum.getAttribute('data-id'),
+        Array.from(rastrum.childNodes || []).filter(child => child?.nodeType === 1 && child.localName === 'path')
+      ])
+  )
+  const seen = new Set()
+
+  return Array.from(dtSystem.querySelectorAll('g.staff[data-rastrum]')).flatMap(staff => {
+    const rastrumId = String(staff.getAttribute('data-rastrum')).trim().split(/\s+/)[0]
+    if (!rastrumId || seen.has(rastrumId)) return []
+    seen.add(rastrumId)
+    return rastrumById.get(rastrumId) || []
+  })
+}
+
+/**
+ * Animates each matched Verovio system as a rigid reading-order unit.
+ *
+ * @param {SVGElement} atLayer - Annotated-transcript SVG layer.
+ * @param {SVGElement} dtLayer - Diplomatic-transcript SVG layer.
+ * @param {Document} atMeiDom - Annotated transcript MEI DOM.
+ * @param {{getNewPos: Function, setAnimation: Function, logger: Object}} tools - Animation utilities.
+ * @returns {void} No return value.
+ */
+export const animateFtReadingOrderSystems = (atLayer, dtLayer, atMeiDom, { getNewPos, setAnimation, logger }) => {
+  const systemBeginById = new Map(
+    Array.from(atLayer.querySelectorAll('g.systemBegin[data-system-id]'))
+      .map(system => [system.getAttribute('data-system-id'), system])
+  )
+  const rastrumBySystemId = new Map(
+    Array.from(atLayer.querySelectorAll('g.bw-system-rastrum[data-system-id]'))
+      .map(rastrum => [rastrum.getAttribute('data-system-id'), rastrum])
+  )
+  const dtSystemById = new Map(
+    Array.from(dtLayer.querySelectorAll('g.system[data-id]'))
+      .map(system => [system.getAttribute('data-id'), system])
+  )
+  const dtSystemIdByAtSbId = getDtSystemIdByAtSbId(atMeiDom, dtLayer)
+  let nextLeft = null
+
+  systemBeginById.forEach((systemBegin, atSbId) => {
+    const rastrum = rastrumBySystemId.get(atSbId)
+    const dtSystem = dtSystemById.get(dtSystemIdByAtSbId.get(atSbId))
+    if (!rastrum || !dtSystem) {
+      logger.warn(`[animateFtReadingOrderSystems] Missing strict rastrum or DT system for AT sb '${atSbId}'.`)
+      return
+    }
+
+    const atBounds = getLineBounds(Array.from(rastrum.querySelectorAll('path.rastrum')))
+    const dtBounds = getLineBounds(
+      getDtSystemStaffLines(dtSystem, dtLayer),
+      point => getNewPos({ x: 0, y: 0 }, point)
+    )
+    if (!atBounds || !dtBounds) {
+      logger.warn(`[animateFtReadingOrderSystems] Missing staff-line bounds for AT sb '${atSbId}'.`)
+      return
+    }
+
+    if (nextLeft === null) nextLeft = atBounds.minX
+    const readingOrderOffset = `${Math.round(nextLeft - dtBounds.minX)} ${Math.round(((atBounds.minY + atBounds.maxY) / 2) - ((dtBounds.minY + dtBounds.maxY) / 2))}`
+    nextLeft += dtBounds.maxX - dtBounds.minX
+    const states = {
+      digitalFacsimile: { type: 'translate', val: '0 0' },
+      writingZone: { type: 'translate', val: '0 0' },
+      finding: { type: 'translate', val: '0 0' },
+      normalization: { type: 'translate', val: '0 0' },
+      readingOrder: { type: 'translate', val: readingOrderOffset },
+      regulation: { type: 'translate', val: '0 0' },
+      supplements: { type: 'translate', val: '0 0' },
+      interventions: { type: 'translate', val: '0 0' }
+    }
+
+    setAnimation({ element: systemBegin, states })
+    setAnimation({ element: rastrum, states })
+  })
+}
+
 export const animateFtStaffLines = (atLayer, dtLayer, { getNewPos, setAnimation, logger }, matchedStaffLineContext = null) => {
   const ftStaffLines = Array.from(atLayer.querySelectorAll('path.rastrum'))
   const dtStaffLines = Array.from(dtLayer.querySelectorAll('.rastrum:not(.bounding-box) > path'))

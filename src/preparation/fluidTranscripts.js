@@ -161,6 +161,36 @@ function buildAtBlockDtSystemMap (atDom) {
 }
 
 /**
+ * Build AT block -> AT sb id mapping.
+ *
+ * @param {Document} atDom - Annotated transcript MEI DOM.
+ * @returns {Map<number, string>} Mapping from AT block index to AT sb id.
+ */
+function buildAtBlockSbMap (atDom) {
+  const blockMap = buildAtMeasureBlockMap(atDom)
+  const sbByBlock = new Map()
+  if (!atDom || blockMap.size === 0) return sbByBlock
+
+  atDom.querySelectorAll('section').forEach(section => {
+    let currentSbId = null
+
+    Array.from(section.querySelectorAll('sb, measure')).forEach(node => {
+      if (node.localName === 'sb') {
+        currentSbId = node.getAttribute('xml:id') || null
+        return
+      }
+
+      const blockIndex = blockMap.get(node.getAttribute('xml:id'))
+      if (currentSbId && Number.isFinite(blockIndex) && !sbByBlock.has(blockIndex)) {
+        sbByBlock.set(blockIndex, currentSbId)
+      }
+    })
+  })
+
+  return sbByBlock
+}
+
+/**
  * Build AT block -> page reference mapping using section traversal order.
  *
  * @param {Document} atDom - Annotated transcript MEI DOM.
@@ -843,7 +873,9 @@ export const generateFluidTranscription = ({
   }
 
   // Build the state-model-specific writer once, then pass through all liquify modules.
-  const setAnimationForMode = createAnimationSetter(stateModel, unmatchedClassByAtId)
+  const setAnimationForMode = createAnimationSetter(stateModel, unmatchedClassByAtId, {
+    measureBlockMap
+  })
 
   animateStaffLines(ftSvg, dtSvgElement, convertD, setAnimationForMode, safeLogger, matchedStaffLineBlocks, blockToDtSystemId)
   animateUnmatchedBlockContainers(
@@ -886,6 +918,7 @@ export const generateFluidTranscription = ({
  * @returns {void} No return value.
  */
 export const adjustAtStaffLines = (svg, atMeiDom, measureBlockMap = buildAtMeasureBlockMap(atMeiDom)) => {
+  const blockToAtSbId = buildAtBlockSbMap(atMeiDom)
   const systemGroups = svg.querySelectorAll('g.system:not(.bounding-box)')
   systemGroups.forEach(system => {
     const measures = Array.from(system.querySelectorAll('g.measure:not(.bounding-box)'))
@@ -929,6 +962,8 @@ export const adjustAtStaffLines = (svg, atMeiDom, measureBlockMap = buildAtMeasu
       const systemRastrum = doc.createElementNS('http://www.w3.org/2000/svg', 'g')
       systemRastrum.setAttribute('class', 'bw-system-rastrum')
       systemRastrum.setAttribute('data-bw-block', String(block))
+      const atSbId = blockToAtSbId.get(block)
+      if (atSbId) systemRastrum.setAttribute('data-system-id', atSbId)
 
       templateLines.forEach((template, idx) => {
         const d = template.getAttribute('d')
@@ -1695,7 +1730,7 @@ export const resolveFluidSystemsStates = (states = {}) => {
  * @param {Element} descriptor - Element processed by this function.
  * @returns {string} Resulting string.
  */
-const setAnimationFluidSystems = (descriptor, unmatchedClassByAtId = new Map()) => {
+const setAnimationFluidSystems = (descriptor, unmatchedClassByAtId = new Map(), animationContext = {}) => {
   const { element, states } = descriptor
   const resolvedStates = resolveFluidSystemsStates(states)
   const {
@@ -1770,9 +1805,9 @@ const setAnimationFluidSystems = (descriptor, unmatchedClassByAtId = new Map()) 
  * @param {string} stateModel - State value used by this function.
  * @returns {void} No return value.
  */
-const createAnimationSetter = (stateModel, unmatchedClassByAtId = new Map()) => {
+const createAnimationSetter = (stateModel, unmatchedClassByAtId = new Map(), animationContext = {}) => {
   if (stateModel === 'fluidSystems') {
-    return descriptor => setAnimationFluidSystems(descriptor, unmatchedClassByAtId)
+    return descriptor => setAnimationFluidSystems(descriptor, unmatchedClassByAtId, animationContext)
   }
 
   return descriptor => setAnimationFluidTranscript(descriptor, unmatchedClassByAtId)

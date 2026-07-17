@@ -435,6 +435,61 @@ test('generateFluidTranscription fluidSystems keeps staff lines stable through r
   assert.ok(transitionsAtRegulation.some(Boolean))
 })
 
+test('generateFluidTranscription fluidSystems keeps matched block geometry stable through readingOrder', () => {
+  const atSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 400">
+      <g class="system" data-id="sysA">
+        <g class="measure" data-id="m1">
+          <g class="staff"><path d="M10 100 L90 100"/></g>
+        </g>
+        <g class="measure" data-id="m2">
+          <g class="staff"><path d="M140 100 L240 100"/></g>
+        </g>
+      </g>
+    </svg>
+  `, 'image/svg+xml')
+
+  const dtSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 400">
+      <g class="system" data-id="s1">
+        <g class="rastrum bounding-box"><rect x="0" y="90" width="80" height="20"/></g>
+        <g class="rastrum"><path d="M0 100 L80 100"/></g>
+      </g>
+      <g class="system" data-id="s2">
+        <g class="rastrum bounding-box"><rect x="0" y="190" width="80" height="20"/></g>
+        <g class="rastrum"><path d="M0 200 L80 200"/></g>
+      </g>
+    </svg>
+  `, 'image/svg+xml')
+
+  const atMei = parser.parseFromString(`
+    <mei xmlns="http://www.music-encoding.org/ns/mei">
+      <music><body><mdiv><score><section>
+        <measure xml:id="m1"/>
+        <sb xml:id="sb2" corresp="#s2"/>
+        <measure xml:id="m2"/>
+      </section></score></mdiv></body></music>
+    </mei>
+  `, 'text/xml')
+
+  const logger = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} }
+  const outSvg = generateFluidTranscription(dtSvg, atSvg, atMei, logger, {
+    stateModel: 'fluidSystems',
+    matchedStaffLineBlocks: new Set([0, 1]),
+    blockToDtSystemId: new Map([[0, 's1'], [1, 's2']])
+  })
+
+  const blockOneLine = outSvg.querySelector('path.rastrum[data-bw-block="1"]')
+  assert.ok(blockOneLine)
+
+  const dValues = blockOneLine.querySelector('animate[attributeName="d"]').getAttribute('values').split(';')
+  assert.equal(dValues.length, 8)
+  assert.equal(dValues[3], dValues[4], 'normalization and readingOrder should retain identical child geometry')
+  assert.notEqual(dValues[4], dValues[5], 'readingOrder and regulation should still differ')
+
+  assert.notEqual(dValues[4], dValues[5], 'regulation should still be able to change internal layout after readingOrder')
+})
+
 test('generateFluidTranscription fluidTranscripts builds separate AT target staff sets per AT block', () => {
   const atSvg = parser.parseFromString(`
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">

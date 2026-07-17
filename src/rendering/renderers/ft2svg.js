@@ -27,7 +27,7 @@ import { getRectFromFragment, getOuterBoundingRect } from '../../utils/trigonome
 import { computeApproxBBox } from '../../utils/svgGeometry.js'
 import { resolvePathFromDocumentReference, readTextFromDocumentReference } from '../../utils/utils.js'
 import { addTransform, prepareAssets } from '../../utils/ft/animation.js'
-import { animateFtStaffLines, trimDtStaffLinesToContent } from '../../utils/ft/staffLines.js'
+import { animateFtReadingOrderSystems, animateFtStaffLines, trimDtStaffLinesToContent } from '../../utils/ft/staffLines.js'
 import { retrieveHorizontalPositionFromDt } from '../../utils/ft/positioning.js'
 
 import { constants } from '../../config.mjs'
@@ -180,6 +180,7 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
       const matchedStaffLineContext = resolveMatchedStaffLineContextForCurrentDt(data.atDom, data.dtDom, logger)
 
       animateFtStaffLines(transcriptionGroup, ftSvgDom.querySelector('.diplomatic'), tools, matchedStaffLineContext)
+      animateFtReadingOrderSystems(transcriptionGroup, ftSvgDom.querySelector('.diplomatic'), data.editedAtDom || data.atDom, tools)
       liquifyMusic(transcriptionGroup, ftSvgDom.querySelector('.diplomatic'), data.editedAtDom || data.atDom, tools)
 
       // hide unmodified DT, as it is now included in FT transformation

@@ -656,12 +656,11 @@ export function addSystemLabelBlocks (svgDom, atDom, dtDom, sourceDom, contextDo
       if (isElement(next)) {
         if (hasClass(next, 'sb')) {
           const sbDataId = normalizeId(next.getAttribute('data-id'))
-          const sbCorrespId = normalizeId(next.getAttribute('data-corresp'))
           const sysBox = doc.createElementNS('http://www.w3.org/2000/svg', 'g')
           sysBox.setAttribute('class', 'systemBegin')
           sysBox.setAttribute('data-class', 'systemBegin')
           sysBox.setAttribute('data-id', sbDataId)
-          sysBox.setAttribute('data-system-id', sbCorrespId || sbDataId)
+          sysBox.setAttribute('data-system-id', sbDataId)
 
           content.push(sysBox)
           const sysBoxContent = []
