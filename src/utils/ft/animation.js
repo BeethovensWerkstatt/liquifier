@@ -203,6 +203,7 @@ export const prepareAssets = ({
   atLayer,
   dtLayer,
   atMeiDom,
+  atRegSvgDom,
   currentDtReference,
   atScaling,
   atHorizontalPosition,
@@ -291,7 +292,8 @@ export const prepareAssets = ({
     scaleFactor: atScaling !== 0 ? (1 / atScaling) : 1,
     correspMappings,
     stateModel: 'fluidTranscripts',
-    getRegSuppTranslate: () => '0 0',
+    atMeiDom,
+    atRegSvgDom,
     applyUnmatchedClass,
     setAnimation: descriptor => setAnimationForFtWithAssets(descriptor, unmatchedClassByAtId),
     logger

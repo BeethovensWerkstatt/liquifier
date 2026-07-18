@@ -15,11 +15,10 @@
  * @param {Map<string, string[]>} tools.correspMappings - AT element id to DT ids mapping
  * @param {Function} tools.setAnimation - Phase-aware animation descriptor writer
  * @param {Object} tools.logger - Logger instance
- * @param {Function} tools.getRegSuppTranslate - Returns regulation/supplements translate for one element id
  * @returns {number} Resulting numeric value.
  */
 export const liquifyArtics = (ftSvg, dtSvg, atMeiDom, tools) => {
-  const { getNewPos, correspMappings, setAnimation, logger, getRegSuppTranslate } = tools
+  const { getNewPos, correspMappings, setAnimation, logger } = tools
 
   // Get all articulation groups from fluid transcription (excluding bounding boxes)
   const artics = ftSvg.querySelectorAll('g.artic:not(.bounding-box)')
@@ -148,7 +147,6 @@ export const liquifyArtics = (ftSvg, dtSvg, atMeiDom, tools) => {
 
     // Add animation to the artic group
     const atVal = '0 0'
-    const regSuppVal = getRegSuppTranslate(atId)
 
     setAnimation({
       element: atArtic,
@@ -156,8 +154,8 @@ export const liquifyArtics = (ftSvg, dtSvg, atMeiDom, tools) => {
         finding: { type: 'translate', val: `${translateX} ${translateY}` },
         normalization: { type: 'translate', val: `${translateX} ${translateY}` },
         // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
-        regulation: { type: 'translate', val: regSuppVal },
-        supplements: { type: 'translate', val: regSuppVal },
+        regulation: { type: 'translate', val: atVal },
+        supplements: { type: 'translate', val: atVal },
         interventions: { type: 'translate', val: atVal }
       }
     })

@@ -21,11 +21,10 @@ import { closestElement } from '../../utils/dom.js'
  * @param {Function} tools.getNewPos - Converts DT coordinates into FT coordinate space
  * @param {Map<string, string[]>} tools.correspMappings - AT element id to DT ids mapping
  * @param {Function} tools.setAnimation - Phase-aware animation descriptor writer
- * @param {Function} tools.getRegSuppTranslate - Returns regulation/supplements translate for one element id
- * @returns {number} Resulting numeric value.
+ * @param {Document} tools.atRegSvgDom - AT SVG DOM with a rendered version of the AT with choices resolved to "reg"
  */
 export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
-  const { scaleFactor, getNewPos, correspMappings, setAnimation, getRegSuppTranslate } = tools
+  const { scaleFactor, getNewPos, correspMappings, setAnimation } = tools
 
   const notes = ftSvg.querySelectorAll('g.note:not(.bounding-box)')
   notes.forEach(note => {
@@ -37,12 +36,25 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
     const atId = note.getAttribute('data-id')
     const dtIds = correspMappings.get(atId)
 
+    const editedAtNote = atMeiDom.querySelector(`note[xml\\:id="${atId}"]`)
+    const noteIsInsideChoice = closestElement(editedAtNote, 'choice') !== null
+    const regNoteId = noteIsInsideChoice ? closestElement(editedAtNote, 'choice')?.querySelector('reg note')?.getAttribute('xml:id') : atId
+    const regNote = tools.atRegSvgDom.querySelector(`g.note[data-id="${regNoteId}"]`)
+
     // Animate the notehead - extract x, y from transform translate()
     const atHeadUse = note.querySelector('.notehead > use')
     const atHeadTranslate = atHeadUse?.getAttribute('transform')?.match(/translate\(\s*([\d.-]+)\s*,\s*([\d.-]+)\s*\)/)
     if (!atHeadTranslate) return
 
     const atHead = { x: parseFloat(atHeadTranslate[1]), y: parseFloat(atHeadTranslate[2]) }
+
+    const interventionsHeadUse = regNote.querySelector('.notehead > use')
+    const interventionsHeadTranslate = interventionsHeadUse?.getAttribute('transform')?.match(/translate\(\s*([\d.-]+)\s*,\s*([\d.-]+)\s*\)/)
+    const interventionsHead = { x: parseFloat(interventionsHeadTranslate[1]), y: parseFloat(interventionsHeadTranslate[2]) }
+
+    // default value for regulation and supplements position
+    const atOrigVal = '0 0'
+    const atRegVal = `${interventionsHead.x - atHead.x} ${interventionsHead.y - atHead.y}`
 
     // If no DT correspondence, hide the note
     if (!dtIds || dtIds.length === 0) {
@@ -52,9 +64,9 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
           finding: null,
           normalization: null,
           // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
-          regulation: { type: 'translate', val: '0 0' },
-          supplements: { type: 'translate', val: '0 0' },
-          interventions: { type: 'translate', val: '0 0' }
+          regulation: { type: 'translate', val: atOrigVal },
+          supplements: { type: 'translate', val: atOrigVal },
+          interventions: { type: 'translate', val: atRegVal }
         }
       })
       return
@@ -69,9 +81,9 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
             finding: null,
             normalization: null,
             // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
-            regulation: { type: 'translate', val: '0 0' },
-            supplements: { type: 'translate', val: '0 0' },
-            interventions: { type: 'translate', val: '0 0' }
+            regulation: { type: 'translate', val: atOrigVal },
+            supplements: { type: 'translate', val: atOrigVal },
+            interventions: { type: 'translate', val: atRegVal }
           }
         })
         return
@@ -83,9 +95,7 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
 
       // Animate the notehead
       const newHeadPos = getNewPos(atHead, dtHead)
-      const atVal = '0 0'
       const dtVal = parseFloat(newHeadPos.x - atHead.x) + ' ' + parseFloat(newHeadPos.y - atHead.y)
-      const regSuppVal = getRegSuppTranslate(atId)
 
       setAnimation({
         element: note,
@@ -93,9 +103,9 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
           finding: { type: 'translate', val: dtVal },
           normalization: { type: 'translate', val: dtVal },
           // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
-          regulation: { type: 'translate', val: regSuppVal },
-          supplements: { type: 'translate', val: regSuppVal },
-          interventions: { type: 'translate', val: atVal }
+          regulation: { type: 'translate', val: atOrigVal },
+          supplements: { type: 'translate', val: atOrigVal },
+          interventions: { type: 'translate', val: atRegVal }
         }
       })
 

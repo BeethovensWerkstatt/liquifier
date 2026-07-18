@@ -14,11 +14,10 @@ import { hasClass, queryDirectChild } from '../../utils/dom.js'
  * @param {Map<string, string[]>} tools.correspMappings - AT element id to DT ids mapping
  * @param {Function} tools.setAnimation - Phase-aware animation descriptor writer
  * @param {Object} tools.logger - Logger instance
- * @param {Function} tools.getRegSuppTranslate - Returns regulation/supplements translate for one element id
  * @returns {string} Resulting string.
  */
 export const liquifyAccids = (ftSvg, dtSvg, atMeiDom, tools) => {
-  const { getNewPos, correspMappings, setAnimation, logger, getRegSuppTranslate } = tools
+  const { getNewPos, correspMappings, setAnimation, logger } = tools
 
   // TODO: Implement keyAccids!
 
@@ -173,15 +172,14 @@ export const liquifyAccids = (ftSvg, dtSvg, atMeiDom, tools) => {
         // Apply relative animation to the parent accid group
         const atVal = '0 0'
         const dtVal = `${diffX} ${diffY}`
-        const regSuppVal = getRegSuppTranslate(atId)
         setAnimation({
           element: currentAccid,
           states: {
             finding: { type: 'translate', val: dtVal },
             normalization: { type: 'translate', val: dtVal },
             // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
-            regulation: { type: 'translate', val: regSuppVal },
-            supplements: { type: 'translate', val: regSuppVal },
+            regulation: { type: 'translate', val: atVal },
+            supplements: { type: 'translate', val: atVal },
             interventions: { type: 'translate', val: atVal }
           }
         })

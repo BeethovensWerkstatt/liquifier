@@ -41,12 +41,14 @@ import { liquifyStaffGrpBraces } from './liquify/staffGrpBraces.js'
  * @param {number} tools.scaleFactor - DT-to-AT scale factor
  * @param {Map<string, string[]>} tools.correspMappings - AT element id to DT ids mapping
  * @param {string} tools.stateModel - Active state model (fluidTranscript or fluidSystems)
- * @param {Function} tools.getRegSuppTranslate - Returns regulation/supplements translate for one element id
  * @param {Function} tools.setAnimation - Phase-aware animation descriptor writer
  * @param {Object} tools.logger - Logger instance
  * @returns {void} No return value.
  */
-export const liquifyMusic = (ftSvg, dtSvg, atMeiDom, tools) => {
+export const liquifyMusic = (ftSvg, dtSvg, tools) => {
+  const atMeiDom = tools.atMeiDom
+  // const atRegSvgDom = tools.atRegSvgDom
+
   // events
   liquifyNotes(ftSvg, dtSvg, atMeiDom, tools)
   liquifyBarlines(ftSvg, dtSvg, atMeiDom, tools)

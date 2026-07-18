@@ -170,6 +170,7 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
         atLayer: transcriptionGroup,
         dtLayer: ftSvgDom.querySelector('.diplomatic'),
         atMeiDom: data.editedAtDom,
+        atRegSvgDom: data.atRegSvgDom,
         currentDtReference: triple.dtFullPath || triple.dt || '',
         atScaling,
         atHorizontalPosition,
@@ -265,22 +266,36 @@ const prepareAtForFt = async (atDom, dtDom, data, verovio, pageDimensions, layou
     // Verovio expects dots as attributes, so we need to convert, also no <supplied> in <scoreDef>
     prepareAtForVerovio(editedAtDom)
 
-    const vrvOptions = {
-      breaks: 'none',
-      mmOutput: true,
-      unit: layoutInfo.pages.find(page => page.current).vrvMeiUnit,
-      scale: 100,
-      svgBoundingBoxes: false
+    // renders AT resolving choices to either ./orig or ./reg, depending on the version parameter
+    const renderAt = (choiceXPath) => {
+      const vrvOptions = {
+        breaks: 'none',
+        mmOutput: true,
+        unit: layoutInfo.pages.find(page => page.current).vrvMeiUnit,
+        scale: 100,
+        svgBoundingBoxes: false,
+        choiceXPathQuery: choiceXPath
+      }
+      // this is necessary to reset Verovio's choiceXPathQuery – it will just add the new otherwise
+      verovio.resetOptions()
+      const atSvgString = renderContinuousAt(editedAtDom, verovio, 'fluid', pageDimensions, vrvOptions)
+      const parser = new DOMParser()
+      const dom = parser.parseFromString(atSvgString, 'image/svg+xml')
+
+      return dom
     }
 
-    const atSvgString = renderContinuousAt(editedAtDom, verovio, 'fluid', pageDimensions, vrvOptions)
-    const parser = new DOMParser()
-    const atSvgDom = parser.parseFromString(atSvgString, 'image/svg+xml')
+    const origAtSvgDom = renderAt('./orig')
+    const regAtSvgDom = renderAt('./reg')
 
-    const mod = addSystemLabelBlocks(atSvgDom, editedAtDom, data.dtDom, data.sourceDom, data.reconstructionDom, triple)
+    const mod = addSystemLabelBlocks(origAtSvgDom, editedAtDom, data.dtDom, data.sourceDom, data.reconstructionDom, triple)
     adjustAtStaffLines(mod, editedAtDom)
 
+    const regMod = addSystemLabelBlocks(regAtSvgDom, editedAtDom, data.dtDom, data.sourceDom, data.reconstructionDom, triple)
+    adjustAtStaffLines(regMod, editedAtDom)
+
     data.atSvgDom = mod // store the rendered AT SVG DOM for later use in FT processing
+    data.atRegSvgDom = regMod // store the rendered AT SVG DOM for later use in FT processing
     data.editedAtDom = editedAtDom // store the edited AT DOM for later use in FT processing
     return mod
     //
