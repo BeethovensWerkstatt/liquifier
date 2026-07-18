@@ -127,15 +127,15 @@ export const liquifyBarlines = (ftSvg, dtSvg, atMeiDom, tools) => {
     }
 
     // Create array to hold the original and cloned barLine paths
-    const barLineElements = [atBarline[0]]
+    const barLineElements = atBarline.slice()
 
     // If multiple DT barlines in this system, create clones for each additional one
-    if (availableDtIds.length > 1) {
-      const parent = atBarline[0].parentNode
-      for (let i = 1; i < availableDtIds.length; i++) {
+    if (availableDtIds.length > atBarline.length) {
+      const parent = atBarline[atBarline.length - 1].parentNode
+      for (let i = atBarline.length; i < availableDtIds.length; i++) {
         const clone = atBarline[0].cloneNode(true)
         // Insert clone after the previous element
-        parent.insertBefore(clone, barLineElements[i - 1].nextSibling)
+        parent.insertBefore(clone, atBarline[i - 1].nextSibling)
         barLineElements.push(clone)
       }
     }
