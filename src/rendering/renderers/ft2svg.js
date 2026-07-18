@@ -169,7 +169,7 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
         ftSvgDom,
         atLayer: transcriptionGroup,
         dtLayer: ftSvgDom.querySelector('.diplomatic'),
-        atMeiDom: data.editedAtDom || data.atDom,
+        atMeiDom: data.editedAtDom,
         currentDtReference: triple.dtFullPath || triple.dt || '',
         atScaling,
         atHorizontalPosition,
@@ -181,8 +181,8 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
       const readingOrderSystemDistance = constants.ftReadingOrderSystemDistanceMm * currentPage.vrvMeiUnit * constants.verovioGeneralScaling
 
       animateFtStaffLines(transcriptionGroup, ftSvgDom.querySelector('.diplomatic'), tools, matchedStaffLineContext)
-      animateFtReadingOrderSystems(transcriptionGroup, ftSvgDom.querySelector('.diplomatic'), data.editedAtDom || data.atDom, tools, readingOrderSystemDistance)
-      liquifyMusic(transcriptionGroup, ftSvgDom.querySelector('.diplomatic'), data.editedAtDom || data.atDom, tools)
+      animateFtReadingOrderSystems(transcriptionGroup, ftSvgDom.querySelector('.diplomatic'), data.editedAtDom, tools, readingOrderSystemDistance)
+      liquifyMusic(transcriptionGroup, ftSvgDom.querySelector('.diplomatic'), tools)
 
       // hide unmodified DT, as it is now included in FT transformation
       ftSvgDom.querySelector('.diplomatic').setAttribute('style', 'display: none;')
