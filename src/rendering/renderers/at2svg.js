@@ -1,11 +1,14 @@
-import { addSbIndicators, prepareAtForVerovio } from '../../preparation/annotatedTranscripts.js'
-import { renderContinuousAt, renderSystemBasedAt } from '../verovioHandler.js'
+import { prepareEditedAtDom } from '../../preparation/editedAnnotatedTranscripts.js'
+import { prepareAtForVerovio } from '../../preparation/annotatedTranscripts.js'
+import { renderContinuousAt } from '../verovioHandler.js'
 import { writeData } from '../../filehandlers/filehandler.js'
 import { shouldRender } from '../../utils/rendering.js'
 
 /**
  * Render Annotated Transcript SVG.
- * Renders both the full continuous AT and individual system ATs.
+ *
+ * Renders the full AT from the edited AT (the same DOM used for the fluid
+ * transcripts and the annotated MIDI), resolving `<choice>` elements to `./reg`.
  *
  * @param {Object} params - Rendering parameters.
  * @param {Object} params.data - Source data (atDom, dtDom, sourceDom).
@@ -21,33 +24,15 @@ export async function renderAnnotatedTranscriptSvg ({ data, triple, verovio, pag
 
   if (shouldRender(recreate, [atDate], atSvgDate)) {
     logger.info('Rendering Annotated Transcript for ' + atSvgPath + ' ...')
-    const atWithSbIndicators = addSbIndicators(data.atDom.cloneNode(true))
-    const atOutDom = prepareAtForVerovio(atWithSbIndicators)
 
-    const atSvgString = renderContinuousAt(atOutDom, verovio, 'annotated', pageDimensions)
+    const editedAtDom = prepareEditedAtDom(data.atDom, data.dtDom)
+    prepareAtForVerovio(editedAtDom)
+
+    // this is necessary to reset Verovio's choiceXPathQuery – it will just add the new otherwise
+    verovio.resetOptions()
+    const atSvgString = renderContinuousAt(editedAtDom, verovio, 'annotated', pageDimensions, { choiceXPathQuery: './reg' })
     await writeData(atSvgString, atSvgPath)
     logger.info('Successfully rendered ' + atSvgPath)
-
-    try {
-      const systemSvgs = renderSystemBasedAt(atOutDom, verovio, pageDimensions)
-
-      if (systemSvgs.length > 0) {
-        logger.info(`Rendering ${systemSvgs.length} individual AT systems...`)
-
-        systemSvgs.forEach(async ({ systemId, svg }) => {
-          if (systemId && svg) {
-            const systemSvgPath = atSvgPath.replace('_at.svg', `_sys${systemId}_at.svg`)
-            await writeData(svg, systemSvgPath)
-            logger.debug(`  Rendered AT system ${systemId}`)
-          }
-        })
-
-        logger.info(`Successfully rendered all ${systemSvgs.length} AT systems`)
-      }
-    } catch (error) {
-      logger.error('Error rendering AT systems: ' + error.message)
-      throw error
-    }
   } else {
     logger.info('Skipping Annotated Transcript for ' + atSvgPath)
   }
