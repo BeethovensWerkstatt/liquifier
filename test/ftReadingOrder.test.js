@@ -48,3 +48,33 @@ test('animateFtReadingOrderSystems uses sb corresp and moves the matched system 
   assert.equal(topSystem.states.regulation.val, '0 0')
   assert.equal(topRastrum.states.regulation.val, '0 0')
 })
+
+test('animateFtReadingOrderSystems keeps a single system fixed and rotates its content', () => {
+  const atLayer = parser.parseFromString(`
+    <g xmlns="http://www.w3.org/2000/svg">
+      <g class="systemBegin" data-system-id="sb-1"><g class="bw-system-content"/></g>
+      <g class="bw-system-rastrum" data-system-id="sb-1"><path class="rastrum" d="M100 100 L300 100"/></g>
+    </g>
+  `, 'image/svg+xml').documentElement
+  const dtLayer = parser.parseFromString(`
+    <g xmlns="http://www.w3.org/2000/svg">
+      <g class="system" data-id="dt-1"><g class="staff" data-rastrum="r-1" style="transform: rotate(-0.2deg); transform-origin: 10px 20px;"/><g class="rastrum"><path d="M0 20 L100 20"/></g></g>
+    </g>
+  `, 'image/svg+xml').documentElement
+  const atMei = parser.parseFromString('<mei><sb xml:id="sb-1" corresp="#dt-1"/></mei>', 'text/xml')
+  const recorded = []
+
+  animateFtReadingOrderSystems(atLayer, dtLayer, atMei, {
+    getNewPos: (at, dt) => dt,
+    setAnimation: descriptor => recorded.push(descriptor),
+    logger: { warn: () => {} }
+  })
+
+  const system = recorded.find(({ element }) => element.getAttribute('class') === 'systemBegin')
+  const rastrum = recorded.find(({ element }) => element.getAttribute('class') === 'bw-system-rastrum')
+  const content = recorded.find(({ element }) => element.getAttribute('class') === 'bw-system-content')
+  assert.equal(system.states.readingOrder.val, '0 0')
+  assert.equal(rastrum.states.readingOrder.val, '0 0')
+  assert.equal(content.states.readingOrder.val, '-0.2 10 20')
+  assert.equal(content.states.regulation.val, '0 10 20')
+})

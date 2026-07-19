@@ -26,6 +26,20 @@ const addTransformTranslate = (node, values = []) => {
   anim.setAttribute('dur', constants.ftRendererAnimationDuration)
 }
 
+const addTransformRotate = (node, values = []) => {
+  if (values.length === 0) return
+
+  const anim = appendNewElement(node, 'animateTransform', 'http://www.w3.org/2000/svg')
+  anim.setAttribute('attributeName', 'transform')
+  anim.setAttribute('attributeType', 'XML')
+  anim.setAttribute('type', 'rotate')
+
+  const reverse = constants.ftRendererReverseAnimations ? values.slice(0, -1).reverse() : []
+  anim.setAttribute('values', values.concat(reverse).join(';'))
+  anim.setAttribute('repeatCount', constants.ftRendererAnimationRepeatCount)
+  anim.setAttribute('dur', constants.ftRendererAnimationDuration)
+}
+
 export const addTransform = (node, attribute, values = []) => {
   const anim = appendNewElement(node, 'animate', 'http://www.w3.org/2000/svg')
   anim.setAttribute('attributeName', attribute)
@@ -193,6 +207,8 @@ function setAnimationForFtWithAssets (descriptor, unmatchedClassByAtId = new Map
 
   if (animationType === 'translate') {
     addTransformTranslate(element, values)
+  } else if (animationType === 'rotate') {
+    addTransformRotate(element, values)
   } else {
     addTransform(element, animationType, values)
   }

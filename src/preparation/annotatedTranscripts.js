@@ -864,6 +864,13 @@ export function addSystemLabelBlocks (svgDom, atDom, dtDom, sourceDom, contextDo
       prependChild(sysBox, previewSystemBox)
       prependChild(sysBox, previewPageBox)
       prependChild(sysBox, rect)
+
+      const systemContent = doc.createElementNS('http://www.w3.org/2000/svg', 'g')
+      systemContent.setAttribute('class', 'bw-system-content')
+      Array.from(sysBox.childNodes).forEach(child => {
+        systemContent.appendChild(child)
+      })
+      sysBox.appendChild(systemContent)
     })
   })
 

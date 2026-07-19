@@ -309,6 +309,11 @@ const getDtSystemStaffLines = (dtSystem, dtLayer) => {
   })
 }
 
+const getDtSystemRotation = (dtSystem) => {
+  const firstStaff = dtSystem.querySelector('g.staff[data-rastrum]')
+  return parseRotationStyle(firstStaff?.getAttribute('style') || '')
+}
+
 /**
  * Animates each matched Verovio system as a rigid reading-order unit.
  *
@@ -333,6 +338,7 @@ export const animateFtReadingOrderSystems = (atLayer, dtLayer, atMeiDom, { getNe
       .map(system => [system.getAttribute('data-id'), system])
   )
   const dtSystemIdByAtSbId = getDtSystemIdByAtSbId(atMeiDom, dtLayer)
+  const hasSingleSystem = systemBeginById.size === 1
   let nextLeft = null
 
   systemBeginById.forEach((systemBegin, atSbId) => {
@@ -354,7 +360,9 @@ export const animateFtReadingOrderSystems = (atLayer, dtLayer, atMeiDom, { getNe
     }
 
     if (nextLeft === null) nextLeft = atBounds.minX
-    const readingOrderOffset = `${Math.round(nextLeft - dtBounds.minX)} ${Math.round(((atBounds.minY + atBounds.maxY) / 2) - ((dtBounds.minY + dtBounds.maxY) / 2))}`
+    const readingOrderOffset = hasSingleSystem
+      ? '0 0'
+      : `${Math.round(nextLeft - dtBounds.minX)} ${Math.round(((atBounds.minY + atBounds.maxY) / 2) - ((dtBounds.minY + dtBounds.maxY) / 2))}`
     nextLeft += (dtBounds.maxX - dtBounds.minX) + readingOrderSystemDistance
     const states = {
       digitalFacsimile: { type: 'translate', val: '0 0' },
@@ -369,6 +377,27 @@ export const animateFtReadingOrderSystems = (atLayer, dtLayer, atMeiDom, { getNe
 
     setAnimation({ element: systemBegin, states })
     setAnimation({ element: rastrum, states })
+
+    const rotation = getDtSystemRotation(dtSystem)
+    const systemContent = systemBegin.querySelector('g.bw-system-content')
+    if (rotation && rotation.angle !== 0 && systemContent) {
+      const pivot = getNewPos({ x: 0, y: 0 }, rotation.origin)
+      const rotationValue = `${rotation.angle} ${pivot.x} ${pivot.y}`
+      const atRotationValue = `0 ${pivot.x} ${pivot.y}`
+      setAnimation({
+        element: systemContent,
+        states: {
+          digitalFacsimile: { type: 'rotate', val: rotationValue },
+          writingZone: { type: 'rotate', val: rotationValue },
+          finding: { type: 'rotate', val: rotationValue },
+          normalization: { type: 'rotate', val: rotationValue },
+          readingOrder: { type: 'rotate', val: rotationValue },
+          regulation: { type: 'rotate', val: atRotationValue },
+          supplements: { type: 'rotate', val: atRotationValue },
+          interventions: { type: 'rotate', val: atRotationValue }
+        }
+      })
+    }
   })
 }
 
