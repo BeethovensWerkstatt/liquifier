@@ -17,7 +17,7 @@
 export const liquifyStaffGrpBraces = (ftSvg, dtSvg, atMeiDom, tools) => {
   const { setAnimation } = tools
 
-  const braces = ftSvg.querySelectorAll('g.system + path')
+  const braces = ftSvg.querySelectorAll('g.system > path')
 
   braces.forEach(brace => {
     brace.setAttribute('opacity', '0')
