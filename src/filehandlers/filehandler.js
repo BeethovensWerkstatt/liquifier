@@ -341,12 +341,19 @@ export function getFilesObject (file, inputDir = './', outputDir = './cache') {
       get atSvgDate () {
         return gitFileDate(this.atSvgPath)
       },
-      get atMidPath () {
-        const basePath = path.join(outputDir, this.at.replace('.xml', '.mid').replace('/annotatedTranscripts/', '/annotatedMidi/'))
+      get atMidOrigPath () {
+        const basePath = path.join(outputDir, this.at.replace('_at.xml', '_at_orig.mid').replace('/annotatedTranscripts/', '/annotatedMidi/'))
         return insertPageFolder(basePath, this.page)
       },
-      get atMidDate () {
-        return gitFileDate(this.atMidPath)
+      get atMidOrigDate () {
+        return gitFileDate(this.atMidOrigPath)
+      },
+      get atMidRegPath () {
+        const basePath = path.join(outputDir, this.at.replace('_at.xml', '_at_reg.mid').replace('/annotatedTranscripts/', '/annotatedMidi/'))
+        return insertPageFolder(basePath, this.page)
+      },
+      get atMidRegDate () {
+        return gitFileDate(this.atMidRegPath)
       },
       get editedAtPath () {
         const basePath = path

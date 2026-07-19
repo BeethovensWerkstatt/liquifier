@@ -44,8 +44,12 @@ test('getFilesObject returns expected page-based output paths', () => {
     path.join(outputDir, 'sources/SRC_01/annotatedTranscripts/p005/SRC_01_p005_wz06_at.svg')
   )
   assert.equal(
-    triple.atMidPath,
-    path.join(outputDir, 'sources/SRC_01/annotatedMidi/p005/SRC_01_p005_wz06_at.mid')
+    triple.atMidOrigPath,
+    path.join(outputDir, 'sources/SRC_01/annotatedMidi/p005/SRC_01_p005_wz06_at_orig.mid')
+  )
+  assert.equal(
+    triple.atMidRegPath,
+    path.join(outputDir, 'sources/SRC_01/annotatedMidi/p005/SRC_01_p005_wz06_at_reg.mid')
   )
   assert.equal(
     triple.editedAtPath,

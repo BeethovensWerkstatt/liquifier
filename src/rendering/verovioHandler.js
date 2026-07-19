@@ -135,9 +135,16 @@ export const renderSystemBasedAt = (dom, verovio, pageDimensions) => {
  *
  * @param {Document} dom - Source document used by this function.
  * @param {Object} verovio - Verovio toolkit instance.
+ * @param {Object} extraOptions - Additional Verovio options to apply before rendering (e.g. choiceXPathQuery).
  * @returns {string} Resulting string.
  */
-export const renderMidi = (dom, verovio) => {
+export const renderMidi = (dom, verovio, extraOptions = {}) => {
+  // this is necessary to reset Verovio's choiceXPathQuery – it will just add the new otherwise
+  verovio.resetOptions()
+  if (Object.keys(extraOptions).length > 0) {
+    verovio.setOptions(extraOptions)
+  }
+
   const domString = new XMLSerializer().serializeToString(dom)
   verovio.loadData(domString)
   const midi64 = verovio.renderToMIDI()

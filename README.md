@@ -210,7 +210,8 @@ cache/sources/D-BNba_MH_60_Engelmann/
 │       └── ...
 ├── annotatedMidi/
 │   └── p005/
-│       ├── D-BNba_MH_60_Engelmann_p005_wz06_at.mid
+│       ├── D-BNba_MH_60_Engelmann_p005_wz06_at_orig.mid
+│       ├── D-BNba_MH_60_Engelmann_p005_wz06_at_reg.mid
 │       └── ...
 ├── diplomaticTranscripts/
 │   └── p005/
@@ -272,7 +273,8 @@ All output files follow consistent naming conventions:
 | Type | Pattern | Example |
 |------|---------|---------|
 | Annotated Transcript | `{source}_{page}_{wz}_at.svg` | `D-BNba_MH_60_Engelmann_p005_wz06_at.svg` |
-| Annotated MIDI | `{source}_{page}_{wz}_at.mid` | `D-BNba_MH_60_Engelmann_p005_wz06_at.mid` |
+| Annotated MIDI (orig, Phase 7) | `{source}_{page}_{wz}_at_orig.mid` | `D-BNba_MH_60_Engelmann_p005_wz06_at_orig.mid` |
+| Annotated MIDI (reg, Phase 8) | `{source}_{page}_{wz}_at_reg.mid` | `D-BNba_MH_60_Engelmann_p005_wz06_at_reg.mid` |
 | Diplomatic Transcript (Full) | `{source}_{page}_{wz}_dt.svg` | `D-BNba_MH_60_Engelmann_p005_wz06_dt.svg` |
 | Diplomatic System | `{source}_{page}_{wz}_sys{systemId}_dt.svg` | `D-BNba_MH_60_Engelmann_p005_wz06_syss289fb17d-10e3-4b27-9b64-8d2d6a560c1d_dt.svg` |
 | Fluid Transcript | `{source}_{page}_{wz}_ft.svg` | `D-BNba_MH_60_Engelmann_p005_wz06_ft.svg` |
