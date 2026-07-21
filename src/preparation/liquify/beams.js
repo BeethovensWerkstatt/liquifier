@@ -506,9 +506,12 @@ export const liquifyBeams = (ftSvg, dtSvg, atMeiDom, tools) => {
     const atPolygons = beam.querySelectorAll('polygon')
     if (atPolygons.length === 0) return
 
-    // Calculate normalized beams for finding and normalization states
+    // Keep normalization geometry keyed to the top-to-bottom AT order.
     const atSorted = sortPolygonsByPosition(Array.from(atPolygons))
     const normalizedBeams = calculateDiplomaticBeams(ftSvg, atMeiDom, atId, atSorted.map(p => p.element), logger)
+    const normalizedPointsByAtPolygon = new Map(
+      atSorted.map((polygon, index) => [polygon.element, normalizedBeams?.diplomaticPolygons?.[index]])
+    )
 
     // Collect all DT polygons from all corresponding DT beams
     const allDtPolygons = []
@@ -548,7 +551,9 @@ export const liquifyBeams = (ftSvg, dtSvg, atMeiDom, tools) => {
       return { element: item.element, dtId: item.dtId, avgY, points }
     }).sort((a, b) => a.avgY - b.avgY)
 
-    // Match polygons from top to bottom
+    const stemDir = getBeamStemDirection(atMeiDom, atId)
+    const atOrdered = stemDir === 'down' ? [...atSorted].reverse() : atSorted
+    const dtOrdered = stemDir === 'down' ? [...dtSorted].reverse() : dtSorted
     const minCount = Math.min(atSorted.length, dtSorted.length)
 
     if (atSorted.length !== dtSorted.length) {
@@ -557,8 +562,8 @@ export const liquifyBeams = (ftSvg, dtSvg, atMeiDom, tools) => {
 
     // Animate each matched pair
     for (let i = 0; i < minCount; i++) {
-      const atPolygon = atSorted[i].element
-      const dtPolygon = dtSorted[i].element
+      const atPolygon = atOrdered[i].element
+      const dtPolygon = dtOrdered[i].element
 
       const atPoints = atPolygon.getAttribute('points')
       const dtPoints = dtPolygon.getAttribute('points')
@@ -567,9 +572,9 @@ export const liquifyBeams = (ftSvg, dtSvg, atMeiDom, tools) => {
       const findingsPoints = convertPolygonPoints(atPoints, dtPoints, getNewPos)
 
       // Use normalized beam points for normalization state (aligned with normalized stems)
-      const diplomaticPoints = normalizedBeams?.diplomaticPolygons?.[i] || findingsPoints
+      const diplomaticPoints = normalizedPointsByAtPolygon.get(atPolygon) || findingsPoints
 
-      logger.debug(`[Beam Animation] AT ID: ${atId}, DT ID: ${dtSorted[i].dtId}, line ${i} (AT y~${Math.round(atSorted[i].avgY)}, DT y~${Math.round(dtSorted[i].avgY)})`)
+      logger.debug(`[Beam Animation] AT ID: ${atId}, DT ID: ${dtOrdered[i].dtId}, line ${i} (AT y~${Math.round(atOrdered[i].avgY)}, DT y~${Math.round(dtOrdered[i].avgY)})`)
 
       setAnimation({
         element: atPolygon,
@@ -585,16 +590,16 @@ export const liquifyBeams = (ftSvg, dtSvg, atMeiDom, tools) => {
     }
 
     // Fade out any extra AT polygons that don't have DT matches
-    for (let i = minCount; i < atSorted.length; i++) {
+    for (let i = minCount; i < atOrdered.length; i++) {
       setAnimation({
-        element: atSorted[i].element,
+        element: atOrdered[i].element,
         states: {
           finding: null,
           normalization: null,
           // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
-          regulation: { type: 'points', val: atSorted[i].element.getAttribute('points') },
-          supplements: { type: 'points', val: atSorted[i].element.getAttribute('points') },
-          interventions: { type: 'points', val: atSorted[i].element.getAttribute('points') }
+          regulation: { type: 'points', val: atOrdered[i].element.getAttribute('points') },
+          supplements: { type: 'points', val: atOrdered[i].element.getAttribute('points') },
+          interventions: { type: 'points', val: atOrdered[i].element.getAttribute('points') }
         }
       })
     }
@@ -622,6 +627,11 @@ const sortPolygonsByPosition = (polygons) => {
 
     return { element: polygon, avgY, points }
   }).sort((a, b) => a.avgY - b.avgY)
+}
+
+const getBeamStemDirection = (atMeiDom, beamId) => {
+  const meiBeam = atMeiDom.querySelector(`beam[xml\\:id="${beamId}"]`)
+  return meiBeam?.querySelector('note, chord')?.getAttribute('stem.dir') || 'up'
 }
 
 /**
