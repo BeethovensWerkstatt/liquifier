@@ -644,7 +644,7 @@ export const liquifyBeams = (ftSvg, dtSvg, atMeiDom, tools) => {
       const dtPoints = dtPolygon.getAttribute('points')
 
       // Convert polygon points using getNewPos for finding state (original DT-transformed position)
-      const findingsPoints = convertPolygonPoints(atPoints, dtPoints, getNewPos)
+      const findingsPoints = convertPolygonPoints(atPoints, alignPolygonWinding(dtPoints, atPoints), getNewPos)
 
       // Use normalized beam points for normalization state (aligned with normalized stems)
       const diplomaticPoints = normalizedPointsByAtPolygon.get(atPolygon) || findingsPoints
@@ -708,6 +708,25 @@ const getBeamStemDirection = (atMeiDom, beamId) => {
   const meiBeam = atMeiDom.querySelector(`beam[xml\\:id="${beamId}"]`)
   return meiBeam?.querySelector('note, chord')?.getAttribute('stem.dir') || 'up'
 }
+
+const alignPolygonWinding = (points, referencePoints) => {
+  const polygonPoints = parsePolygonPoints(points)
+  const reference = parsePolygonPoints(referencePoints)
+  if (polygonPoints.length !== 4 || reference.length !== 4) return points
+
+  const polygonWinding = calculatePolygonWinding(polygonPoints)
+  const referenceWinding = calculatePolygonWinding(reference)
+  if (polygonWinding === 0 || referenceWinding === 0 || Math.sign(polygonWinding) === Math.sign(referenceWinding)) {
+    return points
+  }
+
+  return [...polygonPoints].reverse().map(point => `${point.x},${point.y}`).join(' ')
+}
+
+const calculatePolygonWinding = (points) => points.reduce((area, point, index) => {
+  const next = points[(index + 1) % points.length]
+  return area + point.x * next.y - next.x * point.y
+}, 0)
 
 /**
  * Convert polygon points from AT to DT coordinate system

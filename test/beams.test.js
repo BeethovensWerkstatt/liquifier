@@ -58,10 +58,11 @@ test('liquifyBeams selects unmatched AT beam polygons from the innermost directi
   assert.equal(suppliedPolygonY('down'), 11)
 })
 
-const normalizedBeamGeometry = (stemDir, beamPolygons) => {
+const normalizedBeamGeometry = (stemDir, beamPolygons, dtPolygons) => {
   const sourcePolygons = beamPolygons || (stemDir === 'down'
     ? [polygon(10), polygon(0)]
     : [polygon(10), polygon(20)])
+  const diplomaticPolygons = dtPolygons || sourcePolygons
   const ftSvg = parser.parseFromString(`
     <svg xmlns="http://www.w3.org/2000/svg">
       <g class="note" data-id="note-1">
@@ -78,7 +79,7 @@ const normalizedBeamGeometry = (stemDir, beamPolygons) => {
   const dtSvg = parser.parseFromString(`
     <svg xmlns="http://www.w3.org/2000/svg">
       <g class="beam" data-id="dt-beam">
-        ${sourcePolygons.join('\n')}
+        ${diplomaticPolygons.join('\n')}
       </g>
     </svg>
   `, 'image/svg+xml').documentElement
@@ -100,6 +101,7 @@ const normalizedBeamGeometry = (stemDir, beamPolygons) => {
   })
 
   return animationCalls.map(call => ({
+    finding: parsePoints(call.states.finding.val),
     normalization: parsePoints(call.states.normalization.val),
     regulation: parsePoints(call.states.regulation.val)
   }))
@@ -146,4 +148,15 @@ test('liquifyBeams preserves short-beam widths and unequal Phase 8 spacing', () 
     [{ x: 80, y: 10 }, { x: 100, y: 10 }, { x: 100, y: 12 }, { x: 80, y: 12 }],
     [{ x: 80, y: 15 }, { x: 100, y: 15 }, { x: 100, y: 17 }, { x: 80, y: 17 }]
   ])
+})
+
+test('liquifyBeams aligns opposite-wound DT polygons before the up-stem finding transition', () => {
+  const up = normalizedBeamGeometry('up', undefined, [
+    '<polygon points="0,10 100,10 100,12 0,12"/>',
+    '<polygon points="0,20 100,20 100,22 0,22"/>'
+  ])
+
+  up.forEach(state => {
+    assert.equal(Math.sign(winding(state.finding)), Math.sign(winding(state.normalization)))
+  })
 })
