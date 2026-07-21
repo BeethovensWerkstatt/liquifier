@@ -186,7 +186,7 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
         const stemDir = meiChord?.getAttribute('stem.dir') || 'up'
 
         // Calculate new d attribute based on stem direction for FINDINGS and DIPLOMATIC states
-        let findingsD, findingsStemEndY, diplomaticD, diplomaticStemEndY, stemVals
+        let findingsD, findingsStemEndY, diplomaticD, diplomaticStemEndY
         if (stemDir === 'up') {
           // Stem goes up: keep bottom (higher y) fixed, extend upward (lower y)
           if (atY1 > atY2) {
@@ -195,7 +195,6 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
             findingsD = `M${atX1} ${atY1} L${atX2} ${findingsStemEndY}`
             diplomaticStemEndY = atY1 - atLength
             diplomaticD = `M${atX1} ${atY1} L${atX2} ${diplomaticStemEndY}`
-            stemVals = [atNotesPositions[atNotesPositions.length - 1].atVal, atNotesPositions[atNotesPositions.length - 1].dtVal]
             setAnimation({
               element: atStem,
               states: {
@@ -213,7 +212,6 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
             findingsD = `M${atX1} ${findingsStemEndY} L${atX2} ${atY2}`
             diplomaticStemEndY = atY2 - atLength
             diplomaticD = `M${atX1} ${diplomaticStemEndY} L${atX2} ${atY2}`
-            stemVals = [atNotesPositions[atNotesPositions.length - 1].atVal, atNotesPositions[atNotesPositions.length - 1].dtVal]
             setAnimation({
               element: atStem,
               states: {
@@ -234,7 +232,6 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
             findingsD = `M${atX1} ${atY1} L${atX2} ${findingsStemEndY}`
             diplomaticStemEndY = atY1 + atLength
             diplomaticD = `M${atX1} ${atY1} L${atX2} ${diplomaticStemEndY}`
-            stemVals = [atNotesPositions[0].atVal, atNotesPositions[0].dtVal]
             setAnimation({
               element: atStem,
               states: {
@@ -252,7 +249,6 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
             findingsD = `M${atX1} ${findingsStemEndY} L${atX2} ${atY2}`
             diplomaticStemEndY = atY2 + atLength
             diplomaticD = `M${atX1} ${diplomaticStemEndY} L${atX2} ${atY2}`
-            stemVals = [atNotesPositions[0].atVal, atNotesPositions[0].dtVal]
             setAnimation({
               element: atStem,
               states: {
@@ -287,9 +283,14 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
           const findingsDiff = findingsStemEndY - originalStemEndY
           const diplomaticDiff = diplomaticStemEndY - originalStemEndY
 
-          // Combine with the stem's base position
-          const findingsFlagVal = stemVals[1].split(' ')[0] + ' ' + findingsDiff
-          const diplomaticFlagVal = stemVals[1].split(' ')[0] + ' ' + diplomaticDiff
+          // Match the note-derived translation applied to the stem itself.
+          const stemPosition = stemDir === 'up'
+            ? atNotesPositions[0]
+            : atNotesPositions[atNotesPositions.length - 1]
+          const [regulationStemX, regulationStemY] = stemPosition.atVal.split(' ').map(Number)
+          const [findingStemX, findingStemY] = stemPosition.dtVal.split(' ').map(Number)
+          const findingsFlagVal = `${findingStemX} ${findingStemY + findingsDiff}`
+          const diplomaticFlagVal = `${findingStemX} ${findingStemY + diplomaticDiff}`
 
           // Add translate animation: flags follow the stem endpoint
           setAnimation({
@@ -298,9 +299,9 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
               finding: { type: 'translate', val: findingsFlagVal },
               normalization: { type: 'translate', val: diplomaticFlagVal },
               // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
-              regulation: { type: 'translate', val: stemVals[0] },
-              supplements: { type: 'translate', val: stemVals[0] },
-              interventions: { type: 'translate', val: stemVals[0] }
+              regulation: { type: 'translate', val: `${regulationStemX} ${regulationStemY}` },
+              supplements: { type: 'translate', val: `${regulationStemX} ${regulationStemY}` },
+              interventions: { type: 'translate', val: `${regulationStemX} ${regulationStemY}` }
             }
           })
         }
