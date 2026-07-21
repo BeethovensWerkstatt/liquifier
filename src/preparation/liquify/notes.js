@@ -1,4 +1,4 @@
-import { closestElement } from '../../utils/dom.js'
+import { closestElement, hasClass } from '../../utils/dom.js'
 
 /**
  * Animate notes between AT and DT transcriptions, including noteheads, stems, ledger lines, and flags
@@ -29,7 +29,7 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
   const notes = ftSvg.querySelectorAll('g.note:not(.bounding-box)')
   notes.forEach(note => {
     // Skip notes that are inside chords - they will be handled by liquifyChords
-    if (closestElement(note, 'g.chord:not(.bounding-box)')) {
+    if (isChordMember(note)) {
       return
     }
 
@@ -228,4 +228,15 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
       }
     })
   })
+}
+
+function isChordMember (note) {
+  let ancestor = note.parentNode
+
+  while (ancestor?.nodeType === 1) {
+    if (ancestor.localName === 'g' && hasClass(ancestor, 'chord')) return true
+    ancestor = ancestor.parentNode
+  }
+
+  return false
 }

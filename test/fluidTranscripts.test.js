@@ -1130,9 +1130,13 @@ test('generateFluidTranscription animates chord note augmentation dots with note
 
   const noteheadAnim = outSvg.querySelector('g.chord[data-id="ac1"] g.note[data-id="an1"] g.notehead > animateTransform[type="translate"]')
   const dotsAnim = outSvg.querySelector('g.chord[data-id="ac1"] g.note[data-id="an1"] g.dots > animateTransform[type="translate"]')
+  const chordMemberNote = outSvg.querySelector('g.chord[data-id="ac1"] g.note[data-id="an1"]')
 
   assert.ok(noteheadAnim)
   assert.ok(dotsAnim)
+  assert.ok(chordMemberNote)
+  assert.equal(chordMemberNote.classList.contains('supplied'), false)
+  assert.equal(chordMemberNote.querySelector(':scope > animate[attributeName="opacity"]'), null)
   assert.equal(dotsAnim.getAttribute('values'), noteheadAnim.getAttribute('values'))
 })
 
