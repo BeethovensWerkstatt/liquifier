@@ -375,11 +375,15 @@ const calculateDiplomaticBeams = (ftSvg, atMeiDom, beamId, atPolygons, logger) =
   // Get stem endpoints for normalization state (frame 1) only
   const firstStemEndDiplomatic = getStemEndpoint(firstStem, firstNoteStemDir, 1)
   const lastStemEndDiplomatic = getStemEndpoint(lastStem, lastNoteStemDir, 1)
+  const firstStemEndSource = getStemEndpoint(firstStem, firstNoteStemDir, 5) || firstStemEndDiplomatic
+  const lastStemEndSource = getStemEndpoint(lastStem, lastNoteStemDir, 5) || lastStemEndDiplomatic
 
   // Get note positions for normalization state (frame 1) only
   // Note: We only need the X offset from the transform animation
   const firstNotePosDiplomatic = getNotePosition(firstNoteGroup, 1)
   const lastNotePosDiplomatic = getNotePosition(lastNoteGroup, 1)
+  const firstNotePosSource = getNotePosition(firstNoteGroup, 5) || firstNotePosDiplomatic
+  const lastNotePosSource = getNotePosition(lastNoteGroup, 5) || lastNotePosDiplomatic
 
   if (!firstStemEndDiplomatic || !lastStemEndDiplomatic) {
     logger.debug(`[Beam Normalization] Could not parse stem endpoints for beam ${beamId}`)
@@ -391,52 +395,75 @@ const calculateDiplomaticBeams = (ftSvg, atMeiDom, beamId, atPolygons, logger) =
     return null
   }
 
-  // Get AT beam spacing (distance between consecutive polygons)
-  let beamSpacing = 50 // Default fallback
-  if (atPolygons.length >= 2) {
-    const polygon1Points = parsePolygonPoints(atPolygons[0].getAttribute('points'))
-    const polygon2Points = parsePolygonPoints(atPolygons[1].getAttribute('points'))
+  const sourcePolygons = atPolygons.map(polygon => parsePolygonPoints(polygon.getAttribute('points')))
+  const referencePoints = sourcePolygons.reduce((widest, points) => {
+    const width = Math.max(...points.map(point => point.x)) - Math.min(...points.map(point => point.x))
+    const widestWidth = Math.max(...widest.map(point => point.x)) - Math.min(...widest.map(point => point.x))
+    if (width !== widestWidth) return width > widestWidth ? points : widest
 
-    // Calculate vertical distance between polygons (using left edge midpoints)
-    const y1 = (polygon1Points[0].y + polygon1Points[3].y) / 2
-    const y2 = (polygon2Points[0].y + polygon2Points[3].y) / 2
-    beamSpacing = Math.abs(y2 - y1)
+    const averageY = points.reduce((sum, point) => sum + point.y, 0) / points.length
+    const widestAverageY = widest.reduce((sum, point) => sum + point.y, 0) / widest.length
+    return firstNoteStemDir === 'down'
+      ? (averageY > widestAverageY ? points : widest)
+      : (averageY < widestAverageY ? points : widest)
+  })
+  const sourceReferenceLeft = {
+    x: firstStemEndSource.x + firstNotePosSource.x,
+    y: firstStemEndSource.y + firstNotePosSource.y
+  }
+  const sourceReferenceRight = {
+    x: lastStemEndSource.x + lastNotePosSource.x,
+    y: lastStemEndSource.y + lastNotePosSource.y
+  }
+  const referenceEdges = getBeamEdgesClosestToStems(referencePoints, sourceReferenceLeft, sourceReferenceRight)
+  const attachmentBySide = {
+    left: referenceEdges.left.attached.y > referenceEdges.left.other.y ? 'lower' : 'upper',
+    right: referenceEdges.right.attached.y > referenceEdges.right.other.y ? 'lower' : 'upper'
+  }
+  const normalizedReferenceLeft = {
+    x: firstStemEndDiplomatic.x + firstNotePosDiplomatic.x,
+    y: firstStemEndDiplomatic.y + firstNotePosDiplomatic.y
+  }
+  const normalizedReferenceRight = {
+    x: lastStemEndDiplomatic.x + lastNotePosDiplomatic.x,
+    y: lastStemEndDiplomatic.y + lastNotePosDiplomatic.y
+  }
+  const sourceWidth = referenceEdges.right.attached.x - referenceEdges.left.attached.x
+
+  if (sourceWidth === 0) {
+    logger.debug(`[Beam Normalization] Beam ${beamId} has no reference beam width`)
+    return null
   }
 
-  // Get beam thickness from AT polygon
-  const firstPolygonPoints = parsePolygonPoints(atPolygons[0].getAttribute('points'))
-  const beamThickness = Math.abs(firstPolygonPoints[0].y - firstPolygonPoints[3].y)
+  const normalizeX = sourceX => {
+    const ratio = (sourceX - referenceEdges.left.attached.x) / sourceWidth
+    return normalizedReferenceLeft.x + ratio * (normalizedReferenceRight.x - normalizedReferenceLeft.x)
+  }
 
-  // Determine beam direction (down stems = beams above notes, up stems = beams below)
-  const beamDirection = firstNoteStemDir === 'down' ? 1 : -1
+  const interpolateY = (left, right, x) => {
+    const width = right.x - left.x
+    if (width === 0) return left.y
+    return left.y + (x - left.x) / width * (right.y - left.y)
+  }
 
-  // Generate polygons for normalization state only (finding uses original DT-transformed position)
-  const diplomaticPolygons = []
+  // Keep each Phase 8 beam line's width, spacing, thickness, and winding.
+  const diplomaticPolygons = sourcePolygons.map(points => {
+    const edges = getBeamEdges(points, attachmentBySide)
+    const normalizedPoints = points.map(point => ({ ...point }))
 
-  atPolygons.forEach((polygon, index) => {
-    // Calculate Y offset for this beam line (index * spacing * direction)
-    const yOffset = index * beamSpacing * beamDirection
+    const edgeDescriptions = [edges.left, edges.right]
+    edgeDescriptions.forEach(edge => {
+      const normalizedX = normalizeX(edge.attached.x)
+      const sourceReferenceY = interpolateY(referenceEdges.left.attached, referenceEdges.right.attached, edge.attached.x)
+      const normalizedReferenceY = interpolateY(normalizedReferenceLeft, normalizedReferenceRight, normalizedX)
+      const normalizedAttachedY = normalizedReferenceY + edge.attached.y - sourceReferenceY
+      const thickness = edge.other.y - edge.attached.y
 
-    // TODO: Determine which notes this specific beam line spans
-    // For now, assume primary beam spans all notes, secondary beams need more logic
+      normalizedPoints[edge.attachedIndex] = { x: normalizedX, y: normalizedAttachedY }
+      normalizedPoints[edge.otherIndex] = { x: normalizedX, y: normalizedAttachedY + thickness }
+    })
 
-    // DIPLOMATIC state: Add the X offset from the transform animation to the stem X coordinates
-    // The stem X coordinate is already in the note's local space,
-    // so we need to add the note's transform X offset
-    const diplomaticLeftX = firstStemEndDiplomatic.x + firstNotePosDiplomatic.x
-    const diplomaticLeftY = firstNotePosDiplomatic.y + firstStemEndDiplomatic.y + yOffset
-    const diplomaticRightX = lastStemEndDiplomatic.x + lastNotePosDiplomatic.x
-    const diplomaticRightY = lastNotePosDiplomatic.y + lastStemEndDiplomatic.y + yOffset
-
-    const diplomaticPoints = [
-      { x: diplomaticLeftX, y: diplomaticLeftY },
-      { x: diplomaticRightX, y: diplomaticRightY },
-      { x: diplomaticRightX, y: diplomaticRightY + beamThickness * beamDirection },
-      { x: diplomaticLeftX, y: diplomaticLeftY + beamThickness * beamDirection }
-    ]
-
-    const pointsStr = diplomaticPoints.map(p => `${p.x},${p.y}`).join(' ')
-    diplomaticPolygons.push(pointsStr)
+    return normalizedPoints.map(point => `${point.x},${point.y}`).join(' ')
   })
 
   logger.debug(`[Beam Normalization] Beam ${beamId}: ${beamNotes.length} notes, ${atPolygons.length} lines, stem.dir=${firstNoteStemDir}`)
@@ -455,6 +482,54 @@ const parsePolygonPoints = (pointsStr) => {
     const [x, y] = point.split(',').map(Number)
     return { x, y }
   })
+}
+
+const getBeamEdges = (points, attachmentBySide) => {
+  const indexedPoints = points.map((point, index) => ({ point, index }))
+    .sort((first, second) => first.point.x - second.point.x)
+  const leftPoints = indexedPoints.slice(0, 2)
+  const rightPoints = indexedPoints.slice(-2)
+
+  const describeEdge = (edgePoints, attachment) => {
+    const sortedByY = [...edgePoints].sort((first, second) => first.point.y - second.point.y)
+    const attached = attachment === 'lower' ? sortedByY[1] : sortedByY[0]
+    const other = attachment === 'lower' ? sortedByY[0] : sortedByY[1]
+    return {
+      attached: attached.point,
+      attachedIndex: attached.index,
+      other: other.point,
+      otherIndex: other.index
+    }
+  }
+
+  return {
+    left: describeEdge(leftPoints, attachmentBySide.left),
+    right: describeEdge(rightPoints, attachmentBySide.right)
+  }
+}
+
+const getBeamEdgesClosestToStems = (points, leftStem, rightStem) => {
+  const indexedPoints = points.map((point, index) => ({ point, index }))
+    .sort((first, second) => first.point.x - second.point.x)
+
+  const describeEdge = (edgePoints, stem) => {
+    const [first, second] = edgePoints
+    const attached = Math.abs(first.point.y - stem.y) <= Math.abs(second.point.y - stem.y)
+      ? first
+      : second
+    const other = attached === first ? second : first
+    return {
+      attached: attached.point,
+      attachedIndex: attached.index,
+      other: other.point,
+      otherIndex: other.index
+    }
+  }
+
+  return {
+    left: describeEdge(indexedPoints.slice(0, 2), leftStem),
+    right: describeEdge(indexedPoints.slice(-2), rightStem)
+  }
 }
 
 /**
