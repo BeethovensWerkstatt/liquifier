@@ -52,6 +52,14 @@ test('getFilesObject returns expected page-based output paths', () => {
     path.join(outputDir, 'sources/SRC_01/annotatedMidi/p005/SRC_01_p005_wz06_at_reg.mid')
   )
   assert.equal(
+    triple.atMidOrigStatePath(1),
+    path.join(outputDir, 'sources/SRC_01/annotatedMidi/p005/SRC_01_p005_wz06_at/SRC_01_p005_wz06_at_orig_v001.mid')
+  )
+  assert.equal(
+    triple.atMidRegStatePath(1),
+    path.join(outputDir, 'sources/SRC_01/annotatedMidi/p005/SRC_01_p005_wz06_at/SRC_01_p005_wz06_at_reg_v001.mid')
+  )
+  assert.equal(
     triple.editedAtPath,
     path.join(outputDir, 'sources/SRC_01/editedAT/p005/SRC_01_p005_wz06_eat.xml')
   )

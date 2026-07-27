@@ -13,6 +13,7 @@ import { addAnimatedTranscription, extractAnimatedTranscription } from './ftAnim
 // import { buildCurrentDtSvgForFluidTranscripts } from '../dt2svg.js'
 import { prepareDtForThulemeier } from '../../preparation/mei.js'
 import { renderDiplomaticTranscript } from '../thulemeierHandler.js'
+import { renderMidi } from '../verovioHandler.js'
 /*
 // FT preparation
 import { generateFluidTranscription } from '../../../preparation/fluidTranscripts.js'
@@ -37,10 +38,11 @@ const { version: appVersion } = require('../../../package.json')
  * @param {Object} params.verovio - Verovio toolkit instance.
  * @param {Object} params.pageDimensions - Page dimensions for rendering.
  * @param {boolean} params.recreate - Force recreation flag.
+ * @param {string[]} params.media - Requested output media.
  * @param {Object} params.logger - Logger instance.
  * @returns {Promise<*>} Promise resolving when rendering completes.
  */
-export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDimensions, recreate, logger }) {
+export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDimensions, recreate, media = [], logger }) {
   if (shouldRender(recreate, [triple.dtDate], triple.dtSvgDate)) {
     logger.info('Rendering Fluid Transcripts for ' + triple.ftSvgPath)
 
@@ -107,7 +109,11 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
               precedingStates: statesArray.map((stateSet, index) => ({
                 n: index + 1,
                 activeStates: stateSet,
-                fileName: path.join(path.basename(triple.ftStateSvgDir), path.basename(triple.ftStateSvgPath(index + 1)))
+                fileName: path.join(path.basename(triple.ftStateSvgDir), path.basename(triple.ftStateSvgPath(index + 1))),
+                midiFiles: {
+                  orig: relativeAssetPath(triple.ftSvgPath, triple.atMidOrigStatePath(index + 1)),
+                  reg: relativeAssetPath(triple.ftSvgPath, triple.atMidRegStatePath(index + 1))
+                }
               })),
               parentFile: null
             })
@@ -127,7 +133,11 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
               addGeneticInformation(statedFtSvgDom, {
                 fileType: 'precedingState',
                 precedingStates: [],
-                parentFile: path.join('..', path.basename(triple.ftSvgPath))
+                parentFile: path.join('..', path.basename(triple.ftSvgPath)),
+                midiFiles: {
+                  orig: relativeAssetPath(triple.ftStateSvgPath(index + 1), triple.atMidOrigStatePath(index + 1)),
+                  reg: relativeAssetPath(triple.ftStateSvgPath(index + 1), triple.atMidRegStatePath(index + 1))
+                }
               })
               addAnimatedTranscription({
                 ftSvgDom: statedFtSvgDom,
@@ -140,6 +150,10 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
                 logger
               })
               await writeData(new XMLSerializer().serializeToString(extractAnimatedTranscription(statedFtSvgDom)), triple.ftStateSvgPath(index + 1))
+              if (media.includes('midi')) {
+                await writeData(renderMidi(statedPreparation.editedAtDom, verovio, { choiceXPathQuery: './orig' }), triple.atMidOrigStatePath(index + 1))
+                await writeData(renderMidi(statedPreparation.editedAtDom, verovio, { choiceXPathQuery: './reg' }), triple.atMidRegStatePath(index + 1))
+              }
             }
           }
         }
@@ -567,6 +581,10 @@ export const addGeneticInformation = (ftSvgDom, geneticInformation) => {
   metadata.setAttribute('class', 'geneticInformation')
   metadata.textContent = JSON.stringify(geneticInformation)
   svgRoot.appendChild(metadata)
+}
+
+const relativeAssetPath = (fromFilePath, targetFilePath) => {
+  return path.relative(path.dirname(fromFilePath), targetFilePath).split(path.sep).join('/')
 }
 
 /**

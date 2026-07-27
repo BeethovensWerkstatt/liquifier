@@ -79,7 +79,15 @@ async function processData ({ data, triple, config, verovio, logger }) {
     logger.debug('Page dimensions: ' + JSON.stringify(pageDimensions))
 
     // Common rendering parameters
-    const renderParams = { data, triple, verovio, pageDimensions, recreate: config.recreate, logger }
+    const renderParams = {
+      data,
+      triple,
+      verovio,
+      pageDimensions,
+      recreate: config.recreate,
+      media: config.media,
+      logger
+    }
 
     // Annotated Transcript rendering
     if (config.types.indexOf('at') >= 0) {
@@ -105,7 +113,7 @@ async function processData ({ data, triple, config, verovio, logger }) {
 
     // Fluid Systems rendering
     if (config.types.indexOf('fluidTranscripts') >= 0) {
-      if (config.media.indexOf('svg') >= 0) {
+      if (config.media.indexOf('svg') >= 0 || config.media.indexOf('midi') >= 0) {
         await renderFluidTranscriptsSvg(renderParams)
       }
     }
