@@ -1,5 +1,6 @@
 import { computeTextDiff } from '../../utils/textDiff.js'
 import { addClass } from '../../utils/dom.js'
+import { applyTextLengthAnimation, getTextLengthStates } from './textAnimation.js'
 
 /**
  * Prepares animations for <dir> elements (musical directions like "pizz.", "8tel auch 6te", etc.)
@@ -197,7 +198,11 @@ export function liquifyDirs (ftSvg, dtSvg, atMeiDom, tools) {
     // Approach: Animate each line independently, group translates to first line's DT position
     if (allDtLines.length === atLines.length) {
       logger.debug(`[liquifyDirs] AT dir ${atId}: Line-by-line text diff (${atLines.length} lines)`)
-      animateLineByLine(atDirGroup, allDtLines, atLines, getNewPos, setAnimation, logger, atId)
+      if (allDtLines.length === 1 && dtDirData.length === 1) {
+        animateSingleLineTextRuns(atDirGroup, allDtLines[0], atLines[0], dtDirData[0].textElement, getNewPos, setAnimation)
+      } else {
+        animateLineByLine(atDirGroup, allDtLines, atLines, getNewPos, setAnimation, logger, atId, dtDirData.length === 1 ? dtDirData[0].textElement : null)
+      }
     } else if (dtDirData.length > 1 && atLines.length === 1) {
       // CASE 2: MULTI-CORRESPONDENCE - Multiple DT dirs → single AT line
       // Example: DT has 3 separate dirs "8tel" + "auch" + "6te"
@@ -218,9 +223,92 @@ export function liquifyDirs (ftSvg, dtSvg, atMeiDom, tools) {
       const dtPos = { x: allDtLines[0].x, y: allDtLines[0].y }
       const atPos = { x: atLines[0].x, y: atLines[0].y }
 
-      animateFullText(atDirGroup, dtFullText, atFullText, dtPos, atPos, getNewPos, setAnimation, logger, atId)
+      animateFullText(atDirGroup, dtFullText, atFullText, dtPos, atPos, getNewPos, setAnimation, logger, atId, dtDirData.length === 1 ? dtDirData[0].textElement : null)
     }
   })
+}
+
+const animateSingleLineTextRuns = (atDirGroup, dtLine, atLine, dtTextElement, getNewPos, setAnimation) => {
+  const atTextElement = atDirGroup.querySelector('text')
+  if (!atTextElement) return
+
+  const textLengthStates = getTextLengthStates({
+    atTextElement,
+    dtTextElement,
+    atPosition: { x: atLine.x, y: atLine.y },
+    dtPosition: { x: dtLine.x, y: dtLine.y },
+    getNewPos
+  })
+  const fontSize = atTextElement.querySelector('tspan[font-size]')?.getAttribute('font-size') || '405px'
+  const fontStyle = atTextElement.getAttribute('font-style')
+  if (dtLine.text === atLine.text) {
+    const continuousRun = createDirTextRun(atTextElement, atLine.text, fontSize, fontStyle, 'continuous')
+    atDirGroup.replaceChild(continuousRun, atTextElement)
+    applyTextLengthAnimation(continuousRun, textLengthStates, setAnimation)
+    animateDirGroup(atDirGroup, atLine, dtLine, getNewPos, setAnimation)
+    return
+  }
+
+  const diplomaticRun = createDirTextRun(atTextElement, dtLine.text, fontSize, fontStyle, 'diplomatic')
+  const annotatedRun = createDirTextRun(atTextElement, atLine.text, fontSize, fontStyle, 'annotated')
+
+  atDirGroup.replaceChild(annotatedRun, atTextElement)
+  atDirGroup.insertBefore(diplomaticRun, annotatedRun)
+  applyTextLengthAnimation(diplomaticRun, textLengthStates, setAnimation)
+  applyTextLengthAnimation(annotatedRun, textLengthStates, setAnimation)
+  setAnimation({
+    element: diplomaticRun,
+    states: {
+      finding: { type: 'opacity', val: '1' },
+      normalization: { type: 'opacity', val: '1' },
+      regulation: { type: 'opacity', val: '1' },
+      supplements: { type: 'opacity', val: '0' },
+      interventions: { type: 'opacity', val: '0' }
+    }
+  })
+  setAnimation({
+    element: annotatedRun,
+    states: {
+      finding: { type: 'opacity', val: '0' },
+      normalization: { type: 'opacity', val: '0' },
+      regulation: { type: 'opacity', val: '0' },
+      supplements: { type: 'opacity', val: '1' },
+      interventions: { type: 'opacity', val: '1' }
+    }
+  })
+
+  animateDirGroup(atDirGroup, atLine, dtLine, getNewPos, setAnimation)
+}
+
+const animateDirGroup = (atDirGroup, atLine, dtLine, getNewPos, setAnimation) => {
+  const newPos = getNewPos({ x: atLine.x, y: atLine.y }, { x: dtLine.x, y: dtLine.y })
+  const translateX = (newPos?.x || 0) - atLine.x
+  const translateY = (newPos?.y || 0) - atLine.y
+  if (translateX !== 0 || translateY !== 0) {
+    setAnimation({
+      element: atDirGroup,
+      states: {
+        finding: { type: 'translate', val: `${translateX} ${translateY}` },
+        normalization: { type: 'translate', val: `${translateX} ${translateY}` },
+        regulation: { type: 'translate', val: '0 0' },
+        supplements: { type: 'translate', val: '0 0' },
+        interventions: { type: 'translate', val: '0 0' }
+      }
+    })
+  }
+}
+
+const createDirTextRun = (textElement, text, fontSize, fontStyle, role) => {
+  const run = textElement.cloneNode(false)
+  run.removeAttribute('textLength')
+  run.setAttribute('font-size', '0px')
+  if (fontStyle) run.setAttribute('font-style', fontStyle)
+  run.setAttribute('data-text-role', role)
+  const content = textElement.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'tspan')
+  content.setAttribute('font-size', fontSize)
+  content.textContent = text
+  run.appendChild(content)
+  return run
 }
 
 /**
@@ -235,13 +323,9 @@ export function liquifyDirs (ftSvg, dtSvg, atMeiDom, tools) {
  * @param {string} atId - Identifier for the target element.
  * @returns {void} No return value.
  */
-function animateLineByLine (atDirGroup, dtLines, atLines, getNewPos, setAnimation, logger, atId) {
+function animateLineByLine (atDirGroup, dtLines, atLines, getNewPos, setAnimation, logger, atId, dtTextElement) {
   const atTextElement = atDirGroup.querySelector('text')
   if (!atTextElement) return
-
-  // Clear existing AT text content
-  atTextElement.innerHTML = ''
-  atTextElement.setAttribute('font-size', '0px')
 
   // Calculate position difference for animation using first line
   // (all lines will move together as part of the group)
@@ -250,6 +334,19 @@ function animateLineByLine (atDirGroup, dtLines, atLines, getNewPos, setAnimatio
   const newPos = getNewPos({ x: firstAtLine.x, y: firstAtLine.y }, { x: firstDtLine.x, y: firstDtLine.y })
   const translateX = (newPos?.x || 0) - firstAtLine.x
   const translateY = (newPos?.y || 0) - firstAtLine.y
+  const textLengthStates = atLines.length === 1 && dtTextElement
+    ? getTextLengthStates({
+      atTextElement,
+      dtTextElement,
+      atPosition: { x: firstAtLine.x, y: firstAtLine.y },
+      dtPosition: { x: firstDtLine.x, y: firstDtLine.y },
+      getNewPos
+    })
+    : null
+
+  // Clear existing AT text content
+  atTextElement.textContent = ''
+  atTextElement.setAttribute('font-size', '0px')
 
   logger.debug(`[liquifyDirs] Group position: DT (${firstDtLine.x},${firstDtLine.y}) -> AT (${firstAtLine.x},${firstAtLine.y}), translate (${translateX},${translateY})`)
 
@@ -357,6 +454,8 @@ function animateLineByLine (atDirGroup, dtLines, atLines, getNewPos, setAnimatio
     }
   }
 
+  applyTextLengthAnimation(atTextElement, textLengthStates, setAnimation)
+
   // Animate the position of the entire dir group
   if (translateX !== 0 || translateY !== 0) {
     setAnimation({
@@ -417,7 +516,7 @@ function animateMultiCorrespondence (atDirGroup, dtDirData, atLine, getNewPos, s
   if (!atTextElement) return
 
   // Clear existing AT text content - we'll rebuild it with separate groups
-  atTextElement.innerHTML = ''
+  atTextElement.textContent = ''
   atTextElement.setAttribute('font-size', '0px')
   atTextElement.setAttribute('x', atLine.x)
   atTextElement.setAttribute('y', atLine.y)
@@ -677,7 +776,7 @@ function animateMultiCorrespondence (atDirGroup, dtDirData, atLine, getNewPos, s
  * @param {string} atId - Identifier for the target element.
  * @returns {void} No return value.
  */
-function animateFullText (atDirGroup, dtText, atText, dtPos, atPos, getNewPos, setAnimation, logger, atId) {
+function animateFullText (atDirGroup, dtText, atText, dtPos, atPos, getNewPos, setAnimation, logger, atId, dtTextElement) {
   const atTextElement = atDirGroup.querySelector('text')
   if (!atTextElement) return
 
@@ -686,9 +785,12 @@ function animateFullText (atDirGroup, dtText, atText, dtPos, atPos, getNewPos, s
   // Compute text diff
   const diffSegments = computeTextDiff(dtText, atText)
   logger.debug(`[liquifyDirs] Full diff: ${diffSegments.length} segments`)
+  const textLengthStates = dtTextElement
+    ? getTextLengthStates({ atTextElement, dtTextElement, atPosition: atPos, dtPosition: dtPos, getNewPos })
+    : null
 
   // Clear existing AT text content
-  atTextElement.innerHTML = ''
+  atTextElement.textContent = ''
   atTextElement.setAttribute('font-size', '0px')
   atTextElement.setAttribute('x', atPos.x)
   atTextElement.setAttribute('y', atPos.y)
@@ -769,6 +871,8 @@ function animateFullText (atDirGroup, dtText, atText, dtPos, atPos, getNewPos, s
   })
 
   atTextElement.appendChild(wrapperTspan)
+
+  applyTextLengthAnimation(atTextElement, textLengthStates, setAnimation)
 
   // Animate position of entire text element
   const newPos = getNewPos({ x: atPos.x, y: atPos.y }, { x: dtPos.x, y: dtPos.y })

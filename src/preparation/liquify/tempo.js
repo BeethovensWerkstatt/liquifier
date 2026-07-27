@@ -1,5 +1,4 @@
-import { computeTextDiff } from '../../utils/textDiff.js'
-import { addClass } from '../../utils/dom.js'
+import { applyTextLengthAnimation, getStaticTextLengthStates, getTextLengthStates } from './textAnimation.js'
 
 /**
  * Liquify tempo elements
@@ -112,119 +111,48 @@ export function liquifyTempo (ftSvg, dtSvg, atMeiDom, tools) {
       // Extract text content from DT and AT
       const dtText = dtTextElement.textContent.trim()
       const atText = atTextElement.textContent.trim()
+      const textLengthStates = getTextLengthStates({
+        atTextElement,
+        dtTextElement,
+        atPosition: { x: atX, y: atY },
+        dtPosition: { x: dtX, y: dtY },
+        getNewPos
+      })
 
-      logger.debug(`[liquifyTempo] Text diff for ${atId}: "${dtText}" -> "${atText}"`)
+      const fontSize = atTextElement.querySelector('tspan[font-size]')?.getAttribute('font-size') || '405px'
+      const fontStyle = atTextElement.getAttribute('font-style')
+      const diplomaticRun = createTempoTextRun(atTextElement, dtText, fontSize, fontStyle, 'diplomatic')
+      const annotatedRun = createTempoTextRun(atTextElement, atText, fontSize, fontStyle, 'annotated')
 
-      // Compute the differences between the two text strings
-      const diffSegments = computeTextDiff(dtText, atText)
+      atTempo.replaceChild(annotatedRun, atTextElement)
+      atTempo.insertBefore(diplomaticRun, annotatedRun)
 
-      logger.debug(`[liquifyTempo] Diff segments: ${JSON.stringify(diffSegments)}`)
-
-      // Clear the AT text element's content
-      atTextElement.textContent = ''
-
-      // Get or create the tspan container (AT structure: text > tspan > tspan)
-      let tspanContainer = atTextElement.querySelector('tspan[data-class="text"]')
-      if (!tspanContainer) {
-        tspanContainer = atTextElement.querySelector('tspan')
-      }
-
-      if (!tspanContainer) {
-        // Create a tspan container if it doesn't exist
-        tspanContainer = atTextElement.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'tspan')
-        tspanContainer.setAttribute('data-class', 'text')
-        tspanContainer.setAttribute('class', 'text')
-        atTextElement.appendChild(tspanContainer)
-      } else {
-        // Clear existing content
-        tspanContainer.textContent = ''
-      }
-
-      // Get font-size from existing tspan if available
-      const existingInnerTspan = tspanContainer.querySelector('tspan')
-      const fontSize = existingInnerTspan?.getAttribute('font-size') || '405px'
-      const fontStyle = existingInnerTspan?.getAttribute('font-style') || atTextElement.getAttribute('font-style') || 'italic'
-
-      // Create tspan elements for each diff segment with appropriate animations
-      diffSegments.forEach((segment, index) => {
-        const segmentTspan = atTextElement.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'tspan')
-        segmentTspan.setAttribute('font-size', fontSize)
-        if (fontStyle) {
-          segmentTspan.setAttribute('font-style', fontStyle)
+      const diplomaticTextLengthStates = textLengthStates
+        ? getStaticTextLengthStates(textLengthStates.finding.val)
+        : null
+      const annotatedTextLengthStates = textLengthStates
+        ? getStaticTextLengthStates(textLengthStates.supplements.val)
+        : null
+      applyTextLengthAnimation(diplomaticRun, diplomaticTextLengthStates, setAnimation)
+      applyTextLengthAnimation(annotatedRun, annotatedTextLengthStates, setAnimation)
+      setAnimation({
+        element: diplomaticRun,
+        states: {
+          finding: { type: 'opacity', val: '1' },
+          normalization: { type: 'opacity', val: '1' },
+          regulation: { type: 'opacity', val: '1' },
+          supplements: { type: 'opacity', val: '0' },
+          interventions: { type: 'opacity', val: '0' }
         }
-        segmentTspan.textContent = segment.text
-        segmentTspan.setAttribute('data-diff-type', segment.type)
-        segmentTspan.setAttribute('data-diff-index', index)
-
-        tspanContainer.appendChild(segmentTspan)
-
-        // Apply opacity animation based on segment type
-        if (segment.type === 'common') {
-          // Common text: visible throughout
-          setAnimation({
-            element: segmentTspan,
-            states: {
-              finding: { type: 'opacity', val: '1' },
-              normalization: { type: 'opacity', val: '1' },
-              // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
-              regulation: { type: 'opacity', val: '1' },
-              supplements: { type: 'opacity', val: '1' },
-              interventions: { type: 'opacity', val: '1' }
-            }
-          })
-        } else if (segment.type === 'delete') {
-          // DT-only text: visible at finding/normalization, hidden and doesn't occupy space from supplements
-          setAnimation({
-            element: segmentTspan,
-            states: {
-              finding: { type: 'opacity', val: '1' },
-              normalization: { type: 'opacity', val: '1' },
-              // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
-              regulation: { type: 'opacity', val: '0' },
-              supplements: { type: 'opacity', val: '0' },
-              interventions: { type: 'opacity', val: '0' }
-            }
-          })
-          // Make it not occupy space when hidden
-          setAnimation({
-            element: segmentTspan,
-            states: {
-              finding: { type: 'display', val: 'inline' },
-              normalization: { type: 'display', val: 'inline' },
-              // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
-              regulation: { type: 'display', val: 'none' },
-              supplements: { type: 'display', val: 'none' },
-              interventions: { type: 'display', val: 'none' }
-            }
-          })
-        } else if (segment.type === 'insert') {
-          // AT-only text: hidden at finding/normalization, fades in at supplements
-          // Add "supplied" class for CSS styling
-          addClass(segmentTspan, 'supplied')
-
-          setAnimation({
-            element: segmentTspan,
-            states: {
-              finding: { type: 'opacity', val: '0' },
-              normalization: { type: 'opacity', val: '0' },
-              // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
-              regulation: { type: 'opacity', val: '1' },
-              supplements: { type: 'opacity', val: '1' },
-              interventions: { type: 'opacity', val: '1' }
-            }
-          })
-          // Make it not occupy space when hidden
-          setAnimation({
-            element: segmentTspan,
-            states: {
-              finding: { type: 'display', val: 'none' },
-              normalization: { type: 'display', val: 'none' },
-              // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
-              regulation: { type: 'display', val: 'inline' },
-              supplements: { type: 'display', val: 'inline' },
-              interventions: { type: 'display', val: 'inline' }
-            }
-          })
+      })
+      setAnimation({
+        element: annotatedRun,
+        states: {
+          finding: { type: 'opacity', val: '0' },
+          normalization: { type: 'opacity', val: '0' },
+          regulation: { type: 'opacity', val: '0' },
+          supplements: { type: 'opacity', val: '1' },
+          interventions: { type: 'opacity', val: '1' }
         }
       })
 
@@ -241,7 +169,7 @@ export function liquifyTempo (ftSvg, dtSvg, atMeiDom, tools) {
         }
       })
 
-      logger.info(`[liquifyTempo] Tempo ${atId}: animated ${diffSegments.length} text segments`)
+      logger.info(`[liquifyTempo] Tempo ${atId}: animated diplomatic and annotated text runs`)
     } catch (error) {
       logger.error(`[liquifyTempo] ERROR processing tempo ${atTempo?.getAttribute('data-id') || 'unknown'}: ${error.message}`)
       logger.error('[liquifyTempo] Stack trace:')
@@ -250,4 +178,17 @@ export function liquifyTempo (ftSvg, dtSvg, atMeiDom, tools) {
   })
 
   logger.info('[liquifyTempo] Completed tempo liquification')
+}
+
+const createTempoTextRun = (textElement, text, fontSize, fontStyle, role) => {
+  const run = textElement.cloneNode(false)
+  run.removeAttribute('textLength')
+  run.setAttribute('font-size', '0px')
+  if (fontStyle) run.setAttribute('font-style', fontStyle)
+  run.setAttribute('data-text-role', role)
+  const content = textElement.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'tspan')
+  content.setAttribute('font-size', fontSize)
+  content.textContent = text
+  run.appendChild(content)
+  return run
 }

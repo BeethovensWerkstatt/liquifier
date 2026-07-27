@@ -43,6 +43,10 @@ const addTransformRotate = (node, values = []) => {
 export const addTransform = (node, attribute, values = []) => {
   const anim = appendNewElement(node, 'animate', 'http://www.w3.org/2000/svg')
   anim.setAttribute('attributeName', attribute)
+  if (attribute === 'textLength') {
+    anim.setAttribute('attributeType', 'XML')
+    anim.setAttribute('calcMode', 'linear')
+  }
 
   const reverse = constants.ftRendererReverseAnimations ? values.slice(0, -1).reverse() : []
   anim.setAttribute('values', values.concat(reverse).join(';'))
