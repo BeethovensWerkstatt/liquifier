@@ -60,6 +60,14 @@ test('getFilesObject returns expected page-based output paths', () => {
     path.join(outputDir, 'sources/SRC_01/fluidTranscripts/p005/SRC_01_p005_wz06_ft.svg')
   )
   assert.equal(
+    triple.ftStateSvgDir,
+    path.join(outputDir, 'sources/SRC_01/fluidTranscripts/p005/SRC_01_p005_wz06_ft')
+  )
+  assert.equal(
+    triple.ftStateSvgPath(1),
+    path.join(outputDir, 'sources/SRC_01/fluidTranscripts/p005/SRC_01_p005_wz06_ft/SRC_01_p005_wz06_ft_v001.svg')
+  )
+  assert.equal(
     triple.fsSvgPath,
     path.join(outputDir, 'sources/SRC_01/fluidSystems/p005/SRC_01_p005_wz06_fs.svg')
   )
@@ -104,7 +112,7 @@ test('getFilesObject resolves annotated transcript symlink targets', () => {
 
   write(
     path.join(inputDir, relSymlink),
-    `<?xml version="1.0" encoding="UTF-8"?>\n<relation xmlns="http://www.music-encoding.org/ns/mei" rel="symlink" target="../annotatedTranscripts/SRC_03_p006_wz01_at.xml"/>`
+    '<?xml version="1.0" encoding="UTF-8"?>\n<relation xmlns="http://www.music-encoding.org/ns/mei" rel="symlink" target="../annotatedTranscripts/SRC_03_p006_wz01_at.xml"/>'
   )
 
   const triple = getFilesObject(relDt, inputDir, outputDir)

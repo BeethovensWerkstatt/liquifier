@@ -1,19 +1,17 @@
 import { DOMParser, XMLSerializer, DOMImplementation } from 'xmldom-qsa'
 import { createRequire } from 'node:module'
+import path from 'node:path'
 
 // preliminaries
 import { shouldRender } from '../../utils/rendering.js'
 
 // AT preparations
-import { prepareEditedAtDom } from '../../preparation/editedAnnotatedTranscripts.js'
-import { prepareAtForVerovio, addSystemLabelBlocks } from '../../preparation/annotatedTranscripts.js'
-import { adjustAtStaffLines, resolveMatchedStaffLineContextForCurrentDt } from '../../preparation/fluidTranscripts.js'
-import { renderContinuousAt } from '../verovioHandler.js'
+import { prepareAtForFluidTranscript } from '../../preparation/fluidTranscriptAt.js'
+import { addAnimatedTranscription, extractAnimatedTranscription } from './ftAnimation.js'
 
 // DT preparations
 // import { buildCurrentDtSvgForFluidTranscripts } from '../dt2svg.js'
 import { prepareDtForThulemeier } from '../../preparation/mei.js'
-import { liquifyMusic } from '../../preparation/liquify.js'
 import { renderDiplomaticTranscript } from '../thulemeierHandler.js'
 /*
 // FT preparation
@@ -24,11 +22,8 @@ import { generateFluidTranscription } from '../../../preparation/fluidTranscript
 import { writeData } from '../../filehandlers/filehandler.js'
 
 import { getRectFromFragment, getOuterBoundingRect } from '../../utils/trigonometry.js'
-import { computeApproxBBox } from '../../utils/svgGeometry.js'
 import { resolvePathFromDocumentReference, readTextFromDocumentReference } from '../../utils/utils.js'
-import { addTransform, prepareAssets } from '../../utils/ft/animation.js'
-import { animateFtReadingOrderSystems, animateFtStaffLines, trimDtStaffLinesToContent } from '../../utils/ft/staffLines.js'
-import { retrieveHorizontalPositionFromDt } from '../../utils/ft/positioning.js'
+import { trimDtStaffLinesToContent } from '../../utils/ft/staffLines.js'
 
 import { constants } from '../../config.mjs'
 const require = createRequire(import.meta.url)
@@ -67,6 +62,7 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
 
       const dtStaffLineSideMargin = constants.ftRendererDtStaffLineSideMarginMm * currentPage.vrvMeiUnit * constants.verovioGeneralScaling
       trimDtStaffLinesToContent(ftSvgDom.querySelector('.diplomatic'), dtStaffLineSideMargin, logger)
+      const ftSvgBase = ftSvgDom.cloneNode(true)
 
       // This adds the page rotation to individual rastrums, which _should_ be wrong, but seemed necessary at some point?!
       /* ftSvgDom.querySelectorAll('.diplomatic .rastrum[style*="transform: rotate("]').forEach(element => {
@@ -88,112 +84,15 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
       // result is also available as data.atSvgDom = atSvgDom
       // data.editedAtDom is also available for later use in FT processing
 
-      const transcriptionGroup = ftSvgDom.querySelector('.transcription')
-      transcriptionGroup.appendChild(atSvgDom.documentElement.querySelector('desc'))
-      transcriptionGroup.appendChild(atSvgDom.documentElement.querySelector('defs'))
-      transcriptionGroup.appendChild(atSvgDom.documentElement.querySelector('.page-margin'))
-
-      const getAtStaffLinePaths = () => {
-        const normalizedPaths = ftSvgDom.querySelectorAll('.transcription path.rastrum')
-        if (normalizedPaths.length > 0) return normalizedPaths
-        return ftSvgDom.querySelectorAll('.transcription .staff > path')
-      }
-
-      // determines conversion factor between DT and AT based on rastrum heights
-      const getAtScaling = () => {
-        const dtRastrumPaths = ftSvgDom.querySelector('.diplomatic .rastrum').querySelectorAll('path')
-        const dtRastrumHeight = parseFloat(dtRastrumPaths[4].getAttribute('d').split(' ')[1]) - parseFloat(dtRastrumPaths[0].getAttribute('d').split(' ')[1])
-        const atRastrumPaths = getAtStaffLinePaths()
-        const atRastrumHeight = parseFloat(atRastrumPaths[4].getAttribute('d').split(' ')[1]) - parseFloat(atRastrumPaths[0].getAttribute('d').split(' ')[1])
-        return dtRastrumHeight / atRastrumHeight * currentPage.vrvMeiUnit / constants.verovioPixelPerVu
-      }
-      const atScaling = getAtScaling()
-
-      // determine vertical position of AT
-      const getAtVerticalShift = () => {
-        const dtBbox = computeApproxBBox(ftSvgDom.querySelector('.diplomatic .draft'))
-
-        const atAllRastrumPaths = getAtStaffLinePaths()
-        const atTopRastrumY = parseFloat(atAllRastrumPaths[0].getAttribute('d').split(' ')[1])
-        const atBottomRastrumY = parseFloat(atAllRastrumPaths[atAllRastrumPaths.length - 1].getAttribute('d').split(' ')[1])
-
-        const dtCenterY = dtBbox.y + dtBbox.height / 2
-        const atCenterY = (atTopRastrumY + atBottomRastrumY) / 2
-
-        return (dtCenterY - atCenterY) * layoutInfo.pages.find(page => page.current).vrvMeiUnit / constants.verovioPixelPerVu
-      }
-      const atVerticalShift = getAtVerticalShift()
-
-      // determine horizontal position of AT
-      const getAtHorizontalPosition = () => {
-        const atWidth = parseFloat(atSvgDom.documentElement.getAttribute('width'))
-        const dtXCoordinates = retrieveHorizontalPositionFromDt(data.dtDom, layoutInfo)
-
-        let atX = 0
-        if ((atWidth + dtXCoordinates.minX) < pageDimensions.width) {
-          atX = dtXCoordinates.minX
-        } else if (atWidth < pageDimensions.width) {
-          atX = pageDimensions.width - atWidth
-        } if (atWidth > pageDimensions.width) {
-          // adjust width of FT document to fit the AT in
-          atX = 0
-          const vrvUnit = currentPage.vrvMeiUnit
-          ftSvgDom.setAttribute('width', (atWidth * constants.ftStaticScaling) + 'mm')
-          const oldViewBox = ftSvgDom.getAttribute('viewBox').split(' ')
-          const viewBoxWidth = Math.round(atWidth * constants.verovioGeneralScaling * vrvUnit)
-          ftSvgDom.setAttribute('viewBox', oldViewBox[0] + ' ' + oldViewBox[1] + ' ' + viewBoxWidth + ' ' + oldViewBox[3])
-
-          // decide if other components (DT, facsimile, shapes) need to be repositioned horizontally
-          const wzBegin = ftSvgDom.querySelector('g.pb[data-corresp$="#' + currentPage.id + '"] + g.writingZone > rect.pageLabelBox')
-          const wzBeginX = wzBegin ? parseFloat(wzBegin.getAttribute('x')) : 0
-
-          const dtScaling = 1 // parseFloat(ftSvgDom.querySelector('.diplomatic').getAttribute('transform').match(/scale\((.*)\)/)[1])
-
-          if (wzBeginX > 0) {
-            ftSvgDom.querySelectorAll('.facsimileBg, .shapes').forEach(layer => {
-              layer.setAttribute('transform', 'translate(' + wzBeginX * atScaling + ',0)')
-            })
-            ftSvgDom.querySelector('.diplomatic').setAttribute('transform', 'scale(' + dtScaling + ') translate(' + (wzBeginX / dtScaling * atScaling) + ',0)')
-          }
-        }
-        atX = atX * currentPage.vrvMeiUnit * constants.verovioGeneralScaling
-
-        return atX
-      }
-      const atHorizontalPosition = getAtHorizontalPosition()
-
-      // apply positioning to AT
-      transcriptionGroup.setAttribute('transform', 'translate(' + atHorizontalPosition + ',' + atVerticalShift + ') scale(' + atScaling + ')')
-
-      const tools = prepareAssets({
+      addAnimatedTranscription({
         ftSvgDom,
-        atLayer: transcriptionGroup,
-        dtLayer: ftSvgDom.querySelector('.diplomatic'),
-        atMeiDom: data.editedAtDom,
-        atRegSvgDom: data.atRegSvgDom,
-        currentDtReference: triple.dtFullPath || triple.dt || '',
-        atScaling,
-        atHorizontalPosition,
-        atVerticalShift,
+        atPreparation: { atSvgDom, atRegSvgDom: data.atRegSvgDom, editedAtDom: data.editedAtDom },
+        atDom: data.atDom,
+        dtDom: data.dtDom,
+        layoutInfo,
+        pageDimensions,
+        triple,
         logger
-      })
-
-      const matchedStaffLineContext = resolveMatchedStaffLineContextForCurrentDt(data.atDom, data.dtDom, logger)
-      const readingOrderSystemDistance = constants.ftReadingOrderSystemDistanceMm * currentPage.vrvMeiUnit * constants.verovioGeneralScaling
-
-      animateFtStaffLines(transcriptionGroup, ftSvgDom.querySelector('.diplomatic'), tools, matchedStaffLineContext)
-      animateFtReadingOrderSystems(transcriptionGroup, ftSvgDom.querySelector('.diplomatic'), data.editedAtDom, tools, readingOrderSystemDistance)
-      liquifyMusic(transcriptionGroup, ftSvgDom.querySelector('.diplomatic'), tools)
-
-      // hide unmodified DT, as it is now included in FT transformation
-      ftSvgDom.querySelector('.diplomatic').setAttribute('style', 'display: none;')
-
-      // remove bboxes
-      ftSvgDom.querySelectorAll('.rastrum.bounding-box').forEach(bbox => bbox.parentNode.removeChild(bbox))
-
-      // hide system and page labels
-      ftSvgDom.querySelectorAll('.pageLabelBox, .sysPreview, .pageBg, .pageLabel, .sysLabel').forEach((elem, i) => {
-        addTransform(elem, 'opacity', constants.ftAssetPhaseOpacityValues.labelsHiddenUntilEnd)
       })
 
       const genDescWzId = data.atDom.querySelector('annot[class="#bw_writingZoneBegin"]')?.getAttribute('corresp')?.split('#')[1]
@@ -203,10 +102,45 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
           const requiresStates = genDescWz.querySelector('genState[next], genState[prev], genState[precedes], genState[follows]')
           if (requiresStates) {
             const statesArray = getGeneticStates(genDescWz)
-            statesArray.forEach((stateSet, i) => {
-              const statedAt = retrieveGeneticStateFromAt(data.atDom, stateSet)
-              // 
+            addGeneticInformation(ftSvgDom, {
+              fileType: 'finalState',
+              precedingStates: statesArray.map((stateSet, index) => ({
+                n: index + 1,
+                activeStates: stateSet,
+                fileName: path.join(path.basename(triple.ftStateSvgDir), path.basename(triple.ftStateSvgPath(index + 1)))
+              })),
+              parentFile: null
             })
+            for (const [index, stateSet] of statesArray.entries()) {
+              const statedAt = retrieveGeneticStateFromAt(data.atDom, stateSet)
+              const statedPreparation = prepareAtForFluidTranscript({
+                atDom: statedAt,
+                dtDom: data.dtDom,
+                sourceDom: data.sourceDom,
+                reconstructionDom: data.reconstructionDom,
+                verovio,
+                pageDimensions,
+                layoutInfo,
+                triple
+              })
+              const statedFtSvgDom = ftSvgBase.cloneNode(true)
+              addGeneticInformation(statedFtSvgDom, {
+                fileType: 'precedingState',
+                precedingStates: [],
+                parentFile: path.join('..', path.basename(triple.ftSvgPath))
+              })
+              addAnimatedTranscription({
+                ftSvgDom: statedFtSvgDom,
+                atPreparation: statedPreparation,
+                atDom: statedAt,
+                dtDom: data.dtDom,
+                layoutInfo,
+                pageDimensions,
+                triple,
+                logger
+              })
+              await writeData(new XMLSerializer().serializeToString(extractAnimatedTranscription(statedFtSvgDom)), triple.ftStateSvgPath(index + 1))
+            }
           }
         }
       }
@@ -272,48 +206,20 @@ const prepareDtForFt = async (dtDom, sourceDom, data, layoutInfo, logger, path) 
  */
 const prepareAtForFt = async (atDom, dtDom, data, verovio, pageDimensions, layoutInfo, logger, triple) => {
   try {
-    const editedAtDom = prepareEditedAtDom(atDom, dtDom)
-    // formerly known as addSbIndicators(atDom)
-    editedAtDom.querySelectorAll('annot[class="#bw_writingZoneBegin]').forEach((annot) => {
-      annot.setAttribute('type', 'writingZoneBegin')
+    const preparedAt = prepareAtForFluidTranscript({
+      atDom,
+      dtDom,
+      sourceDom: data.sourceDom,
+      reconstructionDom: data.reconstructionDom,
+      verovio,
+      pageDimensions,
+      layoutInfo,
+      triple
     })
-
-    // Verovio expects dots as attributes, so we need to convert, also no <supplied> in <scoreDef>
-    prepareAtForVerovio(editedAtDom)
-
-    // renders AT resolving choices to either ./orig or ./reg, depending on the version parameter
-    const renderAt = (choiceXPath) => {
-      const vrvOptions = {
-        breaks: 'none',
-        mmOutput: true,
-        unit: layoutInfo.pages.find(page => page.current).vrvMeiUnit,
-        scale: 100,
-        svgBoundingBoxes: false,
-        choiceXPathQuery: choiceXPath
-      }
-      // this is necessary to reset Verovio's choiceXPathQuery – it will just add the new otherwise
-      verovio.resetOptions()
-      const atSvgString = renderContinuousAt(editedAtDom, verovio, 'fluid', pageDimensions, vrvOptions)
-      const parser = new DOMParser()
-      const dom = parser.parseFromString(atSvgString, 'image/svg+xml')
-
-      return dom
-    }
-
-    const origAtSvgDom = renderAt('./orig')
-    const regAtSvgDom = renderAt('./reg')
-
-    const mod = addSystemLabelBlocks(origAtSvgDom, editedAtDom, data.dtDom, data.sourceDom, data.reconstructionDom, triple)
-    adjustAtStaffLines(mod, editedAtDom)
-
-    const regMod = addSystemLabelBlocks(regAtSvgDom, editedAtDom, data.dtDom, data.sourceDom, data.reconstructionDom, triple)
-    adjustAtStaffLines(regMod, editedAtDom)
-
-    data.atSvgDom = mod // store the rendered AT SVG DOM for later use in FT processing
-    data.atRegSvgDom = regMod // store the rendered AT SVG DOM for later use in FT processing
-    data.editedAtDom = editedAtDom // store the edited AT DOM for later use in FT processing
-    return mod
-    //
+    data.atSvgDom = preparedAt.atSvgDom
+    data.atRegSvgDom = preparedAt.atRegSvgDom
+    data.editedAtDom = preparedAt.editedAtDom
+    return preparedAt.atSvgDom
   } catch (error) {
     logger.error('Error preparing annotated transcript for Fluid Transcripts: ' + error.message)
     logger.debug('Source file: ' + triple.sourceFullPath)
@@ -592,7 +498,7 @@ const initializeFtSvg = (layoutInfo, dtDom) => {
 /**
  * This function retrieves all reachable genetic states from a genDesc writing zone.
  * @param {Element} genDescWz - The genDesc element representing the writing zone.
- * @returns {string[][]} Genetic-state sequences, including every reachable intermediate step.
+ * @returns {string[][]} Genetic-state sequences, including every reachable intermediate step except the complete final state.
  */
 export const getGeneticStates = (genDescWz) => {
   const allStates = Array.from(genDescWz.querySelectorAll('genState'))
@@ -634,7 +540,33 @@ export const getGeneticStates = (genDescWz) => {
   }
 
   visit(startId, [startId])
-  return traversals
+
+  const seenStateSets = new Set()
+  const allStateKey = Array.from(stateIds).sort().join('\u0000')
+  return traversals.filter(stateSet => {
+    const key = stateSet.slice().sort().join('\u0000')
+    if (key === allStateKey) return false
+    if (seenStateSets.has(key)) return false
+    seenStateSets.add(key)
+    return true
+  })
+}
+
+/**
+ * Adds genetic-state relationship metadata to a fluid-transcript SVG.
+ *
+ * @param {Document|Element} ftSvgDom - Fluid-transcript SVG document or root element.
+ * @param {{fileType: string, precedingStates: Object[], parentFile: string|null}} geneticInformation - Genetic-state relationship data.
+ */
+export const addGeneticInformation = (ftSvgDom, geneticInformation) => {
+  const svgRoot = ftSvgDom.documentElement || ftSvgDom
+  const existingMetadata = svgRoot.querySelector('metadata.geneticInformation')
+  if (existingMetadata) existingMetadata.parentNode.removeChild(existingMetadata)
+
+  const metadata = svgRoot.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'metadata')
+  metadata.setAttribute('class', 'geneticInformation')
+  metadata.textContent = JSON.stringify(geneticInformation)
+  svgRoot.appendChild(metadata)
 }
 
 /**
