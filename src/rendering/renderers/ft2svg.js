@@ -196,6 +196,21 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
         addTransform(elem, 'opacity', constants.ftAssetPhaseOpacityValues.labelsHiddenUntilEnd)
       })
 
+      const genDescWzId = data.atDom.querySelector('annot[class="#bw_writingZoneBegin"]')?.getAttribute('corresp')?.split('#')[1]
+      if (genDescWzId) {
+        const genDescWz = data.sourceDom.querySelector(`genDesc[xml\\:id="${genDescWzId}"]`)
+        if (genDescWz) {
+          const requiresStates = genDescWz.querySelector('genState[next], genState[prev], genState[precedes], genState[follows]')
+          if (requiresStates) {
+            const statesArray = getGeneticStates(genDescWz)
+            statesArray.forEach((stateSet, i) => {
+              const statedAt = retrieveGeneticStateFromAt(data.atDom, stateSet)
+              // 
+            })
+          }
+        }
+      }
+
       const ftSvgString = new XMLSerializer().serializeToString(ftSvgDom)
       await writeData(ftSvgString, triple.ftSvgPath)
       logger.info('Successfully rendered ' + triple.ftSvgPath)
@@ -572,4 +587,103 @@ const initializeFtSvg = (layoutInfo, dtDom) => {
   svg.appendChild(contentGroup)
 
   return svg
+}
+
+/**
+ * This function retrieves all reachable genetic states from a genDesc writing zone.
+ * @param {Element} genDescWz - The genDesc element representing the writing zone.
+ * @returns {string[][]} Genetic-state sequences, including every reachable intermediate step.
+ */
+export const getGeneticStates = (genDescWz) => {
+  const allStates = Array.from(genDescWz.querySelectorAll('genState'))
+  const stateIds = new Set(allStates.map(state => state.getAttribute('xml:id')).filter(Boolean))
+  const successorsById = new Map(Array.from(stateIds, stateId => [stateId, []]))
+
+  const getReferences = (state, attribute) => {
+    return (state.getAttribute(attribute) || '')
+      .trim()
+      .split(/\s+/)
+      .map(reference => reference.replace(/^.*#/, ''))
+      .filter(reference => stateIds.has(reference))
+  }
+
+  const addSuccessor = (fromId, toId) => {
+    const successors = successorsById.get(fromId)
+    if (successors && !successors.includes(toId)) successors.push(toId)
+  }
+
+  allStates.forEach(state => {
+    const stateId = state.getAttribute('xml:id')
+    if (!stateId) return
+
+    getReferences(state, 'next').forEach(successorId => addSuccessor(stateId, successorId))
+    getReferences(state, 'precedes').forEach(successorId => addSuccessor(stateId, successorId))
+    getReferences(state, 'prev').forEach(predecessorId => addSuccessor(predecessorId, stateId))
+    getReferences(state, 'follows').forEach(predecessorId => addSuccessor(predecessorId, stateId))
+  })
+
+  const startId = allStates[0]?.getAttribute('xml:id')
+  if (!startId) return []
+
+  const traversals = []
+  const visit = (stateId, path) => {
+    traversals.push(path)
+    successorsById.get(stateId).forEach(successorId => {
+      if (!path.includes(successorId)) visit(successorId, path.concat(successorId))
+    })
+  }
+
+  visit(startId, [startId])
+  return traversals
+}
+
+/**
+ * Retrieves a genetic state from an AT, using the array of state IDs that are necessary to implement to get to this genetic state
+ * @param {Element} atDom - The AT DOM element.
+ * @param {string[]} stateSet - The IDs of the genetic states that are active in what is to be retrieved.
+ * @returns {Element} - The cloned AT DOM element with the genetic state applied.
+ */
+const retrieveGeneticStateFromAt = (atDom, stateSet) => {
+  const resolveState = (node) => {
+    const name = node.localName
+    const refId = node.getAttribute('state')?.split('#')[1]
+    if (!refId) return
+
+    const parent = node.parentNode
+    // based on https://github.com/BeethovensWerkstatt/api/blob/1320c961c87bcd7b62917013ab365602119d6915/source/xslt/module1/getState.xsl#L98-L120
+    if (name === 'add' && stateSet.includes(refId)) {
+      // replace the <add> element with its children
+      while (node.firstChild) {
+        parent.insertBefore(node.firstChild, node)
+      }
+      parent.removeChild(node)
+    } else if (name === 'add' && !stateSet.includes(refId)) {
+      // remove the <add> element and its children
+      node.parentNode.removeChild(node)
+    } else if (name === 'del' && stateSet.includes(refId)) {
+      // preserve only children of <restore> elements inside the <del>
+      const restores = Array.from(node.querySelectorAll('restore[state]')).flatMap(restore => Array.from(restore.childNodes))
+      while (node.firstChild) {
+        node.removeChild(node.firstChild)
+      }
+      restores.forEach(restore => {
+        const restoreState = restore.getAttribute('state')?.split('#')[1]
+        if (restoreState && stateSet.includes(restoreState)) {
+          const children = Array.from(restore.childNodes)
+          children.forEach(child => {
+            parent.insertBefore(child, node)
+          })
+        }
+      })
+      parent.removeChild(node)
+    } else if (name === 'del' && !stateSet.includes(refId)) {
+      // do not remove content, since this is happening at a later state
+    }
+  }
+
+  const outDom = atDom.cloneNode(true)
+  const stateElements = outDom.querySelectorAll('add[state], del[state], restore[state]')
+  stateElements.forEach(resolveState)
+
+  return outDom
 }
