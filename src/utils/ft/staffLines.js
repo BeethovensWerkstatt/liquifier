@@ -105,9 +105,40 @@ const trimDtStaffLinePath = (line, minX, maxX) => {
   line.setAttribute('d', `M${clampedMinX} ${parsed.start.y} L${clampedMaxX} ${parsed.end.y}`)
 }
 
+const getDtSystemRastrumIds = (system) => {
+  const seenRastrumIds = new Set()
+
+  return Array.from(system.querySelectorAll('g.staff[data-rastrum]')).flatMap(staff => {
+    const rastrumId = (staff.getAttribute('data-rastrum') || '').trim().split(/\s+/)[0]
+    if (!rastrumId || seenRastrumIds.has(rastrumId)) return []
+
+    seenRastrumIds.add(rastrumId)
+    return rastrumId
+  })
+}
+
+const getRastrumReferenceCounts = (dtSystems) => {
+  const counts = new Map()
+
+  dtSystems.forEach(system => {
+    getDtSystemRastrumIds(system).forEach(rastrumId => {
+      counts.set(rastrumId, (counts.get(rastrumId) || 0) + 1)
+    })
+  })
+
+  return counts
+}
+
+const getTrimmedStaffLineClone = (line, minX, maxX) => {
+  const clone = line.cloneNode(true)
+  trimDtStaffLinePath(clone, minX, maxX)
+  return clone
+}
+
 export const trimDtStaffLinesToContent = (dtLayer, sideMargin, logger) => {
   const dtSystems = Array.from(dtLayer.querySelectorAll('g.system:not(.bounding-box)'))
   if (dtSystems.length === 0) return
+  const rastrumReferenceCounts = getRastrumReferenceCounts(dtSystems)
 
   const rastrumLinesById = new Map()
   Array.from(dtLayer.querySelectorAll('g.rastrum[data-id]')).forEach(rastrum => {
@@ -132,13 +163,8 @@ export const trimDtStaffLinesToContent = (dtLayer, sideMargin, logger) => {
       return
     }
 
-    const seenRastrumIds = new Set()
-    Array.from(system.querySelectorAll('g.staff[data-rastrum]')).forEach(staff => {
-      const rastrumRef = (staff.getAttribute('data-rastrum') || '').trim()
-      const rastrumId = rastrumRef.split(/\s+/)[0]
-      if (!rastrumId || seenRastrumIds.has(rastrumId)) return
-
-      seenRastrumIds.add(rastrumId)
+    getDtSystemRastrumIds(system).forEach(rastrumId => {
+      if ((rastrumReferenceCounts.get(rastrumId) || 0) > 1) return
       const lines = rastrumLinesById.get(rastrumId) || []
       lines.forEach(line => trimDtStaffLinePath(line, minX, maxX))
     })
@@ -215,19 +241,12 @@ const groupDtStaffLinesByMatchedBlocks = (dtLayer, matchedBlocks, blockToDtSyste
         return
       }
 
-      const seenRastrumIds = new Set()
-      const orderedRastrumIds = []
-      Array.from(system.querySelectorAll('g.staff[data-rastrum]')).forEach(staff => {
-        const rastrumRef = (staff.getAttribute('data-rastrum') || '').trim()
-        const rastrumId = rastrumRef.split(/\s+/)[0]
-        if (!rastrumId || seenRastrumIds.has(rastrumId)) return
-
-        seenRastrumIds.add(rastrumId)
-        orderedRastrumIds.push(rastrumId)
-      })
-
-      const referencedLines = orderedRastrumIds.flatMap(rastrumId => rastrumLinesById.get(rastrumId) || [])
-      byBlock.set(blockIndex, referencedLines)
+      const contentRange = getDtSystemContentXRange(system)
+      const referencedLines = getDtSystemRastrumIds(system).flatMap(rastrumId => rastrumLinesById.get(rastrumId) || [])
+      const systemLines = contentRange
+        ? referencedLines.map(line => getTrimmedStaffLineClone(line, contentRange.min, contentRange.max))
+        : referencedLines
+      byBlock.set(blockIndex, systemLines)
     })
 
     return byBlock
@@ -287,9 +306,14 @@ const getDtSystemIdByAtSbId = (atMeiDom, dtLayer) => {
   return mapping
 }
 
-const getDtSystemStaffLines = (dtSystem, dtLayer) => {
+const getDtSystemStaffLines = (dtSystem, dtLayer, trimToContent = false) => {
   const nestedLines = Array.from(dtSystem.querySelectorAll('.rastrum:not(.bounding-box) > path'))
-  if (nestedLines.length > 0) return nestedLines
+  if (nestedLines.length > 0) {
+    const contentRange = trimToContent ? getDtSystemContentXRange(dtSystem) : null
+    return contentRange
+      ? nestedLines.map(line => getTrimmedStaffLineClone(line, contentRange.min, contentRange.max))
+      : nestedLines
+  }
 
   const rastrumById = new Map(
     Array.from(dtLayer.querySelectorAll('g.rastrum[data-id]'))
@@ -301,12 +325,16 @@ const getDtSystemStaffLines = (dtSystem, dtLayer) => {
   )
   const seen = new Set()
 
-  return Array.from(dtSystem.querySelectorAll('g.staff[data-rastrum]')).flatMap(staff => {
+  const lines = Array.from(dtSystem.querySelectorAll('g.staff[data-rastrum]')).flatMap(staff => {
     const rastrumId = String(staff.getAttribute('data-rastrum')).trim().split(/\s+/)[0]
     if (!rastrumId || seen.has(rastrumId)) return []
     seen.add(rastrumId)
     return rastrumById.get(rastrumId) || []
   })
+  const contentRange = trimToContent ? getDtSystemContentXRange(dtSystem) : null
+  return contentRange
+    ? lines.map(line => getTrimmedStaffLineClone(line, contentRange.min, contentRange.max))
+    : lines
 }
 
 const getDtSystemRotation = (dtSystem) => {
@@ -351,7 +379,7 @@ export const animateFtReadingOrderSystems = (atLayer, dtLayer, atMeiDom, { getNe
 
     const atBounds = getLineBounds(Array.from(rastrum.querySelectorAll('path.rastrum')))
     const dtBounds = getLineBounds(
-      getDtSystemStaffLines(dtSystem, dtLayer),
+      getDtSystemStaffLines(dtSystem, dtLayer, true),
       point => getNewPos({ x: 0, y: 0 }, point)
     )
     if (!atBounds || !dtBounds) {

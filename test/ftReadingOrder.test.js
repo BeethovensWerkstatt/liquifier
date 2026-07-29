@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { JSDOM } from 'jsdom'
 
-import { animateFtReadingOrderSystems } from '../src/utils/ft/staffLines.js'
+import { animateFtReadingOrderSystems, animateFtStaffLines, trimDtStaffLinesToContent } from '../src/utils/ft/staffLines.js'
 
 const parser = new (new JSDOM().window.DOMParser)()
 
@@ -77,4 +77,68 @@ test('animateFtReadingOrderSystems keeps a single system fixed and rotates its c
   assert.equal(rastrum.states.readingOrder.val, '0 0')
   assert.equal(content.states.readingOrder.val, '-0.2 10 20')
   assert.equal(content.states.regulation.val, '0 10 20')
+})
+
+test('animateFtReadingOrderSystems uses per-system spans for shared rastrums', () => {
+  const atLayer = parser.parseFromString(`
+    <g xmlns="http://www.w3.org/2000/svg">
+      <g class="systemBegin" data-system-id="sb-left"/>
+      <g class="systemBegin" data-system-id="sb-right"/>
+      <g class="bw-system-rastrum" data-system-id="sb-left"><path class="rastrum" d="M100 10 L300 10"/></g>
+      <g class="bw-system-rastrum" data-system-id="sb-right"><path class="rastrum" d="M100 30 L300 30"/></g>
+    </g>
+  `, 'image/svg+xml').documentElement
+  const dtLayer = parser.parseFromString(`
+    <g xmlns="http://www.w3.org/2000/svg">
+      <g class="rastrum" data-id="shared"><path d="M0 50 L200 50"/></g>
+      <g class="system" data-id="dt-left"><g class="staff" data-rastrum="shared"/><rect x="10" y="50" width="30" height="10"/></g>
+      <g class="system" data-id="dt-right"><g class="staff" data-rastrum="shared"/><rect x="120" y="50" width="30" height="10"/></g>
+    </g>
+  `, 'image/svg+xml').documentElement
+  const atMei = parser.parseFromString('<mei><sb xml:id="sb-left" corresp="#dt-left"/><sb xml:id="sb-right" corresp="#dt-right"/></mei>', 'text/xml')
+  const recorded = []
+
+  animateFtReadingOrderSystems(atLayer, dtLayer, atMei, {
+    getNewPos: (at, dt) => dt,
+    setAnimation: descriptor => recorded.push(descriptor),
+    logger: { warn: () => {} }
+  })
+
+  const left = recorded.find(({ element }) => element.getAttribute('data-system-id') === 'sb-left')
+  const right = recorded.find(({ element }) => element.getAttribute('data-system-id') === 'sb-right')
+  assert.equal(left.states.readingOrder.val, '90 -40')
+  assert.equal(right.states.readingOrder.val, '10 -20')
+})
+
+test('animateFtStaffLines keeps separate content spans for systems sharing one rastrum', () => {
+  const atLayer = parser.parseFromString(`
+    <g xmlns="http://www.w3.org/2000/svg">
+      <path class="rastrum" data-bw-block="0" data-bw-line-index="0" d="M0 10 L200 10"/>
+      <path class="rastrum" data-bw-block="1" data-bw-line-index="0" d="M0 30 L200 30"/>
+    </g>
+  `, 'image/svg+xml').documentElement
+  const dtLayer = parser.parseFromString(`
+    <g xmlns="http://www.w3.org/2000/svg">
+      <g class="rastrum" data-id="shared"><path d="M0 50 L200 50"/></g>
+      <g class="system" data-id="dt-left"><g class="staff" data-rastrum="shared"/><rect x="10" y="50" width="30" height="10"/></g>
+      <g class="system" data-id="dt-right"><g class="staff" data-rastrum="shared"/><rect x="120" y="50" width="30" height="10"/></g>
+    </g>
+  `, 'image/svg+xml').documentElement
+  const recorded = []
+
+  trimDtStaffLinesToContent(dtLayer, 0, { debug: () => {} })
+  animateFtStaffLines(atLayer, dtLayer, {
+    getNewPos: (at, dt) => dt,
+    setAnimation: descriptor => recorded.push(descriptor),
+    logger: { warn: () => {} }
+  }, {
+    matchedStaffLineBlocks: new Set([0, 1]),
+    blockToDtSystemId: new Map([[0, 'dt-left'], [1, 'dt-right']])
+  })
+
+  const block0 = recorded.find(({ element }) => element.getAttribute('data-bw-block') === '0')
+  const block1 = recorded.find(({ element }) => element.getAttribute('data-bw-block') === '1')
+  assert.equal(block0.states.digitalFacsimile.val, 'M10 50 L40 50')
+  assert.equal(block1.states.digitalFacsimile.val, 'M120 50 L150 50')
+  assert.equal(dtLayer.querySelector('g.rastrum[data-id="shared"] path').getAttribute('d'), 'M0 50 L200 50')
 })
