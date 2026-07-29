@@ -93,3 +93,12 @@ test('addGeneticInformation writes one replaceable metadata element for each fil
   addGeneticInformation(ftSvgDom.documentElement, predecessorInformation)
   assert.deepEqual(JSON.parse(ftSvgDom.querySelector('metadata.geneticInformation').textContent), predecessorInformation)
 })
+
+test('addGeneticInformation explicitly represents a final state without predecessors', () => {
+  const ftSvgDom = parser.parseFromString('<svg xmlns="http://www.w3.org/2000/svg"/>', 'image/svg+xml')
+  const noPredecessorInformation = { fileType: 'finalState', precedingStates: [], parentFile: null }
+
+  addGeneticInformation(ftSvgDom, noPredecessorInformation)
+
+  assert.deepEqual(JSON.parse(ftSvgDom.querySelector('metadata.geneticInformation').textContent), noPredecessorInformation)
+})

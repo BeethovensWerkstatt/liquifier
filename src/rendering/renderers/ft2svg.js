@@ -96,6 +96,11 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
         triple,
         logger
       })
+      addGeneticInformation(ftSvgDom, {
+        fileType: 'finalState',
+        precedingStates: [],
+        parentFile: null
+      })
 
       const genDescWzId = data.atDom.querySelector('annot[class="#bw_writingZoneBegin"]')?.getAttribute('corresp')?.split('#')[1]
       if (genDescWzId) {
