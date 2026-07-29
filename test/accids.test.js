@@ -48,7 +48,7 @@ test('liquifyAccids compensates inherited note translation for AT x/y-positioned
   assert.equal(animationCalls[0].states.normalization?.val, '10 3')
 })
 
-test('liquifyAccids reuses notehead animation for accidentals inside chord notes', () => {
+test('liquifyAccids does not subtract sibling notehead animation for accidentals inside chord notes', () => {
   const ftSvg = parser.parseFromString(`
     <svg xmlns="http://www.w3.org/2000/svg">
       <g class="chord" data-id="chord-1">
@@ -91,8 +91,8 @@ test('liquifyAccids reuses notehead animation for accidentals inside chord notes
   })
 
   assert.equal(animationCalls.length, 1)
-  assert.equal(animationCalls[0].states.finding?.val, '66 96')
-  assert.equal(animationCalls[0].states.normalization?.val, '66 96')
+  assert.equal(animationCalls[0].states.finding?.val, '-912 537')
+  assert.equal(animationCalls[0].states.normalization?.val, '-912 537')
 })
 
 test('liquifyAccids derives parent note compensation from notehead geometry when no parent animation exists yet', () => {

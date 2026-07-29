@@ -64,42 +64,39 @@ export const liquifyAccids = (ftSvg, dtSvg, atMeiDom, tools) => {
         currentAncestor = currentAncestor.parentNode
       }
 
-      const parentNoteId = parentNote?.getAttribute('data-id')
-      const parentNoteDtIds = parentNoteId ? correspMappings.get(parentNoteId) : null
-      const parentDtId = parentNoteDtIds?.[0]
-      const parentDtNote = parentDtId ? dtSvg.querySelector(`g.note[data-id="${parentDtId}"]`) : null
-      const parentAtHeadUse = parentNote?.querySelector('.notehead > use')
-      const parentDtHeadUse = parentDtNote?.querySelector('.notehead > use')
+      const parentAnimation =
+        queryDirectChild(parentNote, 'animateTransform[type="translate"]') ||
+        queryDirectChild(parentChord, 'animateTransform[type="translate"]')
 
-      if (parentAtHeadUse && parentDtHeadUse) {
-        const parentAtTransform = parentAtHeadUse.getAttribute('transform')?.match(/translate\(\s*([\d.-]+)\s*,\s*([\d.-]+)\s*\)/)
-        const parentAtX = parentAtTransform ? parseFloat(parentAtTransform[1]) : parseFloat(parentAtHeadUse.getAttribute('x'))
-        const parentAtY = parentAtTransform ? parseFloat(parentAtTransform[2]) : parseFloat(parentAtHeadUse.getAttribute('y'))
-        const parentDtX = parseFloat(parentDtHeadUse.getAttribute('x'))
-        const parentDtY = parseFloat(parentDtHeadUse.getAttribute('y'))
-
-        if (Number.isFinite(parentAtX) && Number.isFinite(parentAtY) && Number.isFinite(parentDtX) && Number.isFinite(parentDtY)) {
-          const parentNewPos = getNewPos({ x: parentAtX, y: parentAtY }, { x: parentDtX, y: parentDtY })
-          noteAnimationDiff = {
-            x: parentNewPos.x - parentAtX,
-            y: parentNewPos.y - parentAtY
-          }
-          logger.debug(`[Accid] Parent note diff from geometry: (${noteAnimationDiff.x}, ${noteAnimationDiff.y})`)
+      if (parentAnimation) {
+        const parentValues = parentAnimation.getAttribute('values')
+        const parentMatch = parentValues?.match(/^\s*([-\d.]+)\s+([-\d.]+)/)
+        if (parentMatch) {
+          noteAnimationDiff = { x: parseFloat(parentMatch[1]), y: parseFloat(parentMatch[2]) }
+          logger.debug(`[Accid] Inherited parent animation diff: (${noteAnimationDiff.x}, ${noteAnimationDiff.y})`)
         }
-      }
+      } else if (!parentChord) {
+        const parentNoteId = parentNote?.getAttribute('data-id')
+        const parentNoteDtIds = parentNoteId ? correspMappings.get(parentNoteId) : null
+        const parentDtId = parentNoteDtIds?.[0]
+        const parentDtNote = parentDtId ? dtSvg.querySelector(`g.note[data-id="${parentDtId}"]`) : null
+        const parentAtHeadUse = parentNote?.querySelector('.notehead > use')
+        const parentDtHeadUse = parentDtNote?.querySelector('.notehead > use')
 
-      if (noteAnimationDiff.x === 0 && noteAnimationDiff.y === 0) {
-        const parentAnimation =
-          queryDirectChild(parentNote, 'animateTransform[type="translate"]') ||
-          queryDirectChild(queryDirectChild(parentNote, 'g.notehead'), 'animateTransform[type="translate"]') ||
-          queryDirectChild(parentChord, 'animateTransform[type="translate"]')
+        if (parentAtHeadUse && parentDtHeadUse) {
+          const parentAtTransform = parentAtHeadUse.getAttribute('transform')?.match(/translate\(\s*([\d.-]+)\s*,\s*([\d.-]+)\s*\)/)
+          const parentAtX = parentAtTransform ? parseFloat(parentAtTransform[1]) : parseFloat(parentAtHeadUse.getAttribute('x'))
+          const parentAtY = parentAtTransform ? parseFloat(parentAtTransform[2]) : parseFloat(parentAtHeadUse.getAttribute('y'))
+          const parentDtX = parseFloat(parentDtHeadUse.getAttribute('x'))
+          const parentDtY = parseFloat(parentDtHeadUse.getAttribute('y'))
 
-        if (parentAnimation) {
-          const parentValues = parentAnimation.getAttribute('values')
-          const parentMatch = parentValues?.match(/^\s*([-\d.]+)\s+([-\d.]+)/)
-          if (parentMatch) {
-            noteAnimationDiff = { x: parseFloat(parentMatch[1]), y: parseFloat(parentMatch[2]) }
-            logger.debug(`[Accid] Parent animation diff: (${noteAnimationDiff.x}, ${noteAnimationDiff.y})`)
+          if (Number.isFinite(parentAtX) && Number.isFinite(parentAtY) && Number.isFinite(parentDtX) && Number.isFinite(parentDtY)) {
+            const parentNewPos = getNewPos({ x: parentAtX, y: parentAtY }, { x: parentDtX, y: parentDtY })
+            noteAnimationDiff = {
+              x: parentNewPos.x - parentAtX,
+              y: parentNewPos.y - parentAtY
+            }
+            logger.debug(`[Accid] Parent note diff from geometry: (${noteAnimationDiff.x}, ${noteAnimationDiff.y})`)
           }
         }
       }
