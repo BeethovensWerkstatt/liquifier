@@ -395,7 +395,7 @@ const initializeFtSvg = (layoutInfo, dtDom) => {
       stroke: #000;
     }
 
-    .supplied * {
+    .supplied *, .supplied {
       stroke: #666666;
       fill: #666666;
     }
