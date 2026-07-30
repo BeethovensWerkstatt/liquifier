@@ -1,6 +1,7 @@
 import { appendNewElement, closestElement, queryDirectChildren, removeElement } from '../utils/dom.js'
 import { liquifyNotes } from './liquify/notes.js'
 import { liquifyBarlines } from './liquify/barlines.js'
+import { liquifyDots } from './liquify/dots.js'
 import { liquifyCurves } from './liquify/curves.js'
 import { liquifyAccids } from './liquify/accids.js'
 import { liquifyRests } from './liquify/rests.js'
@@ -1476,7 +1477,7 @@ const liquifyMusic = (ftSvg, dtSvg, atMeiDom, tools) => {
   liquifyChords(ftSvg, dtSvg, atMeiDom, tools)
   liquifyAccids(ftSvg, dtSvg, atMeiDom, tools)
   liquifyClefs(ftSvg, dtSvg, atMeiDom, tools)
-  // liquifyDots(ftSvg, dtSvg, atMeiDom, tools)
+  liquifyDots(ftSvg, dtSvg, atMeiDom, tools)
   liquifyMeterSigs(ftSvg, dtSvg, atMeiDom, tools)
   liquifyArtics(ftSvg, dtSvg, atMeiDom, tools)
   liquifyTupletNums(ftSvg, dtSvg, atMeiDom, tools)
