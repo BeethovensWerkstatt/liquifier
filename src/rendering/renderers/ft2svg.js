@@ -110,14 +110,15 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
       if (genDescWzId) {
         const genDescWz = data.sourceDom.querySelector(`genDesc[xml\\:id="${genDescWzId}"]`)
         if (genDescWz) {
-          const requiresStates = genDescWz.querySelector('genState[next], genState[prev], genState[precedes], genState[follows]')
+          const requiresStates = genDescWz.querySelector('genState[class~="#bw_textStufe"]')
           if (requiresStates) {
-            const statesArray = getGeneticStates(genDescWz)
+            const states = getGeneticStates(genDescWz)
             addGeneticInformation(ftSvgDom, {
               fileType: 'finalState',
-              precedingStates: statesArray.map((stateSet, index) => ({
+              precedingStates: states.map((state, index) => ({
                 n: index + 1,
-                activeStates: stateSet,
+                activeStates: state.activeStates,
+                label: state.label,
                 fileName: path.join(path.basename(triple.ftStateSvgDir), path.basename(triple.ftStateSvgPath(index + 1))),
                 midiFiles: {
                   orig: relativeAssetPath(triple.ftSvgPath, triple.atMidOrigStatePath(index + 1)),
@@ -126,8 +127,8 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
               })),
               parentFile: null
             })
-            for (const [index, stateSet] of statesArray.entries()) {
-              const statedAt = retrieveGeneticStateFromAt(data.atDom, stateSet)
+            for (const [index, state] of states.entries()) {
+              const statedAt = retrieveGeneticStateFromAt(data.atDom, state.activeStates)
               const statedPreparation = prepareAtForFluidTranscript({
                 atDom: statedAt,
                 dtDom: data.dtDom,
@@ -513,61 +514,50 @@ const initializeFtSvg = (layoutInfo, dtDom) => {
 }
 
 /**
- * This function retrieves all reachable genetic states from a genDesc writing zone.
+ * Retrieves renderable text stages in their declared @next order.
+ * Each stage supplies the active genetic states explicitly through @follows.
+ * The final text stage is represented by the primary FT and is therefore omitted.
+ *
  * @param {Element} genDescWz - The genDesc element representing the writing zone.
- * @returns {string[][]} Genetic-state sequences, including every reachable intermediate step except the complete final state.
+ * @returns {{id: string, label: string, activeStates: string[]}[]} Ordered non-final text stages.
  */
 export const getGeneticStates = (genDescWz) => {
-  const allStates = Array.from(genDescWz.querySelectorAll('genState'))
-  const stateIds = new Set(allStates.map(state => state.getAttribute('xml:id')).filter(Boolean))
-  const successorsById = new Map(Array.from(stateIds, stateId => [stateId, []]))
+  const textStages = Array.from(genDescWz.querySelectorAll('genState[class~="#bw_textStufe"]'))
+  const textStageById = new Map(textStages.map(stage => [stage.getAttribute('xml:id'), stage]).filter(([id]) => id))
+  const referencedByNext = new Set(textStages.flatMap(stage => getStateReferences(stage, 'next')))
+  const orderedStages = []
+  const visitedIds = new Set()
 
-  const getReferences = (state, attribute) => {
-    return (state.getAttribute(attribute) || '')
-      .trim()
-      .split(/\s+/)
-      .map(reference => reference.replace(/^.*#/, ''))
-      .filter(reference => stateIds.has(reference))
+  const appendStageChain = (stage) => {
+    let current = stage
+    while (current) {
+      const id = current.getAttribute('xml:id')
+      if (!id || visitedIds.has(id)) return
+
+      visitedIds.add(id)
+      orderedStages.push(current)
+      const nextId = getStateReferences(current, 'next')[0]
+      current = textStageById.get(nextId)
+    }
   }
 
-  const addSuccessor = (fromId, toId) => {
-    const successors = successorsById.get(fromId)
-    if (successors && !successors.includes(toId)) successors.push(toId)
-  }
+  textStages.filter(stage => !referencedByNext.has(stage.getAttribute('xml:id'))).forEach(appendStageChain)
+  textStages.forEach(appendStageChain)
 
-  allStates.forEach(state => {
-    const stateId = state.getAttribute('xml:id')
-    if (!stateId) return
-
-    getReferences(state, 'next').forEach(successorId => addSuccessor(stateId, successorId))
-    getReferences(state, 'precedes').forEach(successorId => addSuccessor(stateId, successorId))
-    getReferences(state, 'prev').forEach(predecessorId => addSuccessor(predecessorId, stateId))
-    getReferences(state, 'follows').forEach(predecessorId => addSuccessor(predecessorId, stateId))
-  })
-
-  const startId = allStates[0]?.getAttribute('xml:id')
-  if (!startId) return []
-
-  const traversals = []
-  const visit = (stateId, path) => {
-    traversals.push(path)
-    successorsById.get(stateId).forEach(successorId => {
-      if (!path.includes(successorId)) visit(successorId, path.concat(successorId))
-    })
-  }
-
-  visit(startId, [startId])
-
-  const seenStateSets = new Set()
-  const allStateKey = Array.from(stateIds).sort().join('\u0000')
-  return traversals.filter(stateSet => {
-    const key = stateSet.slice().sort().join('\u0000')
-    if (key === allStateKey) return false
-    if (seenStateSets.has(key)) return false
-    seenStateSets.add(key)
-    return true
-  })
+  return orderedStages
+    .filter(stage => !String(stage.getAttribute('class')).split(/\s+/).includes('#bw_finalGeneticState'))
+    .map(stage => ({
+      id: stage.getAttribute('xml:id'),
+      label: stage.getAttribute('label') || '',
+      activeStates: getStateReferences(stage, 'follows')
+    }))
 }
+
+const getStateReferences = (state, attribute) => (state.getAttribute(attribute) || '')
+  .trim()
+  .split(/\s+/)
+  .filter(Boolean)
+  .map(reference => reference.replace(/^.*#/, ''))
 
 /**
  * Adds genetic-state relationship metadata to a fluid-transcript SVG.

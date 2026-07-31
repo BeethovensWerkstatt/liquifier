@@ -6,72 +6,35 @@ import { addGeneticInformation, getGeneticStates } from '../src/rendering/render
 
 const parser = new (new JSDOM().window.DOMParser)()
 
-test('getGeneticStates returns all intermediate sequences across genetic branches', () => {
+test('getGeneticStates follows text stages by next and uses follows as each stage state set', () => {
   const genDescWz = parser.parseFromString(`
     <genDesc>
-      <genState xml:id="state-1" next="#state-2"/>
-      <genState xml:id="state-2" next="#state-3"/>
-      <genState xml:id="state-3" precedes="#state-4 #state-5"/>
-      <genState xml:id="state-4" follows="#state-3"/>
-      <genState xml:id="state-5" follows="#state-3"/>
+      <genState xml:id="layer-1" class="#geneticOrder_writingLayerLevel"/>
+      <genState xml:id="text-1" class="#bw_textStufe" label="Text stage 1" follows="#layer-1" next="#text-2"/>
+      <genState xml:id="layer-2" class="#geneticOrder_writingLayerLevel"/>
+      <genState xml:id="text-2" class="#bw_textStufe" label="Text stage 2" follows="#layer-1 #layer-2" next="#text-final"/>
+      <genState xml:id="text-final" class="#bw_textStufe #bw_finalGeneticState" label="Text stage 3" follows="#layer-1 #layer-2 #layer-3"/>
+      <genState xml:id="layer-3" class="#geneticOrder_writingLayerLevel"/>
     </genDesc>
   `, 'text/xml').documentElement
 
   assert.deepEqual(getGeneticStates(genDescWz), [
-    ['state-1'],
-    ['state-1', 'state-2'],
-    ['state-1', 'state-2', 'state-3'],
-    ['state-1', 'state-2', 'state-3', 'state-4'],
-    ['state-1', 'state-2', 'state-3', 'state-5']
+    { id: 'text-1', label: 'Text stage 1', activeStates: ['layer-1'] },
+    { id: 'text-2', label: 'Text stage 2', activeStates: ['layer-1', 'layer-2'] }
   ])
 })
 
-test('getGeneticStates resolves predecessor references and ignores cycles', () => {
+test('getGeneticStates uses document order for text stages without a next predecessor', () => {
   const genDescWz = parser.parseFromString(`
     <genDesc>
-      <genState xml:id="state-1"/>
-      <genState xml:id="state-2" prev="#state-1"/>
-      <genState xml:id="state-3" follows="#state-2" next="#state-1"/>
+      <genState xml:id="text-1" class="#bw_textStufe" label="One" follows="#layer-1"/>
+      <genState xml:id="text-2" class="#bw_textStufe" label="Two" follows="#layer-1 #layer-2"/>
     </genDesc>
   `, 'text/xml').documentElement
 
   assert.deepEqual(getGeneticStates(genDescWz), [
-    ['state-1'],
-    ['state-1', 'state-2']
-  ])
-})
-
-test('getGeneticStates excludes the complete state set after parallel terminal branches', () => {
-  const genDescWz = parser.parseFromString(`
-    <genDesc>
-      <genState xml:id="state-1" next="#state-2"/>
-      <genState xml:id="state-2" precedes="#state-3 #state-4"/>
-      <genState xml:id="state-3"/>
-      <genState xml:id="state-4"/>
-    </genDesc>
-  `, 'text/xml').documentElement
-
-  assert.deepEqual(getGeneticStates(genDescWz), [
-    ['state-1'],
-    ['state-1', 'state-2'],
-    ['state-1', 'state-2', 'state-3'],
-    ['state-1', 'state-2', 'state-4']
-  ])
-})
-
-test('getGeneticStates deduplicates equivalent state sets reached in different orders', () => {
-  const genDescWz = parser.parseFromString(`
-    <genDesc>
-      <genState xml:id="state-1" precedes="#state-2 #state-3"/>
-      <genState xml:id="state-2" next="#state-3"/>
-      <genState xml:id="state-3" next="#state-2"/>
-    </genDesc>
-  `, 'text/xml').documentElement
-
-  assert.deepEqual(getGeneticStates(genDescWz), [
-    ['state-1'],
-    ['state-1', 'state-2'],
-    ['state-1', 'state-3']
+    { id: 'text-1', label: 'One', activeStates: ['layer-1'] },
+    { id: 'text-2', label: 'Two', activeStates: ['layer-1', 'layer-2'] }
   ])
 })
 
@@ -79,7 +42,7 @@ test('addGeneticInformation writes one replaceable metadata element for each fil
   const ftSvgDom = parser.parseFromString('<svg xmlns="http://www.w3.org/2000/svg"><metadata class="geneticInformation">stale</metadata></svg>', 'image/svg+xml')
   const finalStateInformation = {
     fileType: 'finalState',
-    precedingStates: [{ n: 1, activeStates: ['state-1'], fileName: 'example_ft/example_ft_v001.svg' }],
+    precedingStates: [{ n: 1, label: 'Text stage 1', activeStates: ['state-1'], fileName: 'example_ft/example_ft_v001.svg' }],
     parentFile: null
   }
 
