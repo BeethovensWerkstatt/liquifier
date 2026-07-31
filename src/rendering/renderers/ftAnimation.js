@@ -13,6 +13,8 @@ import { constants } from '../../config.mjs'
  * @param {Document} params.ftSvgDom - Fluid-transcription SVG base document.
  * @param {{atSvgDom: Document, atRegSvgDom: Document, editedAtDom: Document}} params.atPreparation - Prepared AT forms.
  * @param {Document} params.atDom - Source annotated transcript.
+ * @param {Document} params.sourceAtDom - Unmodified source annotated transcript.
+ * @param {Document} params.sourceDtDom - Unmodified source diplomatic transcript.
  * @param {Document} params.dtDom - Diplomatic transcript.
  * @param {Object} params.layoutInfo - Fluid layout information.
  * @param {Object} params.pageDimensions - Page dimensions.
@@ -20,7 +22,7 @@ import { constants } from '../../config.mjs'
  * @param {Object} params.logger - Logger instance.
  * @returns {Document} Completed fluid-transcription SVG document.
  */
-export const addAnimatedTranscription = ({ ftSvgDom, atPreparation, atDom, dtDom, layoutInfo, pageDimensions, triple, logger }) => {
+export const addAnimatedTranscription = ({ ftSvgDom, atPreparation, atDom, sourceAtDom, sourceDtDom, dtDom, layoutInfo, pageDimensions, triple, logger }) => {
   const { atSvgDom, atRegSvgDom, editedAtDom } = atPreparation
   const currentPage = layoutInfo.pages.find(page => page.current)
   const transcriptionGroup = ftSvgDom.querySelector('.transcription')
@@ -77,8 +79,11 @@ export const addAnimatedTranscription = ({ ftSvgDom, atPreparation, atDom, dtDom
     atScaling,
     atHorizontalPosition,
     atVerticalShift,
+    layoutInfo,
     logger
   })
+  tools.sourceAtMeiDom = sourceAtDom || atDom
+  tools.sourceDtMeiDom = sourceDtDom || dtDom
   const matchedStaffLineContext = resolveMatchedStaffLineContextForCurrentDt(atDom, dtDom, logger)
   const readingOrderSystemDistance = constants.ftReadingOrderSystemDistanceMm * currentPage.vrvMeiUnit * constants.verovioGeneralScaling
   animateFtStaffLines(transcriptionGroup, ftSvgDom.querySelector('.diplomatic'), tools, matchedStaffLineContext)

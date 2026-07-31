@@ -23,6 +23,7 @@ import { liquifyHairpins } from './liquify/hairpins.js'
 import { liquifyTupletNums } from './liquify/tupletNums.js'
 import { liquifyTremolos } from './liquify/tremolos.js'
 import { liquifyStaffGrpBraces } from './liquify/staffGrpBraces.js'
+import { liquifyMetamarks } from './liquify/metamarks.js'
 // import { adjustViewBoxForContent } from './liquify/viewbox.js'
 
 // const duration = '5s'
@@ -80,5 +81,5 @@ export const liquifyMusic = (ftSvg, dtSvg, tools) => {
   // liquifyWords(ftSvg, dtSvg, atMeiDom, tools)
   liquifyFings(ftSvg, dtSvg, atMeiDom, tools)
   liquifyFs(ftSvg, dtSvg, atMeiDom, tools)
-  // liquifyMetamarks(ftSvg, dtSvg, atMeiDom, tools)
+  liquifyMetamarks(ftSvg, dtSvg, atMeiDom, tools)
 }

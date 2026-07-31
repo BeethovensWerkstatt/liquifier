@@ -228,6 +228,7 @@ export const prepareAssets = ({
   atScaling,
   atHorizontalPosition,
   atVerticalShift,
+  layoutInfo,
   logger
 }) => {
   const { correspMappings, unmatchedClassByAtId } = extractCorrespContext(atMeiDom, {
@@ -315,6 +316,8 @@ export const prepareAssets = ({
     atMeiDom,
     atRegSvgDom,
     applyUnmatchedClass,
+    layoutInfo,
+    atContentOffset,
     setAnimation: descriptor => setAnimationForFtWithAssets(descriptor, unmatchedClassByAtId),
     logger
   }

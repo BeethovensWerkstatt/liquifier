@@ -82,6 +82,8 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
       ftSvgDom.querySelector('.diplomatic').removeAttribute('transform') */
 
       // handle annotated transcription
+      const atSourceDom = data.atDom.cloneNode(true)
+      const dtSourceDom = data.dtDom.cloneNode(true)
       const atSvgDom = await prepareAtForFt(data.atDom, data.dtDom, data, verovio, pageDimensions, layoutInfo, logger, triple)
       // result is also available as data.atSvgDom = atSvgDom
       // data.editedAtDom is also available for later use in FT processing
@@ -90,6 +92,8 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
         ftSvgDom,
         atPreparation: { atSvgDom, atRegSvgDom: data.atRegSvgDom, editedAtDom: data.editedAtDom },
         atDom: data.atDom,
+        sourceAtDom: atSourceDom,
+        sourceDtDom: dtSourceDom,
         dtDom: data.dtDom,
         layoutInfo,
         pageDimensions,
@@ -290,12 +294,6 @@ const extractLayoutInfo = (data, pageDimensions, logger, sourceFullPath) => {
         const fragment = getRectFromFragment(iiif)
         const outerRectMm = getOuterBoundingRect(0, 0, pageInfo.mm.width, pageInfo.mm.height, fragment.rotate.deg)
         const ratio = fragment.outer.w / outerRectMm.w
-
-        // console.log(334, 'ratio', ratio)
-        // console.log(334.1, 'fragment', fragment)
-        // console.log(334.2, 'outerRectMm', outerRectMm)
-        // console.log(334.3, 'pageInfo', pageInfo)
-        // console.log(334.4, 'pageDimensions', pageDimensions)
 
         pageInfo.utils = {}
         pageInfo.utils.mmToPx = (mm) => mm * ratio
