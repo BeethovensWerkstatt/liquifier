@@ -118,6 +118,7 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
               precedingStates: states.map((state, index) => ({
                 n: index + 1,
                 activeStates: state.activeStates,
+                svgLayers: state.svgLayers,
                 label: state.label,
                 fileName: path.join(path.basename(triple.ftStateSvgDir), path.basename(triple.ftStateSvgPath(index + 1))),
                 midiFiles: {
@@ -519,11 +520,16 @@ const initializeFtSvg = (layoutInfo, dtDom) => {
  * The final text stage is represented by the primary FT and is therefore omitted.
  *
  * @param {Element} genDescWz - The genDesc element representing the writing zone.
- * @returns {{id: string, label: string, activeStates: string[]}[]} Ordered non-final text stages.
+ * @returns {{id: string, label: string, activeStates: string[], svgLayers: string[]}[]} Ordered non-final text stages.
  */
 export const getGeneticStates = (genDescWz) => {
   const textStages = Array.from(genDescWz.querySelectorAll('genState[class~="#bw_textStufe"]'))
   const textStageById = new Map(textStages.map(stage => [stage.getAttribute('xml:id'), stage]).filter(([id]) => id))
+  const writingLayerById = new Map(
+    Array.from(genDescWz.querySelectorAll('genState[class~="#geneticOrder_writingLayerLevel"]'))
+      .map(layer => [layer.getAttribute('xml:id'), layer])
+      .filter(([id]) => id)
+  )
   const referencedByNext = new Set(textStages.flatMap(stage => getStateReferences(stage, 'next')))
   const orderedStages = []
   const visitedIds = new Set()
@@ -549,7 +555,10 @@ export const getGeneticStates = (genDescWz) => {
     .map(stage => ({
       id: stage.getAttribute('xml:id'),
       label: stage.getAttribute('label') || '',
-      activeStates: getStateReferences(stage, 'follows')
+      activeStates: getStateReferences(stage, 'follows'),
+      svgLayers: getStateReferences(stage, 'follows')
+        .map(stateId => writingLayerById.get(stateId)?.getAttribute('corresp')?.split('#').pop())
+        .filter(Boolean)
     }))
 }
 
