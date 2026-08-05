@@ -81,10 +81,15 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
       })
       ftSvgDom.querySelector('.diplomatic').removeAttribute('transform') */
 
+      const genDescWzId = data.atDom.querySelector('annot[class="#bw_writingZoneBegin"]')?.getAttribute('corresp')?.split('#')[1]
+      const genDescWz = genDescWzId ? data.sourceDom.querySelector(`genDesc[xml\\:id="${genDescWzId}"]`) : null
+      const allStateIds = genDescWz ? Array.from(genDescWz.querySelectorAll('genState')).map(state => state.getAttribute('xml:id')) : []
+
       // handle annotated transcription
       const atSourceDom = data.atDom.cloneNode(true)
       const dtSourceDom = data.dtDom.cloneNode(true)
-      const atSvgDom = await prepareAtForFt(data.atDom, data.dtDom, data, verovio, pageDimensions, layoutInfo, logger, triple)
+      const statedAt = retrieveGeneticStateFromAt(data.atDom, allStateIds)
+      const atSvgDom = await prepareAtForFt(statedAt, data.dtDom, data, verovio, pageDimensions, layoutInfo, logger, triple)
       // result is also available as data.atSvgDom = atSvgDom
       // data.editedAtDom is also available for later use in FT processing
 
@@ -106,67 +111,71 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
         parentFile: null
       })
 
-      const genDescWzId = data.atDom.querySelector('annot[class="#bw_writingZoneBegin"]')?.getAttribute('corresp')?.split('#')[1]
-      if (genDescWzId) {
-        const genDescWz = data.sourceDom.querySelector(`genDesc[xml\\:id="${genDescWzId}"]`)
-        if (genDescWz) {
-          const requiresStates = genDescWz.querySelector('genState[class~="#bw_textStufe"]')
-          if (requiresStates) {
-            const states = getGeneticStates(genDescWz)
-            addGeneticInformation(ftSvgDom, {
-              fileType: 'finalState',
-              precedingStates: states.map((state, index) => ({
-                n: index + 1,
-                activeStates: state.activeStates,
-                svgLayers: state.svgLayers,
-                label: state.label,
-                fileName: path.join(path.basename(triple.ftStateSvgDir), path.basename(triple.ftStateSvgPath(index + 1))),
-                midiFiles: {
-                  orig: relativeAssetPath(triple.ftSvgPath, triple.atMidOrigStatePath(index + 1)),
-                  reg: relativeAssetPath(triple.ftSvgPath, triple.atMidRegStatePath(index + 1))
-                }
-              })),
-              parentFile: null
-            })
-            for (const [index, state] of states.entries()) {
-              const statedAt = retrieveGeneticStateFromAt(data.atDom, state.activeStates)
-              const statedPreparation = prepareAtForFluidTranscript({
-                atDom: statedAt,
-                dtDom: data.dtDom,
-                sourceDom: data.sourceDom,
-                reconstructionDom: data.reconstructionDom,
-                verovio,
-                pageDimensions,
-                layoutInfo,
-                triple
-              })
-              const statedFtSvgDom = ftSvgBase.cloneNode(true)
-              addGeneticInformation(statedFtSvgDom, {
-                fileType: 'precedingState',
-                precedingStates: [],
-                parentFile: path.join('..', path.basename(triple.ftSvgPath)),
-                midiFiles: {
-                  orig: relativeAssetPath(triple.ftStateSvgPath(index + 1), triple.atMidOrigStatePath(index + 1)),
-                  reg: relativeAssetPath(triple.ftStateSvgPath(index + 1), triple.atMidRegStatePath(index + 1))
-                }
-              })
-              addAnimatedTranscription({
-                ftSvgDom: statedFtSvgDom,
-                atPreparation: statedPreparation,
-                atDom: statedAt,
-                dtDom: data.dtDom,
-                layoutInfo,
-                pageDimensions,
-                triple,
-                logger
-              })
-              await writeData(new XMLSerializer().serializeToString(extractAnimatedTranscription(statedFtSvgDom)), triple.ftStateSvgPath(index + 1))
-              if (media.includes('midi')) {
-                await writeData(renderMidi(statedPreparation.editedAtDom, verovio, { choiceXPathQuery: './orig' }), triple.atMidOrigStatePath(index + 1))
-                await writeData(renderMidi(statedPreparation.editedAtDom, verovio, { choiceXPathQuery: './reg' }), triple.atMidRegStatePath(index + 1))
+      addCrossReferences(ftSvgDom, dtSourceDom)
+
+      // deal with additional states
+      if (genDescWzId && genDescWz) {
+        const requiresStates = genDescWz.querySelector('genState[class~="#bw_textStufe"]')
+        if (requiresStates) {
+          const states = getGeneticStates(genDescWz)
+          addGeneticInformation(ftSvgDom, {
+            fileType: 'finalState',
+            precedingStates: states.map((state, index) => ({
+              n: index + 1,
+              activeStates: state.activeStates,
+              svgLayers: state.svgLayers,
+              label: state.label,
+              fileName: path.join(path.basename(triple.ftStateSvgDir), path.basename(triple.ftStateSvgPath(index + 1))),
+              midiFiles: {
+                orig: relativeAssetPath(triple.ftSvgPath, triple.atMidOrigStatePath(index + 1)),
+                reg: relativeAssetPath(triple.ftSvgPath, triple.atMidRegStatePath(index + 1))
               }
+            })),
+            parentFile: null
+          })
+          for (const [index, state] of states.entries()) {
+            const statedAt = retrieveGeneticStateFromAt(data.atDom, state.activeStates)
+            const statedPreparation = prepareAtForFluidTranscript({
+              atDom: statedAt,
+              dtDom: data.dtDom,
+              sourceDom: data.sourceDom,
+              reconstructionDom: data.reconstructionDom,
+              verovio,
+              pageDimensions,
+              layoutInfo,
+              triple
+            })
+            const statedFtSvgDom = ftSvgBase.cloneNode(true)
+            addGeneticInformation(statedFtSvgDom, {
+              fileType: 'precedingState',
+              precedingStates: [],
+              parentFile: path.join('..', path.basename(triple.ftSvgPath)),
+              midiFiles: {
+                orig: relativeAssetPath(triple.ftStateSvgPath(index + 1), triple.atMidOrigStatePath(index + 1)),
+                reg: relativeAssetPath(triple.ftStateSvgPath(index + 1), triple.atMidRegStatePath(index + 1))
+              }
+            })
+            addAnimatedTranscription({
+              ftSvgDom: statedFtSvgDom,
+              atPreparation: statedPreparation,
+              atDom: statedAt,
+              sourceAtDom: atSourceDom,
+              sourceDtDom: dtSourceDom,
+              dtDom: data.dtDom,
+              layoutInfo,
+              pageDimensions,
+              triple,
+              activeSvgLayers: state.svgLayers,
+              logger
+            })
+            addCrossReferences(statedFtSvgDom, dtSourceDom)
+            await writeData(new XMLSerializer().serializeToString(extractAnimatedTranscription(statedFtSvgDom)), triple.ftStateSvgPath(index + 1))
+            if (media.includes('midi')) {
+              await writeData(renderMidi(statedPreparation.editedAtDom, verovio, { choiceXPathQuery: './orig' }), triple.atMidOrigStatePath(index + 1))
+              await writeData(renderMidi(statedPreparation.editedAtDom, verovio, { choiceXPathQuery: './reg' }), triple.atMidRegStatePath(index + 1))
             }
           }
+          
         }
       }
 
@@ -638,4 +647,40 @@ const retrieveGeneticStateFromAt = (atDom, stateSet) => {
   stateElements.forEach(resolveState)
 
   return outDom
+}
+
+/**
+ * Adds DT-to-facsimile-shape cross-references to the Fluid Transcript SVG.
+ * @param {Element} ftSvgDom - The FT SVG DOM element.
+ * @param {Element} dtDom - The source DT DOM element.
+ * @returns {void} No return value.
+ */
+export const addCrossReferences = (ftSvgDom, dtDom) => {
+  const shapePathsById = new Map(
+    Array.from(ftSvgDom.querySelectorAll('.shapes path[id]'))
+      .map(path => [path.getAttribute('id'), path])
+      .filter(([id]) => id)
+  )
+
+  dtDom.querySelectorAll('[facs][xml\\:id]').forEach(dtElement => {
+    const dtId = dtElement.getAttribute('xml:id')
+    if (!dtId) return
+
+    getFragmentIds(dtElement.getAttribute('facs')).forEach(shapeId => addReferenceId(shapePathsById.get(shapeId), dtId))
+  })
+}
+
+const getFragmentIds = (references = '') => String(references)
+  .trim()
+  .split(/\s+/)
+  .filter(Boolean)
+  .map(reference => reference.split('#')[1])
+  .filter(Boolean)
+
+const addReferenceId = (element, referenceId) => {
+  if (!element) return
+
+  const referenceIds = new Set(String(element.getAttribute('data-ref-id') || '').split(/\s+/).filter(Boolean))
+  referenceIds.add(referenceId)
+  element.setAttribute('data-ref-id', Array.from(referenceIds).join(' '))
 }

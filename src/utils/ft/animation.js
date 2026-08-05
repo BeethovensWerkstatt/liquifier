@@ -229,6 +229,7 @@ export const prepareAssets = ({
   atHorizontalPosition,
   atVerticalShift,
   layoutInfo,
+  sourceDtMeiDom,
   logger
 }) => {
   const { correspMappings, unmatchedClassByAtId } = extractCorrespContext(atMeiDom, {
@@ -307,6 +308,17 @@ export const prepareAssets = ({
     return className
   }
 
+  const addAnimationReference = (element, dtId) => {
+    if (!element || !dtId) return
+
+    addReferenceId(element, dtId)
+    const dtElement = Array.from(sourceDtMeiDom?.querySelectorAll('[xml\\:id]') || [])
+      .find(candidate => candidate.getAttribute('xml:id') === dtId)
+    getFragmentIds(dtElement?.getAttribute('facs')).forEach(shapeId => {
+      addReferenceId(ftSvgDom.querySelector(`.shapes path[id="${shapeId}"]`), dtId)
+    })
+  }
+
   return {
     getNewPos,
     convertD,
@@ -318,7 +330,25 @@ export const prepareAssets = ({
     applyUnmatchedClass,
     layoutInfo,
     atContentOffset,
-    setAnimation: descriptor => setAnimationForFtWithAssets(descriptor, unmatchedClassByAtId),
+    setAnimation: descriptor => {
+      addAnimationReference(descriptor.element, descriptor.referenceId)
+      setAnimationForFtWithAssets(descriptor, unmatchedClassByAtId)
+    },
     logger
   }
+}
+
+const getFragmentIds = (references = '') => String(references)
+  .trim()
+  .split(/\s+/)
+  .filter(Boolean)
+  .map(reference => reference.split('#')[1])
+  .filter(Boolean)
+
+const addReferenceId = (element, referenceId) => {
+  if (!element) return
+
+  const referenceIds = new Set(String(element.getAttribute('data-ref-id') || '').split(/\s+/).filter(Boolean))
+  referenceIds.add(referenceId)
+  element.setAttribute('data-ref-id', Array.from(referenceIds).join(' '))
 }

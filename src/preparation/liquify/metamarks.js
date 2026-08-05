@@ -9,12 +9,16 @@ import { uuid } from '../../utils/uuid.js'
  * @param {Document} atMeiDom - Annotated transcript MEI DOM.
  * @param {Object} tools - Animation helper bundle.
  * @param {Function} tools.setAnimation - Phase-aware animation descriptor writer.
+ * @param {Document} tools.sourceDtMeiDom - Source DT MEI DOM with metaMark facsimile references.
+ * @param {string[]} [tools.activeSvgLayers] - Writing-layer SVG IDs active in a preceding genetic state.
  * @returns {void} No return value.
  */
 export const liquifyMetamarks = (ftSvg, dtSvg, atMeiDom, tools) => {
-  const { setAnimation } = tools
+  const { setAnimation, activeSvgLayers } = tools
 
   dtSvg.querySelectorAll('g.clarification, g.metaMark').forEach(metaMark => {
+    if (Array.isArray(activeSvgLayers) && !isInActiveWritingLayer(metaMark, ftSvg.ownerDocument, tools.sourceDtMeiDom, activeSvgLayers)) return
+
     const dtSystem = getOwningDtSystem(metaMark)
     const atSb = atMeiDom.querySelector(`sb[corresp$="#${dtSystem?.getAttribute('data-id')}"]`)
     const atSbId = atSb?.getAttribute('xml:id')
@@ -62,6 +66,38 @@ export const liquifyMetamarks = (ftSvg, dtSvg, atMeiDom, tools) => {
       }
     })
   })
+}
+
+const isInActiveWritingLayer = (metaMark, ftSvgDom, dtMeiDom, activeSvgLayers) => {
+  const metaMarkId = metaMark.getAttribute('data-id')
+  const sourceMetaMark = Array.from(dtMeiDom?.querySelectorAll('metaMark[xml\\:id], annot[xml\\:id]') || [])
+    .find(element => element.getAttribute('xml:id') === metaMarkId)
+  const shapeIds = getFragmentIds(sourceMetaMark?.getAttribute('facs'))
+
+  return shapeIds.some(shapeId => {
+    const shape = ftSvgDom.querySelector(`.shapes [id="${shapeId}"]`)
+    const writingLayer = getOwningWritingLayer(shape)
+    return activeSvgLayers.includes(writingLayer?.getAttribute('id'))
+  })
+}
+
+const getFragmentIds = (references = '') => String(references)
+  .trim()
+  .split(/\s+/)
+  .filter(Boolean)
+  .map(reference => reference.split('#').pop())
+  .filter(Boolean)
+
+const getOwningWritingLayer = (element) => {
+  let current = element
+
+  while (current?.nodeType === 1) {
+    const classes = String(current.getAttribute('class') || '').split(/\s+/)
+    if (current.localName === 'g' && classes.includes('writingLayer')) return current
+    current = current.parentNode
+  }
+
+  return null
 }
 
 /**

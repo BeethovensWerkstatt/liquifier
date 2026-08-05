@@ -99,6 +99,7 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
 
       setAnimation({
         element: note,
+        referenceId: dtId,
         states: {
           finding: { type: 'translate', val: dtVal },
           normalization: { type: 'translate', val: dtVal },

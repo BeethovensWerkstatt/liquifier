@@ -19,10 +19,11 @@ import { constants } from '../../config.mjs'
  * @param {Object} params.layoutInfo - Fluid layout information.
  * @param {Object} params.pageDimensions - Page dimensions.
  * @param {Object} params.triple - File-path metadata.
+ * @param {string[]} [params.activeSvgLayers] - Writing-layer SVG IDs active in a preceding genetic state.
  * @param {Object} params.logger - Logger instance.
  * @returns {Document} Completed fluid-transcription SVG document.
  */
-export const addAnimatedTranscription = ({ ftSvgDom, atPreparation, atDom, sourceAtDom, sourceDtDom, dtDom, layoutInfo, pageDimensions, triple, logger }) => {
+export const addAnimatedTranscription = ({ ftSvgDom, atPreparation, atDom, sourceAtDom, sourceDtDom, dtDom, layoutInfo, pageDimensions, triple, activeSvgLayers, logger }) => {
   const { atSvgDom, atRegSvgDom, editedAtDom } = atPreparation
   const currentPage = layoutInfo.pages.find(page => page.current)
   const transcriptionGroup = ftSvgDom.querySelector('.transcription')
@@ -80,10 +81,12 @@ export const addAnimatedTranscription = ({ ftSvgDom, atPreparation, atDom, sourc
     atHorizontalPosition,
     atVerticalShift,
     layoutInfo,
+    sourceDtMeiDom: sourceDtDom || dtDom,
     logger
   })
   tools.sourceAtMeiDom = sourceAtDom || atDom
   tools.sourceDtMeiDom = sourceDtDom || dtDom
+  tools.activeSvgLayers = activeSvgLayers
   const matchedStaffLineContext = resolveMatchedStaffLineContextForCurrentDt(atDom, dtDom, logger)
   const readingOrderSystemDistance = constants.ftReadingOrderSystemDistanceMm * currentPage.vrvMeiUnit * constants.verovioGeneralScaling
   animateFtStaffLines(transcriptionGroup, ftSvgDom.querySelector('.diplomatic'), tools, matchedStaffLineContext)

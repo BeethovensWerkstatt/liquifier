@@ -99,6 +99,7 @@ export const liquifyClefs = (ftSvg, dtSvg, atMeiDom, tools) => {
         const dtVal = `${diffX} ${diffY}`
         setAnimation({
           element: currentClef,
+          referenceId: dtId,
           states: {
             finding: { type: 'translate', val: dtVal },
             normalization: { type: 'translate', val: dtVal },

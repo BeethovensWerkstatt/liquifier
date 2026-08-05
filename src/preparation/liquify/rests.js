@@ -94,6 +94,7 @@ export function liquifyRests (ftSvg, dtSvg, atMeiDom, tools) {
       const dtVal = `${diffX} ${diffY}`
       setAnimation({
         element: rest,
+        referenceId: dtId,
         states: {
           finding: { type: 'translate', val: dtVal },
           normalization: { type: 'translate', val: dtVal },

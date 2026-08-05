@@ -66,3 +66,38 @@ test('liquifyMetamarks maps DT coordinates into the corresponding FT system and 
   })
   assert.equal(animationCalls.length, 2)
 })
+
+test('liquifyMetamarks only adds marks belonging to active writing layers', () => {
+  const ftSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg">
+      <g class="shapes">
+        <g class="writingLayer" id="layer-active"><path id="shape-active"/></g>
+        <g class="writingLayer" id="layer-inactive"><path id="shape-inactive"/></g>
+      </g>
+      <g class="transcription"><g class="systemBegin" data-system-id="at-system"/></g>
+    </svg>
+  `, 'image/svg+xml').documentElement.querySelector('.transcription')
+  const dtSvg = parser.parseFromString(`
+    <g xmlns="http://www.w3.org/2000/svg"><g class="system" data-id="dt-system">
+      <g class="metaMark" data-id="mark-active"><text x="10" y="20">active</text></g>
+      <g class="metaMark" data-id="mark-inactive"><text x="30" y="40">inactive</text></g>
+    </g></g>
+  `, 'image/svg+xml').documentElement
+  const atMeiDom = parser.parseFromString('<mei><sb xml:id="at-system" corresp="#dt-system"/></mei>', 'application/xml')
+  const sourceDtMeiDom = parser.parseFromString(`
+    <mei>
+      <metaMark xml:id="mark-active" facs="#shape-active"/>
+      <metaMark xml:id="mark-inactive" facs="#shape-inactive"/>
+    </mei>
+  `, 'application/xml')
+
+  liquifyMetamarks(ftSvg, dtSvg, atMeiDom, {
+    getNewPos: (atPosition, dtPosition) => dtPosition,
+    setAnimation: () => {},
+    sourceDtMeiDom,
+    activeSvgLayers: ['layer-active']
+  })
+
+  assert.equal(ftSvg.querySelectorAll('.bw-metamark').length, 1)
+  assert.equal(ftSvg.querySelector('.bw-metamark .metaMark').getAttribute('data-id'), 'mark-active')
+})

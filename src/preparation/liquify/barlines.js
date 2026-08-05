@@ -113,6 +113,7 @@ const animateBarline = (barLine, dtBarline, getNewPos, setAnimation) => {
 
   setAnimation({
     element: barLine,
+    referenceId: dtBarline.parentNode?.getAttribute('data-id'),
     states: {
       finding: { type: 'd', val: dtVal },
       normalization: { type: 'd', val: dtVal },
