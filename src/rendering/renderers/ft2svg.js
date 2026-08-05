@@ -175,7 +175,6 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
               await writeData(renderMidi(statedPreparation.editedAtDom, verovio, { choiceXPathQuery: './reg' }), triple.atMidRegStatePath(index + 1))
             }
           }
-          
         }
       }
 

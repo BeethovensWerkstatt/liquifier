@@ -126,6 +126,7 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
           const atHeadUse = atNote.querySelector('.notehead')
           setAnimation({
             element: atHeadUse,
+            referenceId: dtId,
             states: {
               finding: { type: 'translate', val: dtVal },
               normalization: { type: 'translate', val: dtVal },
@@ -141,6 +142,7 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
           dotGroups.forEach((dotGroup, dotIndex) => {
             setAnimation({
               element: dotGroup,
+              referenceId: dtId,
               states: {
                 finding: { type: 'translate', val: dtVal },
                 normalization: { type: 'translate', val: dtVal },

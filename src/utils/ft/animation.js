@@ -308,14 +308,16 @@ export const prepareAssets = ({
     return className
   }
 
-  const addAnimationReference = (element, dtId) => {
-    if (!element || !dtId) return
+  const addAnimationReference = (element, referenceId) => {
+    const dtIds = referenceId ? [referenceId] : getAnimationReferenceIds(element, correspMappings)
 
-    addReferenceId(element, dtId)
-    const dtElement = Array.from(sourceDtMeiDom?.querySelectorAll('[xml\\:id]') || [])
-      .find(candidate => candidate.getAttribute('xml:id') === dtId)
-    getFragmentIds(dtElement?.getAttribute('facs')).forEach(shapeId => {
-      addReferenceId(ftSvgDom.querySelector(`.shapes path[id="${shapeId}"]`), dtId)
+    dtIds.forEach(dtId => {
+      addReferenceId(element, dtId)
+      const dtElement = Array.from(sourceDtMeiDom?.querySelectorAll('[xml:id]') || [])
+        .find(candidate => candidate.getAttribute('xml:id') === dtId)
+      getFragmentIds(dtElement?.getAttribute('facs')).forEach(shapeId => {
+        addReferenceId(ftSvgDom.querySelector(`.shapes path[id="${shapeId}"]`), dtId)
+      })
     })
   }
 
@@ -351,4 +353,24 @@ const addReferenceId = (element, referenceId) => {
   const referenceIds = new Set(String(element.getAttribute('data-ref-id') || '').split(/\s+/).filter(Boolean))
   referenceIds.add(referenceId)
   element.setAttribute('data-ref-id', Array.from(referenceIds).join(' '))
+}
+
+const getAnimationReferenceIds = (element, correspMappings) => {
+  let current = element
+
+  while (current?.nodeType === 1) {
+    const atId = current.getAttribute('data-id')
+    if (atId && !isStructuralAnimationAncestor(current)) {
+      const dtIds = correspMappings.get(atId)
+      if (dtIds?.length) return dtIds
+    }
+    current = current.parentNode
+  }
+
+  return []
+}
+
+const isStructuralAnimationAncestor = (element) => {
+  const classes = String(element.getAttribute('class') || '').split(/\s+/)
+  return ['measure', 'staff', 'layer', 'system', 'systemBegin', 'page-margin'].some(className => classes.includes(className))
 }

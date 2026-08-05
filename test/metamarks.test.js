@@ -54,6 +54,8 @@ test('liquifyMetamarks maps DT coordinates into the corresponding FT system and 
   assert.equal(wrappers[1].querySelector('text').getAttribute('x'), '140')
   assert.equal(wrappers[1].querySelector('text').getAttribute('y'), '250')
   assert.equal(wrappers[0].querySelector('animateTransform').getAttribute('values'), '0 0;0 0;0 0;0 0;0 0;120 40;0 0;0 0')
+  assert.equal(animationCalls[0].referenceId, 'clarification-1')
+  assert.equal(animationCalls[1].referenceId, 'navigation-1')
   assert.deepEqual(animationCalls[0].states, {
     digitalFacsimile: { type: 'opacity', val: '1' },
     writingZone: { type: 'opacity', val: '1' },

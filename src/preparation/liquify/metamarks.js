@@ -54,6 +54,7 @@ export const liquifyMetamarks = (ftSvg, dtSvg, atMeiDom, tools) => {
 
     setAnimation({
       element: wrapper,
+      referenceId: metaMark.getAttribute('data-id'),
       states: {
         digitalFacsimile: { type: 'opacity', val: '1' },
         writingZone: { type: 'opacity', val: '1' },

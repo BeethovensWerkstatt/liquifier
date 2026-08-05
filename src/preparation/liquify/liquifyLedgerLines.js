@@ -70,6 +70,7 @@ function findLedgerAnimationSources (ftSvg, relatedId) {
 
 function syncLedgerAnimation (ledgerLine, { transformElement, opacityElement }) {
   removeExistingAnimations(ledgerLine)
+  copyReferenceId(ledgerLine, transformElement?.parentNode || opacityElement?.parentNode)
 
   if (opacityElement) {
     cloneAnimationElement(ledgerLine, opacityElement)
@@ -78,6 +79,11 @@ function syncLedgerAnimation (ledgerLine, { transformElement, opacityElement }) 
   if (transformElement) {
     cloneAnimationElement(ledgerLine, transformElement)
   }
+}
+
+function copyReferenceId (target, source) {
+  const referenceId = source?.getAttribute('data-ref-id')
+  if (referenceId) target.setAttribute('data-ref-id', referenceId)
 }
 
 function removeExistingAnimations (element) {

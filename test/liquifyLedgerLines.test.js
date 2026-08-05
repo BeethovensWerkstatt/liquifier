@@ -14,7 +14,7 @@ test('liquifyLedgerLines copies note animation onto related ledger lines', () =>
           <g class="lineDash" data-related="#note-1"><path d="M10 10 L20 10"/></g>
           <g class="lineDash" data-related="#note-1"><path d="M10 20 L20 20"/></g>
         </g>
-        <g class="note" data-id="note-1">
+        <g class="note" data-id="note-1" data-ref-id="dt-note-1">
           <g class="notehead"><use href="#sym"/></g>
           <animate attributeName="opacity" values="0;0;1;1;1;1;1;1" repeatCount="indefinite" dur="5s"/>
           <animateTransform attributeName="transform" attributeType="XML" type="translate" values="30 40;30 40;30 40;30 40;30 40;0 0;0 0;0 0" repeatCount="indefinite" dur="5s"/>
@@ -36,6 +36,7 @@ test('liquifyLedgerLines copies note animation onto related ledger lines', () =>
     assert.ok(transformAnimation)
     assert.equal(opacityAnimation.getAttribute('values'), '0;0;1;1;1;1;1;1')
     assert.equal(transformAnimation.getAttribute('values'), '30 40;30 40;30 40;30 40;30 40;0 0;0 0;0 0')
+    assert.equal(ledgerLine.getAttribute('data-ref-id'), 'dt-note-1')
   })
 })
 
@@ -48,7 +49,7 @@ test('liquifyLedgerLines falls back to animated notehead for chord-contained not
         </g>
         <g class="chord" data-id="chord-1">
           <g class="note" data-id="note-in-chord">
-            <g class="notehead">
+            <g class="notehead" data-ref-id="dt-chord-note">
               <use href="#sym"/>
               <animateTransform attributeName="transform" attributeType="XML" type="translate" values="12 18;12 18;12 18;12 18;12 18;0 0;0 0;0 0" repeatCount="indefinite" dur="5s"/>
             </g>
@@ -68,4 +69,5 @@ test('liquifyLedgerLines falls back to animated notehead for chord-contained not
   assert.ok(opacityAnimation)
   assert.ok(transformAnimation)
   assert.equal(transformAnimation.getAttribute('values'), '12 18;12 18;12 18;12 18;12 18;0 0;0 0;0 0')
+  assert.equal(ledgerLine.getAttribute('data-ref-id'), 'dt-chord-note')
 })

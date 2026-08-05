@@ -47,6 +47,8 @@ test('liquifyDots animates written repeat dots by staff and supplies the remaini
   const callsByY = new Map(animationCalls.map(call => [call.element.querySelector('use').getAttribute('transform'), call]))
   assert.equal(callsByY.get('translate(15, 4) scale(0.72, 0.72)').states.finding.val, '3 1')
   assert.equal(callsByY.get('translate(15, 16) scale(0.72, 0.72)').states.finding.val, '3 -1')
+  assert.equal(callsByY.get('translate(15, 4) scale(0.72, 0.72)').referenceId, 'dt-top')
+  assert.equal(callsByY.get('translate(15, 16) scale(0.72, 0.72)').referenceId, 'dt-bottom')
   assert.equal(callsByY.get('translate(15, 104) scale(0.72, 0.72)').states.finding, null)
   assert.equal(callsByY.get('translate(185, 4) scale(0.72, 0.72)').states.finding, null)
 })

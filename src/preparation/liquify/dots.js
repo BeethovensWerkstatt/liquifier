@@ -48,6 +48,7 @@ export const liquifyDots = (ftSvg, dtSvg, atMeiDom, tools) => {
       const dtVal = `${dtDot.x - atDot.x} ${dtDot.y - atDot.y}`
       setAnimation({
         element: atDot.element,
+        referenceId: dtDot.id,
         states: {
           finding: { type: 'translate', val: dtVal },
           normalization: { type: 'translate', val: dtVal },
@@ -91,7 +92,7 @@ const getDtRepeatDots = (dtSvg, dtIds, getNewPos) => {
     if (!Number.isFinite(cx) || !Number.isFinite(cy) || !staff) return []
 
     const position = getNewPos({ x: 0, y: 0 }, { x: cx, y: cy })
-    return [{ x: position.x, y: position.y, staff }]
+    return [{ id: dtId, x: position.x, y: position.y, staff }]
   })
 }
 
