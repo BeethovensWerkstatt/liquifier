@@ -160,3 +160,34 @@ test('liquifyBeams aligns opposite-wound DT polygons before the up-stem finding 
     assert.equal(Math.sign(winding(state.finding)), Math.sign(winding(state.normalization)))
   })
 })
+
+test('liquifyBeams uses phase-4 chord stem translations for normalized beam geometry', () => {
+  const ftSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg">
+      <g class="beam" data-id="at-beam">
+        ${polygon(10)}
+        <g class="chord" data-id="chord-1" data-stem.dir="up"><g class="stem"><path d="M0 100 L0 0"><animate attributeName="d" values="M0 100 L0 0;M0 100 L0 0;M0 100 L0 0;M0 100 L0 20;M0 100 L0 20;M0 100 L0 0;M0 100 L0 0;M0 100 L0 0"/><animateTransform attributeName="transform" values="5 20;5 20;5 20;5 20;5 20;0 0;0 0;0 0"/></path></g></g>
+        <g class="chord" data-id="chord-2" data-stem.dir="up"><g class="stem"><path d="M10 100 L10 0"><animate attributeName="d" values="M10 100 L10 0;M10 100 L10 0;M10 100 L10 0;M10 100 L10 40;M10 100 L10 40;M10 100 L10 0;M10 100 L10 0;M10 100 L10 0"/><animateTransform attributeName="transform" values="10 40;10 40;10 40;10 40;10 40;0 0;0 0;0 0"/></path></g></g>
+      </g>
+    </svg>
+  `, 'image/svg+xml').documentElement
+  const dtSvg = parser.parseFromString(`<svg xmlns="http://www.w3.org/2000/svg"><g class="beam" data-id="dt-beam">${polygon(10)}</g></svg>`, 'image/svg+xml').documentElement
+  const atMeiDom = parser.parseFromString(`
+    <mei><beam xml:id="at-beam">
+      <chord xml:id="chord-1" stem.dir="up"><note xml:id="nested-note-1"/></chord>
+      <chord xml:id="chord-2" stem.dir="up"><note xml:id="nested-note-2"/></chord>
+    </beam></mei>
+  `, 'text/xml')
+  const animationCalls = []
+
+  liquifyBeams(ftSvg, dtSvg, atMeiDom, {
+    getNewPos: point => point,
+    correspMappings: new Map([['at-beam', ['dt-beam']]]),
+    setAnimation: descriptor => animationCalls.push(descriptor),
+    logger: { debug () {}, info () {}, warn () {}, error () {} }
+  })
+
+  assert.deepEqual(parsePoints(animationCalls[0].states.normalization.val), [
+    { x: 5, y: 40 }, { x: 20, y: 80 }, { x: 20, y: 82 }, { x: 5, y: 42 }
+  ])
+})

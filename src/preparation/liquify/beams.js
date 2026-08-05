@@ -1,4 +1,4 @@
-import { queryDirectChild, removeElement } from '../../utils/dom.js'
+import { queryDirectChild, queryDirectChildren, removeElement } from '../../utils/dom.js'
 
 /**
  * Prepare AT beam elements for animation
@@ -222,21 +222,19 @@ const pointsEqual = (p1, p2, tolerance = 0.1) => {
 const calculateDiplomaticBeams = (ftSvg, atMeiDom, beamId, atPolygons, logger) => {
   // Find the beam element in MEI to get note relationships
   const meiBeam = atMeiDom.querySelector(`beam[xml\\:id="${beamId}"]`)
-  if (!meiBeam) {
-    logger.debug(`[Beam Normalization] Could not find MEI beam ${beamId}`)
-    return null
-  }
-
-  // Get all notes/chords in this beam
-  const beamNotes = Array.from(meiBeam.querySelectorAll('note, chord'))
-  if (beamNotes.length < 2) {
+  const renderedBeam = ftSvg.querySelector(`g.beam[data-id="${beamId}"], g.beamSpan[data-id="${beamId}"]`)
+  const beamMembers = meiBeam
+    ? queryDirectChildren(meiBeam, 'note, chord')
+    : queryDirectChildren(renderedBeam, 'g.note[data-id], g.chord[data-id]')
+  if (beamMembers.length < 2) {
     logger.debug(`[Beam Normalization] Beam ${beamId} has fewer than 2 notes`)
     return null
   }
 
   // Get the SVG elements for first and last notes to find stem endpoints
-  const firstNoteId = beamNotes[0].getAttribute('xml:id')
-  const lastNoteId = beamNotes[beamNotes.length - 1].getAttribute('xml:id')
+  const getMemberId = member => member.getAttribute('xml:id') || member.getAttribute('data-id')
+  const firstNoteId = getMemberId(beamMembers[0])
+  const lastNoteId = getMemberId(beamMembers[beamMembers.length - 1])
 
   const firstNoteGroup = ftSvg.querySelector(`g[data-id="${firstNoteId}"]`)
   const lastNoteGroup = ftSvg.querySelector(`g[data-id="${lastNoteId}"]`)
@@ -256,11 +254,13 @@ const calculateDiplomaticBeams = (ftSvg, atMeiDom, beamId, atPolygons, logger) =
   }
 
   // Get stem direction from MEI
-  const firstNoteStemDir = beamNotes[0].getAttribute('stem.dir')
-  const lastNoteStemDir = beamNotes[beamNotes.length - 1].getAttribute('stem.dir')
+  const getStemDirection = (member, renderedMember) => member.getAttribute('stem.dir') || renderedMember?.getAttribute('data-stem.dir') || 'up'
+  const firstNoteStemDir = getStemDirection(beamMembers[0], firstNoteGroup)
+  const lastNoteStemDir = getStemDirection(beamMembers[beamMembers.length - 1], lastNoteGroup)
 
   // Parse stem path to get endpoint for a specific state
-  // Frame indices: 0=finding, 1=normalization, 2=readingOrder, 3=regulation, 4=supplements, 5=interventions
+  // Frame indices: 0=digitalFacsimile, 1=writingZone, 2=finding, 3=normalization,
+  // 4=readingOrder, 5=regulation, 6=supplements, 7=interventions.
   /**
    * Returns stem endpoint from the current data context.
    *
@@ -301,7 +301,8 @@ const calculateDiplomaticBeams = (ftSvg, atMeiDom, beamId, atPolygons, logger) =
   const getNotePosition = (noteGroup, frameIndex) => {
     // The animate element should have been set by liquifyNotes/liquifyChords
     // It's an animateTransform element that is a DIRECT child of the note group (not nested in accidentals etc)
-    const animateElement = queryDirectChild(noteGroup, 'animateTransform[attributeName="transform"]')
+    const animateElement = queryDirectChild(noteGroup, 'animateTransform[attributeName="transform"]') ||
+      queryDirectChild(noteGroup.querySelector('.stem > path'), 'animateTransform[attributeName="transform"]')
 
     if (!animateElement) {
       // No animation found
@@ -372,16 +373,16 @@ const calculateDiplomaticBeams = (ftSvg, atMeiDom, beamId, atPolygons, logger) =
     return { x: x2, y: y2 }
   }
 
-  // Get stem endpoints for normalization state (frame 1) only
-  const firstStemEndDiplomatic = getStemEndpoint(firstStem, firstNoteStemDir, 1)
-  const lastStemEndDiplomatic = getStemEndpoint(lastStem, lastNoteStemDir, 1)
+  // Get stem endpoints for the phase-4 normalization state.
+  const firstStemEndDiplomatic = getStemEndpoint(firstStem, firstNoteStemDir, 3)
+  const lastStemEndDiplomatic = getStemEndpoint(lastStem, lastNoteStemDir, 3)
   const firstStemEndSource = getStemEndpoint(firstStem, firstNoteStemDir, 5) || firstStemEndDiplomatic
   const lastStemEndSource = getStemEndpoint(lastStem, lastNoteStemDir, 5) || lastStemEndDiplomatic
 
-  // Get note positions for normalization state (frame 1) only
+  // Get note positions for the phase-4 normalization state.
   // Note: We only need the X offset from the transform animation
-  const firstNotePosDiplomatic = getNotePosition(firstNoteGroup, 1)
-  const lastNotePosDiplomatic = getNotePosition(lastNoteGroup, 1)
+  const firstNotePosDiplomatic = getNotePosition(firstNoteGroup, 3)
+  const lastNotePosDiplomatic = getNotePosition(lastNoteGroup, 3)
   const firstNotePosSource = getNotePosition(firstNoteGroup, 5) || firstNotePosDiplomatic
   const lastNotePosSource = getNotePosition(lastNoteGroup, 5) || lastNotePosDiplomatic
 
@@ -466,7 +467,7 @@ const calculateDiplomaticBeams = (ftSvg, atMeiDom, beamId, atPolygons, logger) =
     return normalizedPoints.map(point => `${point.x},${point.y}`).join(' ')
   })
 
-  logger.debug(`[Beam Normalization] Beam ${beamId}: ${beamNotes.length} notes, ${atPolygons.length} lines, stem.dir=${firstNoteStemDir}`)
+  logger.debug(`[Beam Normalization] Beam ${beamId}: ${beamMembers.length} notes, ${atPolygons.length} lines, stem.dir=${firstNoteStemDir}`)
 
   return { diplomaticPolygons }
 }
@@ -626,7 +627,7 @@ export const liquifyBeams = (ftSvg, dtSvg, atMeiDom, tools) => {
       return { element: item.element, dtId: item.dtId, avgY, points }
     }).sort((a, b) => a.avgY - b.avgY)
 
-    const stemDir = getBeamStemDirection(atMeiDom, atId)
+    const stemDir = getBeamStemDirection(ftSvg, atMeiDom, atId)
     const atOrdered = stemDir === 'down' ? [...atSorted].reverse() : atSorted
     const dtOrdered = stemDir === 'down' ? [...dtSorted].reverse() : dtSorted
     const minCount = Math.min(atSorted.length, dtSorted.length)
@@ -704,9 +705,12 @@ const sortPolygonsByPosition = (polygons) => {
   }).sort((a, b) => a.avgY - b.avgY)
 }
 
-const getBeamStemDirection = (atMeiDom, beamId) => {
+const getBeamStemDirection = (ftSvg, atMeiDom, beamId) => {
   const meiBeam = atMeiDom.querySelector(`beam[xml\\:id="${beamId}"]`)
-  return meiBeam?.querySelector('note, chord')?.getAttribute('stem.dir') || 'up'
+  if (meiBeam) return meiBeam.querySelector('note, chord')?.getAttribute('stem.dir') || 'up'
+
+  const renderedBeam = ftSvg.querySelector(`g.beam[data-id="${beamId}"], g.beamSpan[data-id="${beamId}"]`)
+  return queryDirectChildren(renderedBeam, 'g.note[data-stem.dir], g.chord[data-stem.dir]')[0]?.getAttribute('data-stem.dir') || 'up'
 }
 
 const alignPolygonWinding = (points, referencePoints) => {
