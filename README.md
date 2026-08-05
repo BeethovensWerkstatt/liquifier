@@ -193,6 +193,11 @@ Any filter options are ignored, when a list of files is given.
 The dates are compared by the last commit date of any file. If the files are modified but
 not yet committed, they will be recreated even if they are already up-to-date.
 
+It is also possible to process everything by calling 
+```bash
+./scripts/liquifier_full_run.zsh
+```
+
 ## Output Structure
 
 The liquifier generates multiple output files organized in a page-based folder hierarchy. This organization ensures manageable folder sizes (typically ~20 files per page) and enables efficient API access patterns.
@@ -278,7 +283,6 @@ All output files follow consistent naming conventions:
 | Diplomatic Transcript (Full) | `{source}_{page}_{wz}_dt.svg` | `D-BNba_MH_60_Engelmann_p005_wz06_dt.svg` |
 | Diplomatic System | `{source}_{page}_{wz}_sys{systemId}_dt.svg` | `D-BNba_MH_60_Engelmann_p005_wz06_syss289fb17d-10e3-4b27-9b64-8d2d6a560c1d_dt.svg` |
 | Fluid Transcript | `{source}_{page}_{wz}_ft.svg` | `D-BNba_MH_60_Engelmann_p005_wz06_ft.svg` |
-| Fluid Systems | `{source}_{page}_{wz}_fs.svg` | `D-BNba_MH_60_Engelmann_p005_wz06_fs.svg` |
 | Edited AT (MEI) | `{source}_{page}_{wz}_eat.xml` | `D-BNba_MH_60_Engelmann_p005_wz06_eat.xml` |
 | Fluid HTML | `{source}_{page}_{wz}_ft.html` | `D-BNba_MH_60_Engelmann_p005_wz06_ft.html` |
 
