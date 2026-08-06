@@ -295,8 +295,11 @@ function getAtClefForNote (note, atDom) {
     }
   }
 
-  if (staff) {
-    const precedingStaffClefs = Array.from(staff.querySelectorAll('clef')).filter(clefNode => nodePrecedes(clefNode, note))
+  if (staffN) {
+    const precedingStaffClefs = Array.from(atDom.querySelectorAll('clef')).filter(clefNode => {
+      const clefStaffN = clefNode.getAttribute('staff') || closestElement(clefNode, 'staff')?.getAttribute('n')
+      return clefStaffN === staffN && nodePrecedes(clefNode, note)
+    })
     precedingStaffClefs.forEach(clefNode => {
       const fromStaffClef = getClefShapeAndLine(clefNode)
       if (fromStaffClef) clef = fromStaffClef

@@ -81,9 +81,8 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
       })
       ftSvgDom.querySelector('.diplomatic').removeAttribute('transform') */
 
-      const genDescWzId = data.atDom.querySelector('annot[class="#bw_writingZoneBegin"]')?.getAttribute('corresp')?.split('#')[1]
-      const genDescWz = genDescWzId ? data.sourceDom.querySelector(`genDesc[xml\\:id="${genDescWzId}"]`) : null
-      const allStateIds = genDescWz ? Array.from(genDescWz.querySelectorAll('genState')).map(state => state.getAttribute('xml:id')) : []
+      const genDescWzs = getWritingZoneGenDescs(data.atDom, data.sourceDom)
+      const allStateIds = genDescWzs.flatMap(genDesc => Array.from(genDesc.querySelectorAll('genState')).map(state => state.getAttribute('xml:id'))).filter(Boolean)
 
       // handle annotated transcription
       const atSourceDom = data.atDom.cloneNode(true)
@@ -114,10 +113,10 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
       addCrossReferences(ftSvgDom, dtSourceDom)
 
       // deal with additional states
-      if (genDescWzId && genDescWz) {
-        const requiresStates = genDescWz.querySelector('genState[class~="#bw_textStufe"]')
+      if (genDescWzs.length > 0) {
+        const requiresStates = genDescWzs.some(genDesc => genDesc.querySelector('genState[class~="#bw_textStufe"]'))
         if (requiresStates) {
-          const states = getGeneticStates(genDescWz)
+          const states = getGeneticStates(genDescWzs)
           addGeneticInformation(ftSvgDom, {
             fileType: 'finalState',
             precedingStates: states.map((state, index) => ({
@@ -527,14 +526,16 @@ const initializeFtSvg = (layoutInfo, dtDom) => {
  * Each stage supplies the active genetic states explicitly through @follows.
  * The final text stage is represented by the primary FT and is therefore omitted.
  *
- * @param {Element} genDescWz - The genDesc element representing the writing zone.
+ * @param {Element|Element[]} genDescWz - Writing-zone genDesc elements represented in the AT.
  * @returns {{id: string, label: string, activeStates: string[], svgLayers: string[]}[]} Ordered non-final text stages.
  */
 export const getGeneticStates = (genDescWz) => {
-  const textStages = Array.from(genDescWz.querySelectorAll('genState[class~="#bw_textStufe"]'))
+  const genDescWzs = Array.isArray(genDescWz) ? genDescWz : [genDescWz]
+  const allStates = genDescWzs.flatMap(genDesc => Array.from(genDesc.querySelectorAll('genState')))
+  const textStages = allStates.filter(state => String(state.getAttribute('class') || '').split(/\s+/).includes('#bw_textStufe'))
   const textStageById = new Map(textStages.map(stage => [stage.getAttribute('xml:id'), stage]).filter(([id]) => id))
   const writingLayerById = new Map(
-    Array.from(genDescWz.querySelectorAll('genState[class~="#geneticOrder_writingLayerLevel"]'))
+    allStates.filter(state => String(state.getAttribute('class') || '').split(/\s+/).includes('#geneticOrder_writingLayerLevel'))
       .map(layer => [layer.getAttribute('xml:id'), layer])
       .filter(([id]) => id)
   )
@@ -570,6 +571,16 @@ export const getGeneticStates = (genDescWz) => {
     }))
 }
 
+const getWritingZoneGenDescs = (atDom, sourceDom) => {
+  const seenIds = new Set()
+
+  return Array.from(atDom.querySelectorAll('annot[class~="#bw_writingZoneBegin"]'))
+    .map(annot => getStateReferences(annot, 'corresp')[0])
+    .filter(id => id && !seenIds.has(id) && seenIds.add(id))
+    .map(id => sourceDom.querySelector(`genDesc[xml\\:id="${id}"]`))
+    .filter(Boolean)
+}
+
 const getStateReferences = (state, attribute) => (state.getAttribute(attribute) || '')
   .trim()
   .split(/\s+/)
@@ -603,13 +614,15 @@ const relativeAssetPath = (fromFilePath, targetFilePath) => {
  * @param {string[]} stateSet - The IDs of the genetic states that are active in what is to be retrieved.
  * @returns {Element} - The cloned AT DOM element with the genetic state applied.
  */
-const retrieveGeneticStateFromAt = (atDom, stateSet) => {
+export const retrieveGeneticStateFromAt = (atDom, stateSet) => {
   const resolveState = (node) => {
     const name = node.localName
     const refId = node.getAttribute('state')?.split('#')[1]
     if (!refId) return
 
     const parent = node.parentNode
+    if (!parent) return
+
     // based on https://github.com/BeethovensWerkstatt/api/blob/1320c961c87bcd7b62917013ab365602119d6915/source/xslt/module1/getState.xsl#L98-L120
     if (name === 'add' && stateSet.includes(refId)) {
       // replace the <add> element with its children
@@ -622,7 +635,7 @@ const retrieveGeneticStateFromAt = (atDom, stateSet) => {
       node.parentNode.removeChild(node)
     } else if (name === 'del' && stateSet.includes(refId)) {
       // preserve only children of <restore> elements inside the <del>
-      const restores = Array.from(node.querySelectorAll('restore[state]')).flatMap(restore => Array.from(restore.childNodes))
+      const restores = Array.from(node.querySelectorAll('restore[state]')) // .flatMap(restore => Array.from(restore.childNodes))
       while (node.firstChild) {
         node.removeChild(node.firstChild)
       }

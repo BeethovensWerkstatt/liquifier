@@ -246,6 +246,29 @@ test('prepareEditedAtDom uses last preceding AT clef when deriving AT loc', () =
   assert.equal(note.parentElement.localName, 'layer')
 })
 
+test('prepareEditedAtDom uses a preceding clef from the same staff in an earlier measure', () => {
+  const atXml = `
+  <mei xmlns="http://www.music-encoding.org/ns/mei">
+    <music><body><mdiv><score>
+      <scoreDef><staffGrp><staffDef n="2" clef.shape="G" clef.line="2"/></staffGrp></scoreDef>
+      <section>
+        <measure xml:id="m1"><staff n="2"><layer><del><clef xml:id="c1" shape="F" line="4" staff="2"/></del></layer></staff></measure>
+        <measure xml:id="m2"><staff n="2"><layer><note xml:id="a1" pname="c" oct="4" corresp="../diplomaticTranscripts/SRC_p001_wz01_dt.xml#d1"/></layer></staff></measure>
+      </section>
+    </score></mdiv></body></music>
+  </mei>`
+
+  const dtXml = `
+  <mei xmlns="http://www.music-encoding.org/ns/mei">
+    <music><body><mdiv><score><section><measure><staff n="2"><layer><note xml:id="d1" loc="10"/></layer></staff></measure></section></score></mdiv></body></music>
+  </mei>`
+
+  const edited = prepareEditedAtDom(parser.parseFromString(atXml, 'text/xml'), parser.parseFromString(dtXml, 'text/xml'))
+
+  assert.equal(edited.querySelector('choice'), null)
+  assert.ok(edited.querySelector('note[xml\\:id="a1"]'))
+})
+
 test('prepareEditedAtDom warns and uses first diplomatic corresp token', () => {
   const atXml = `
   <mei xmlns="http://www.music-encoding.org/ns/mei">

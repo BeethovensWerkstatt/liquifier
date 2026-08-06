@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { JSDOM } from 'jsdom'
 
-import { addGeneticInformation, getGeneticStates } from '../src/rendering/renderers/ft2svg.js'
+import { addGeneticInformation, getGeneticStates, retrieveGeneticStateFromAt } from '../src/rendering/renderers/ft2svg.js'
 
 const parser = new (new JSDOM().window.DOMParser)()
 
@@ -39,6 +39,42 @@ test('getGeneticStates uses document order for text stages without a next predec
     { id: 'text-1', label: 'One', activeStates: ['layer-1'], svgLayers: ['svg-layer-1'] },
     { id: 'text-2', label: 'Two', activeStates: ['layer-1', 'layer-2'], svgLayers: ['svg-layer-1', 'svg-layer-2'] }
   ])
+})
+
+test('getGeneticStates follows text stages across continuation writing zones', () => {
+  const firstWritingZone = parser.parseFromString(`
+    <genDesc>
+      <genState xml:id="layer-1" class="#geneticOrder_writingLayerLevel" corresp="#svg-layer-1"/>
+      <genState xml:id="text-1" class="#bw_textStufe" label="First page" follows="#layer-1" next="#text-2"/>
+    </genDesc>
+  `, 'text/xml').documentElement
+  const continuationWritingZone = parser.parseFromString(`
+    <genDesc>
+      <genState xml:id="layer-2" class="#geneticOrder_writingLayerLevel" corresp="#svg-layer-2"/>
+      <genState xml:id="text-2" class="#bw_textStufe" label="Continuation" follows="#layer-1 #layer-2" next="#text-final"/>
+      <genState xml:id="text-final" class="#bw_textStufe #bw_finalGeneticState" follows="#layer-1 #layer-2"/>
+    </genDesc>
+  `, 'text/xml').documentElement
+
+  assert.deepEqual(getGeneticStates([firstWritingZone, continuationWritingZone]), [
+    { id: 'text-1', label: 'First page', activeStates: ['layer-1'], svgLayers: ['svg-layer-1'] },
+    { id: 'text-2', label: 'Continuation', activeStates: ['layer-1', 'layer-2'], svgLayers: ['svg-layer-1', 'svg-layer-2'] }
+  ])
+})
+
+test('retrieveGeneticStateFromAt skips nested states detached with an active deletion', () => {
+  const atDom = parser.parseFromString(`
+    <mei>
+      <del state="#continuation-state">
+        <restore state="#restored-state"><note xml:id="restored-note"/></restore>
+      </del>
+    </mei>
+  `, 'text/xml').documentElement
+
+  const statedAt = retrieveGeneticStateFromAt(atDom, ['continuation-state'])
+
+  assert.equal(statedAt.querySelector('del'), null)
+  assert.equal(statedAt.querySelector('restore'), null)
 })
 
 test('addGeneticInformation writes one replaceable metadata element for each file type', () => {
