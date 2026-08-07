@@ -66,6 +66,8 @@ export function generateDiplomaticElement (annotElem, shapes, bbox, svgPath, cor
 
   if (name === 'beam') {
     name = 'beamSpan'
+  } else if (name === 'mRest') {
+    name = 'rest'
   } else if (name === 'measure') {
     name = 'barLine'
   } if (name === 'staff') {
@@ -242,7 +244,7 @@ function getDiplomaticRest (annotElem, rest) {
   try {
     rest.setAttribute('loc', 5)
 
-    let glyphName
+    let glyphName = annotElem.localName === 'mRest' ? 'restWhole' : undefined
     const dur = annotElem.getAttribute('dur')
     if (dur === '1') {
       glyphName = 'restWhole'

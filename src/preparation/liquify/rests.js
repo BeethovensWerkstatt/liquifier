@@ -25,7 +25,7 @@
 export function liquifyRests (ftSvg, dtSvg, atMeiDom, tools) {
   const { getNewPos, correspMappings, setAnimation, logger } = tools
 
-  const rests = ftSvg.querySelectorAll('g.rest:not(.bounding-box)')
+  const rests = ftSvg.querySelectorAll('g.rest:not(.bounding-box), g.mRest:not(.bounding-box)')
   rests.forEach(rest => {
     const atId = rest.getAttribute('data-id')
     const dtIds = correspMappings.get(atId)
@@ -57,7 +57,7 @@ export function liquifyRests (ftSvg, dtSvg, atMeiDom, tools) {
 
     // Animate to the first DT correspondence (rests typically have 1:1 correspondence)
     dtIds.forEach(dtId => {
-      const dtRest = dtSvg.querySelector(`g.rest[data-id="${dtId}"]`)
+      const dtRest = dtSvg.querySelector(`g.rest[data-id="${dtId}"], g.mRest[data-id="${dtId}"]`)
       if (!dtRest) {
         setAnimation({
           element: rest,
