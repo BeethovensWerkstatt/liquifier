@@ -342,6 +342,18 @@ const getDtSystemRotation = (dtSystem) => {
   return parseRotationStyle(firstStaff?.getAttribute('style') || '')
 }
 
+const wrapRastrumForRotation = (rastrum) => {
+  const rotationGroup = rastrum.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'g')
+  rotationGroup.setAttribute('class', 'bw-system-rastrum-rotation')
+
+  while (rastrum.firstChild) {
+    rotationGroup.appendChild(rastrum.firstChild)
+  }
+
+  rastrum.appendChild(rotationGroup)
+  return rotationGroup
+}
+
 /**
  * Animates each matched Verovio system as a rigid reading-order unit.
  *
@@ -403,28 +415,32 @@ export const animateFtReadingOrderSystems = (atLayer, dtLayer, atMeiDom, { getNe
       interventions: { type: 'translate', val: '0 0' }
     }
 
+    const rotation = getDtSystemRotation(dtSystem)
+    const systemContent = systemBegin.querySelector('g.bw-system-content')
+    const rastrumRotationGroup = rotation && rotation.angle !== 0
+      ? wrapRastrumForRotation(rastrum)
+      : null
+
     setAnimation({ element: systemBegin, states })
     setAnimation({ element: rastrum, states })
 
-    const rotation = getDtSystemRotation(dtSystem)
-    const systemContent = systemBegin.querySelector('g.bw-system-content')
-    if (rotation && rotation.angle !== 0 && systemContent) {
+    if (rotation && rotation.angle !== 0) {
       const pivot = getNewPos({ x: 0, y: 0 }, rotation.origin)
       const rotationValue = `${rotation.angle} ${pivot.x} ${pivot.y}`
       const atRotationValue = `0 ${pivot.x} ${pivot.y}`
-      setAnimation({
-        element: systemContent,
-        states: {
-          digitalFacsimile: { type: 'rotate', val: rotationValue },
-          writingZone: { type: 'rotate', val: rotationValue },
-          finding: { type: 'rotate', val: rotationValue },
-          normalization: { type: 'rotate', val: rotationValue },
-          readingOrder: { type: 'rotate', val: rotationValue },
-          regulation: { type: 'rotate', val: atRotationValue },
-          supplements: { type: 'rotate', val: atRotationValue },
-          interventions: { type: 'rotate', val: atRotationValue }
-        }
-      })
+      const rotationStates = {
+        digitalFacsimile: { type: 'rotate', val: rotationValue },
+        writingZone: { type: 'rotate', val: rotationValue },
+        finding: { type: 'rotate', val: rotationValue },
+        normalization: { type: 'rotate', val: rotationValue },
+        readingOrder: { type: 'rotate', val: rotationValue },
+        regulation: { type: 'rotate', val: atRotationValue },
+        supplements: { type: 'rotate', val: atRotationValue },
+        interventions: { type: 'rotate', val: atRotationValue }
+      }
+
+      setAnimation({ element: rastrumRotationGroup, states: rotationStates })
+      if (systemContent) setAnimation({ element: systemContent, states: rotationStates })
     }
   })
 }

@@ -66,15 +66,27 @@ test('animateFtReadingOrderSystems keeps a single system fixed and rotates its c
 
   animateFtReadingOrderSystems(atLayer, dtLayer, atMei, {
     getNewPos: (at, dt) => dt,
-    setAnimation: descriptor => recorded.push(descriptor),
+    setAnimation: descriptor => {
+      recorded.push(descriptor)
+      const animation = descriptor.element.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'animateTransform')
+      animation.setAttribute('type', descriptor.states.digitalFacsimile.type)
+      descriptor.element.appendChild(animation)
+    },
     logger: { warn: () => {} }
   })
 
   const system = recorded.find(({ element }) => element.getAttribute('class') === 'systemBegin')
   const rastrum = recorded.find(({ element }) => element.getAttribute('class') === 'bw-system-rastrum')
+  const rastrumRotation = recorded.find(({ element }) => element.getAttribute('class') === 'bw-system-rastrum-rotation')
   const content = recorded.find(({ element }) => element.getAttribute('class') === 'bw-system-content')
   assert.equal(system.states.readingOrder.val, '0 0')
   assert.equal(rastrum.states.readingOrder.val, '0 0')
+  assert.equal(rastrumRotation.element.parentNode, rastrum.element)
+  assert.equal(Array.from(rastrum.element.children).filter(({ localName }) => localName === 'animateTransform').length, 1)
+  assert.equal(Array.from(rastrumRotation.element.children).filter(({ localName }) => localName === 'animateTransform').length, 1)
+  assert.equal(rastrumRotation.states.finding.val, '-0.2 10 20')
+  assert.equal(rastrumRotation.states.readingOrder.val, '-0.2 10 20')
+  assert.equal(rastrumRotation.states.regulation.val, '0 10 20')
   assert.equal(content.states.readingOrder.val, '-0.2 10 20')
   assert.equal(content.states.regulation.val, '0 10 20')
 })
