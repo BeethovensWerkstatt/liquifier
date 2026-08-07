@@ -100,7 +100,7 @@ const normalizedBeamGeometry = (stemDir, beamPolygons, dtPolygons) => {
     logger: { debug () {}, info () {}, warn () {}, error () {} }
   })
 
-  return animationCalls.map(call => ({
+  return animationCalls.filter(call => call.states.finding?.type === 'points').map(call => ({
     finding: parsePoints(call.states.finding.val),
     normalization: parsePoints(call.states.normalization.val),
     regulation: parsePoints(call.states.regulation.val)
@@ -161,6 +161,23 @@ test('liquifyBeams aligns opposite-wound DT polygons before the up-stem finding 
   })
 })
 
+test('liquifyBeams expands interrupted DT strokes and converges them pairwise in phase 4', () => {
+  const states = normalizedBeamGeometry('up', undefined, [
+    '<polygon points="0,10 40,10 40,12 0,12"/>',
+    '<polygon points="60,10 100,10 100,12 60,12"/>',
+    '<polygon points="0,20 40,20 40,22 0,22"/>',
+    '<polygon points="60,20 100,20 100,22 60,22"/>'
+  ])
+
+  assert.equal(states.length, 4)
+  assert.deepEqual(states.map(state => state.normalization), [
+    states[0].normalization,
+    states[0].normalization,
+    states[2].normalization,
+    states[2].normalization
+  ])
+})
+
 test('liquifyBeams uses phase-4 chord stem translations for normalized beam geometry', () => {
   const ftSvg = parser.parseFromString(`
     <svg xmlns="http://www.w3.org/2000/svg">
@@ -189,6 +206,39 @@ test('liquifyBeams uses phase-4 chord stem translations for normalized beam geom
 
   assert.deepEqual(parsePoints(animationCalls[0].states.normalization.val), [
     { x: 5, y: 40 }, { x: 20, y: 80 }, { x: 20, y: 82 }, { x: 5, y: 42 }
+  ])
+})
+
+test('liquifyBeams preserves the AT beam slope at a single cross-staff endpoint', () => {
+  const ftSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg">
+      <g class="note" data-id="note-1"><g class="stem"><path d="M0 100 L0 10"><animate attributeName="d" values="M0 100 L0 10;M0 100 L0 10;M0 100 L0 10;M0 100 L0 10;M0 100 L0 10;M0 100 L0 10;M0 100 L0 10;M0 100 L0 10"/></path></g></g>
+      <g class="note" data-id="note-2"><g class="stem"><path d="M100 100 L100 30"><animate attributeName="d" values="M100 100 L100 30;M100 100 L100 30;M100 100 L100 30;M100 100 L100 80;M100 100 L100 80;M100 100 L100 30;M100 100 L100 30;M100 100 L100 30"/></path></g></g>
+      <g class="beam" data-id="at-beam"><polygon points="0,10 100,30 100,32 0,12"/></g>
+    </svg>
+  `, 'image/svg+xml').documentElement
+  const dtSvg = parser.parseFromString(`<svg xmlns="http://www.w3.org/2000/svg"><g class="beam" data-id="dt-beam">${polygon(10)}</g></svg>`, 'image/svg+xml').documentElement
+  const atMeiDom = parser.parseFromString(`
+    <mei><beam xml:id="at-beam">
+      <note xml:id="note-1" stem.dir="up"/>
+      <note xml:id="note-2" stem.dir="up" staff="1"/>
+    </beam></mei>
+  `, 'text/xml')
+  const animationCalls = []
+
+  liquifyBeams(ftSvg, dtSvg, atMeiDom, {
+    getNewPos: point => point,
+    correspMappings: new Map([['at-beam', ['dt-beam']]]),
+    setAnimation: descriptor => animationCalls.push(descriptor),
+    logger: { debug () {}, info () {}, warn () {}, error () {} }
+  })
+
+  const crossStaffStem = ftSvg.querySelector('g[data-id="note-2"] path animate')
+  const phases = crossStaffStem.getAttribute('values').split(';')
+  assert.equal(phases[3], 'M100 100 L100 30')
+  assert.equal(phases[4], 'M100 100 L100 30')
+  assert.deepEqual(parsePoints(animationCalls[0].states.normalization.val), [
+    { x: 0, y: 12 }, { x: 100, y: 32 }, { x: 100, y: 30 }, { x: 0, y: 10 }
   ])
 })
 

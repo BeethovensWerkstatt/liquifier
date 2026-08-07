@@ -449,6 +449,29 @@ const calculateDiplomaticBeams = (ftSvg, atMeiDom, beamId, atPolygons, logger) =
     x: lastStemEndDiplomatic.x + lastNotePosDiplomatic.x,
     y: lastStemEndDiplomatic.y + lastNotePosDiplomatic.y
   }
+  const crossStaffEndpoints = [
+    beamMembers[0].hasAttribute('staff'),
+    beamMembers[beamMembers.length - 1].hasAttribute('staff')
+  ]
+
+  if (crossStaffEndpoints.filter(Boolean).length === 1) {
+    const crossStaffIsFirst = crossStaffEndpoints[0]
+    const anchor = crossStaffIsFirst ? normalizedReferenceRight : normalizedReferenceLeft
+    const crossStaffEndpoint = crossStaffIsFirst ? normalizedReferenceLeft : normalizedReferenceRight
+    const sourceAnchor = crossStaffIsFirst ? referenceEdges.right.attached : referenceEdges.left.attached
+    const sourceCrossStaff = crossStaffIsFirst ? referenceEdges.left.attached : referenceEdges.right.attached
+    const sourceWidth = sourceCrossStaff.x - sourceAnchor.x
+
+    if (sourceWidth !== 0) {
+      const sourceSlope = (sourceCrossStaff.y - sourceAnchor.y) / sourceWidth
+      crossStaffEndpoint.y = anchor.y + (crossStaffEndpoint.x - anchor.x) * sourceSlope
+      updateStemNormalizationEndpoint(
+        crossStaffIsFirst ? firstStem : lastStem,
+        crossStaffIsFirst ? firstNoteStemDir : lastNoteStemDir,
+        crossStaffEndpoint.y - (crossStaffIsFirst ? firstNotePosDiplomatic.y : lastNotePosDiplomatic.y)
+      )
+    }
+  }
   const sourceWidth = referenceEdges.right.attached.x - referenceEdges.left.attached.x
 
   if (sourceWidth === 0) {
@@ -503,6 +526,25 @@ const parsePolygonPoints = (pointsStr) => {
     const [x, y] = point.split(',').map(Number)
     return { x, y }
   })
+}
+
+const updateStemNormalizationEndpoint = (stemPath, stemDir, endpointY) => {
+  const animate = queryDirectChild(stemPath, 'animate[attributeName="d"]')
+  const values = animate?.getAttribute('values')?.split(';')
+  if (!values || values.length < 5) return
+
+  const normalizedPath = replaceStemEndpoint(values[3], endpointY)
+  if (!normalizedPath) return
+
+  values[3] = normalizedPath
+  values[4] = normalizedPath
+  animate.setAttribute('values', values.join(';'))
+}
+
+const replaceStemEndpoint = (pathD, endpointY) => {
+  const match = pathD.match(/^(M\s*[\d.-]+\s+[\d.-]+\s+L\s*[\d.-]+\s+)([\d.-]+)$/)
+  if (!match) return null
+  return `${match[1]}${endpointY}`
 }
 
 const getBeamEdges = (points, attachmentBySide) => {
@@ -656,21 +698,40 @@ export const liquifyBeams = (ftSvg, dtSvg, atMeiDom, tools) => {
       logger.warn(`[Beam Animation] Mismatched polygon counts - AT: ${atSorted.length}, DT: ${dtSorted.length} (from ${dtIds.length} DT beams)`)
     }
 
-    // Animate each matched pair
-    for (let i = 0; i < minCount; i++) {
-      const atPolygon = atOrdered[i].element
-      const dtPolygon = dtOrdered[i].element
+    const polygonUseCount = new Map()
+    const pairs = dtOrdered.slice(0, minCount).map((dtPolygon, index) => {
+      const atSource = atOrdered[index]
+      return { atPolygon: atSource.element, atSourcePolygon: atSource.element, dtPolygon, isTemporary: false }
+    })
 
+    if (dtOrdered.length > atOrdered.length) {
+      pairs.length = 0
+      dtOrdered.forEach((dtPolygon, index) => {
+        const sourceIndex = Math.floor(index * atOrdered.length / dtOrdered.length)
+        const atSource = atOrdered[sourceIndex]
+        const useCount = polygonUseCount.get(atSource.element) || 0
+        polygonUseCount.set(atSource.element, useCount + 1)
+
+        const atPolygon = useCount === 0
+          ? atSource.element
+          : cloneBeamPolygon(beam, atSource.element)
+        pairs.push({ atPolygon, atSourcePolygon: atSource.element, dtPolygon, isTemporary: useCount > 0 })
+      })
+    }
+
+    // Animate each DT stroke. Extra DT strokes clone an AT polygon and converge
+    // pairwise onto that source polygon's existing normalization geometry.
+    pairs.forEach(({ atPolygon, atSourcePolygon, dtPolygon, isTemporary }, index) => {
       const atPoints = atPolygon.getAttribute('points')
-      const dtPoints = dtPolygon.getAttribute('points')
+      const dtPoints = dtPolygon.element.getAttribute('points')
 
       // Convert polygon points using getNewPos for finding state (original DT-transformed position)
       const findingsPoints = convertPolygonPoints(atPoints, alignPolygonWinding(dtPoints, atPoints), getNewPos)
 
       // Use normalized beam points for normalization state (aligned with normalized stems)
-      const diplomaticPoints = normalizedPointsByAtPolygon.get(atPolygon) || findingsPoints
+      const diplomaticPoints = normalizedPointsByAtPolygon.get(atSourcePolygon) || findingsPoints
 
-      logger.debug(`[Beam Animation] AT ID: ${atId}, DT ID: ${dtOrdered[i].dtId}, line ${i} (AT y~${Math.round(atOrdered[i].avgY)}, DT y~${Math.round(dtOrdered[i].avgY)})`)
+      logger.debug(`[Beam Animation] AT ID: ${atId}, DT ID: ${dtPolygon.dtId}, line ${index}`)
 
       setAnimation({
         element: atPolygon,
@@ -683,10 +744,24 @@ export const liquifyBeams = (ftSvg, dtSvg, atMeiDom, tools) => {
           interventions: { type: 'points', val: atPoints }
         }
       })
-    }
+
+      if (isTemporary) {
+        setAnimation({
+          element: atPolygon,
+          states: {
+            finding: { type: 'opacity', val: '1' },
+            normalization: { type: 'opacity', val: '1' },
+            readingOrder: { type: 'opacity', val: '1' },
+            regulation: { type: 'opacity', val: '0' },
+            supplements: { type: 'opacity', val: '0' },
+            interventions: { type: 'opacity', val: '0' }
+          }
+        })
+      }
+    })
 
     // Fade out any extra AT polygons that don't have DT matches
-    for (let i = minCount; i < atOrdered.length; i++) {
+    for (let i = minCount; i < atOrdered.length && dtOrdered.length < atOrdered.length; i++) {
       setAnimation({
         element: atOrdered[i].element,
         states: {
@@ -723,6 +798,12 @@ const sortPolygonsByPosition = (polygons) => {
 
     return { element: polygon, avgY, points }
   }).sort((a, b) => a.avgY - b.avgY)
+}
+
+const cloneBeamPolygon = (beam, polygon) => {
+  const clone = polygon.cloneNode(true)
+  beam.appendChild(clone)
+  return clone
 }
 
 const getBeamStemDirection = (ftSvg, atMeiDom, beamId) => {

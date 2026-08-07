@@ -1,4 +1,4 @@
-import { closestElement, hasClass, queryDirectChild } from '../../utils/dom.js'
+import { closestElement, hasClass } from '../../utils/dom.js'
 
 /**
  * Animate notes between AT and DT transcriptions, including noteheads, stems, ledger lines, and flags
@@ -138,7 +138,7 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
         const newLength = dtLength * scaleFactor
 
         // Get stem direction from MEI - use attribute selector that works in Node.js
-        const meiNote = findMeiNote(atMeiDom, atId)
+        const meiNote = atMeiDom.querySelector(`note[xml\\:id="${atId}"]`)
         const stemDir = meiNote?.getAttribute('stem.dir') || 'up'
         const isCrossStaffNote = !!meiNote?.getAttribute('staff')
 
@@ -168,12 +168,7 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
           }
         }
 
-        const staffDisplacement = isCrossStaffNote
-          ? getCrossStaffDisplacement(note, dtVal)
-          : 0
-        const diplomaticLength = isCrossStaffNote && Number.isFinite(staffDisplacement)
-          ? Math.max(0, atLength - staffDisplacement)
-          : atLength
+        const diplomaticLength = isCrossStaffNote ? newLength : atLength
 
         // Calculate stem path for DIPLOMATIC state: DT position, AT length
         let diplomaticD, diplomaticStemEndY
@@ -248,41 +243,4 @@ function isChordMember (note) {
   }
 
   return false
-}
-
-function getCrossStaffDisplacement (note, noteTranslation) {
-  const beam = getEnclosingBeam(note)
-  if (!beam) return null
-
-  const noteTranslationMatch = noteTranslation?.trim().match(/^[\d.-]+\s+([\d.-]+)$/)
-  if (!noteTranslationMatch) return null
-
-  const peerTranslations = Array.from(beam.querySelectorAll('g.note[data-id]'))
-    .filter(candidate => candidate !== note)
-    .map(candidate => candidate.querySelector('animateTransform')?.getAttribute('values')?.split(';')?.[3])
-    .map(value => value?.trim().match(/^[\d.-]+\s+([\d.-]+)$/))
-    .map(match => match ? parseFloat(match[1]) : NaN)
-    .filter(Number.isFinite)
-    .sort((left, right) => left - right)
-  if (peerTranslations.length === 0) return null
-
-  const middle = Math.floor(peerTranslations.length / 2)
-  const peerTranslation = peerTranslations.length % 2 === 0
-    ? (peerTranslations[middle - 1] + peerTranslations[middle]) / 2
-    : peerTranslations[middle]
-
-  return Math.abs(parseFloat(noteTranslationMatch[1]) - peerTranslation)
-}
-
-function findMeiNote (atMeiDom, id) {
-  return Array.from(atMeiDom.querySelectorAll('note')).find(note => note.getAttribute('xml:id') === id) || null
-}
-
-function getEnclosingBeam (element) {
-  let current = element?.parentNode
-  while (current?.nodeType === 1) {
-    if (current.localName === 'g' && (hasClass(current, 'beam') || hasClass(current, 'beamSpan'))) return current
-    current = current.parentNode
-  }
-  return null
 }
