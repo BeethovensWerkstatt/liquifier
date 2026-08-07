@@ -30,6 +30,34 @@ import { constants } from '../../config.mjs'
 const require = createRequire(import.meta.url)
 const { version: appVersion } = require('../../../package.json')
 
+export const fluidTranscriptDefaultCss = `
+  .rastrum {
+    fill: none;
+  }
+
+  .deletionBack {
+    fill: #00000033;
+  }
+
+  .deletionLine {
+    stroke: #000000;
+  }
+
+  path {
+    stroke: #000;
+  }
+
+  .supplied:not(.beam):not(.beamSpan), .supplied:not(.beam):not(.beamSpan) *, .beam.supplied > polygon, .beamSpan.supplied > polygon {
+    stroke: #666666;
+    fill: #666666;
+  }
+
+  .supplied .beam .note:not(.supplied) *, .supplied .beamSpan .note:not(.supplied) *, .supplied .beam .chord:not(.supplied) *, .supplied .beamSpan .chord:not(.supplied) * {
+    stroke: #000000;
+    fill: #000000;
+  }
+`
+
 /**
  * Render Fluid Transcript SVG.
  * @param {*} params - Rendering parameters.
@@ -384,30 +412,7 @@ const initializeFtSvg = (layoutInfo, dtDom) => {
   const style = document.createElementNS('http://www.w3.org/2000/svg', 'style')
   style.setAttribute('type', 'text/css')
 
-  // Default CSS rules
-  const defaultCSS = `
-    .rastrum {
-      fill: none;
-    }
-
-    .deletionBack {
-      fill: #00000033;
-    }
-
-    .deletionLine {
-      stroke: #000000;
-    }
-
-    path {
-      stroke: #000;
-    }
-
-    .supplied *, .supplied {
-      stroke: #666666;
-      fill: #666666;
-    }
-  `
-  style.textContent = defaultCSS
+  style.textContent = fluidTranscriptDefaultCss
   defs.appendChild(style)
 
   svg.appendChild(defs)
