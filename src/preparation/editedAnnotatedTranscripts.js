@@ -272,7 +272,7 @@ function getAtClefForNote (note, atDom) {
   if (!note || !atDom) return null
 
   const staff = closestElement(note, 'staff')
-  const staffN = staff?.getAttribute('n')
+  const staffN = note.getAttribute('staff') || staff?.getAttribute('n')
 
   let clef = null
   if (staffN) {

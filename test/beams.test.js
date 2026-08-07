@@ -191,3 +191,32 @@ test('liquifyBeams uses phase-4 chord stem translations for normalized beam geom
     { x: 5, y: 40 }, { x: 20, y: 80 }, { x: 20, y: 82 }, { x: 5, y: 42 }
   ])
 })
+
+test('liquifyBeams normalizes a cross-staff beam with choice-wrapped members', () => {
+  const ftSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg">
+      <g class="staff" data-n="1"><g class="note" data-id="orig-note-1"><g class="stem"><path d="M0 100 L0 0"/></g></g></g>
+      <g class="staff" data-n="2"><g class="note" data-id="orig-note-2"><g class="stem"><path d="M100 100 L100 0"/></g></g></g>
+      <g class="beam" data-id="at-beam">${polygon(10)}</g>
+    </svg>
+  `, 'image/svg+xml').documentElement
+  const dtSvg = parser.parseFromString(`<svg xmlns="http://www.w3.org/2000/svg"><g class="beam" data-id="dt-beam">${polygon(10)}</g></svg>`, 'image/svg+xml').documentElement
+  const atMeiDom = parser.parseFromString(`
+    <mei><beam xml:id="at-beam">
+      <choice><orig><note xml:id="orig-note-1" stem.dir="up"/></orig><reg><note xml:id="note-1" stem.dir="up"/></reg></choice>
+      <choice><orig><note xml:id="orig-note-2" stem.dir="up"/></orig><reg><note xml:id="note-2" stem.dir="up" staff="2"/></reg></choice>
+    </beam></mei>
+  `, 'text/xml')
+  const animationCalls = []
+
+  liquifyBeams(ftSvg, dtSvg, atMeiDom, {
+    getNewPos: point => point,
+    correspMappings: new Map([['at-beam', ['dt-beam']]]),
+    setAnimation: descriptor => animationCalls.push(descriptor),
+    logger: { debug () {}, info () {}, warn () {}, error () {} }
+  })
+
+  assert.deepEqual(parsePoints(animationCalls[0].states.normalization.val), [
+    { x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 2 }, { x: 0, y: 2 }
+  ])
+})

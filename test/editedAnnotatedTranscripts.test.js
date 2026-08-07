@@ -184,6 +184,31 @@ test('prepareEditedAtDom encodes pitch mismatches as choice/orig/reg', () => {
   assert.equal(origNote.hasAttribute('loc'), false)
 })
 
+test('prepareEditedAtDom derives an orig pitch from a cross-staff note assignment', () => {
+  const atXml = `
+  <mei xmlns="http://www.music-encoding.org/ns/mei"><music><body><mdiv><score>
+    <scoreDef><staffGrp>
+      <staffDef n="1" clef.shape="G" clef.line="2"/>
+      <staffDef n="2" clef.shape="F" clef.line="4"/>
+    </staffGrp></scoreDef>
+    <section><measure xml:id="m1"><staff n="2"><layer>
+      <beam xml:id="b1"><note xml:id="a1" pname="e" oct="4" staff="1" corresp="../diplomaticTranscripts/SRC_p001_wz01_dt.xml#d1"/></beam>
+    </layer></staff></measure></section>
+  </score></mdiv></body></music></mei>`
+  const dtXml = `
+  <mei xmlns="http://www.music-encoding.org/ns/mei"><music><body><mdiv><score><section>
+    <measure xml:id="m1"><staff n="1"><layer><note xml:id="d1" loc="5"/></layer></staff></measure>
+  </section></score></mdiv></body></music></mei>`
+
+  const edited = prepareEditedAtDom(parser.parseFromString(atXml, 'text/xml'), parser.parseFromString(dtXml, 'text/xml'))
+  const origNote = edited.querySelector('choice > orig > note')
+
+  assert.ok(origNote)
+  assert.equal(origNote.getAttribute('pname'), 'c')
+  assert.equal(origNote.getAttribute('oct'), '5')
+  assert.equal(origNote.getAttribute('staff'), '1')
+})
+
 test('prepareEditedAtDom uses last preceding AT clef when deriving AT loc', () => {
   const atXml = `
   <mei xmlns="http://www.music-encoding.org/ns/mei">

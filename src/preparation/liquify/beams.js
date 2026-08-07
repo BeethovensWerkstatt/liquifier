@@ -204,6 +204,27 @@ const pointsEqual = (p1, p2, tolerance = 0.1) => {
   return Math.abs(p1.x - p2.x) < tolerance && Math.abs(p1.y - p2.y) < tolerance
 }
 
+const getMeiBeamMembers = (atMeiDom, beamId) => {
+  const meiBeam = atMeiDom.querySelector(`beam[xml\\:id="${beamId}"], beamSpan[xml\\:id="${beamId}"]`)
+  if (!meiBeam) return []
+
+  const directMembers = queryDirectChildren(meiBeam, 'note, chord, choice')
+    .flatMap(member => {
+      if (member.localName !== 'choice') return [member]
+      const original = queryDirectChild(member, 'orig')
+      return queryDirectChildren(original, 'note, chord')
+    })
+  if (directMembers.length > 0) return directMembers
+
+  const plist = meiBeam.getAttribute('plist')
+  if (!plist) return []
+
+  return plist.trim().split(/\s+/)
+    .map(reference => reference.startsWith('#') ? reference.slice(1) : reference)
+    .map(memberId => atMeiDom.querySelector(`[xml\\:id="${memberId}"]`))
+    .filter(member => member?.localName === 'note' || member?.localName === 'chord')
+}
+
 /**
  * Calculate normalized beam polygons for the diplomatic state
  * The normalization state normalizes beams by:
@@ -221,10 +242,10 @@ const pointsEqual = (p1, p2, tolerance = 0.1) => {
  */
 const calculateDiplomaticBeams = (ftSvg, atMeiDom, beamId, atPolygons, logger) => {
   // Find the beam element in MEI to get note relationships
-  const meiBeam = atMeiDom.querySelector(`beam[xml\\:id="${beamId}"]`)
   const renderedBeam = ftSvg.querySelector(`g.beam[data-id="${beamId}"], g.beamSpan[data-id="${beamId}"]`)
-  const beamMembers = meiBeam
-    ? queryDirectChildren(meiBeam, 'note, chord')
+  const meiBeamMembers = getMeiBeamMembers(atMeiDom, beamId)
+  const beamMembers = meiBeamMembers.length > 0
+    ? meiBeamMembers
     : queryDirectChildren(renderedBeam, 'g.note[data-id], g.chord[data-id]')
   if (beamMembers.length < 2) {
     logger.debug(`[Beam Normalization] Beam ${beamId} has fewer than 2 notes`)
@@ -270,16 +291,15 @@ const calculateDiplomaticBeams = (ftSvg, atMeiDom, beamId, atPolygons, logger) =
    * @returns {Object} Resulting object.
    */
   const getStemEndpoint = (stemPath, stemDir, frameIndex) => {
-    const animates = stemPath.querySelectorAll('animate[attributeName="d"]')
+    const animate = queryDirectChild(stemPath, 'animate[attributeName="d"]')
 
-    if (animates.length === 0) {
+    if (!animate) {
       // No animation, use current d attribute
       const d = stemPath.getAttribute('d')
       return parseStemPath(d, stemDir)
     }
 
     // Get the state from values
-    const animate = animates[0]
     const values = animate.getAttribute('values')
     if (!values) return null
 
@@ -706,8 +726,8 @@ const sortPolygonsByPosition = (polygons) => {
 }
 
 const getBeamStemDirection = (ftSvg, atMeiDom, beamId) => {
-  const meiBeam = atMeiDom.querySelector(`beam[xml\\:id="${beamId}"]`)
-  if (meiBeam) return meiBeam.querySelector('note, chord')?.getAttribute('stem.dir') || 'up'
+  const meiBeamMembers = getMeiBeamMembers(atMeiDom, beamId)
+  if (meiBeamMembers.length > 0) return meiBeamMembers[0].getAttribute('stem.dir') || 'up'
 
   const renderedBeam = ftSvg.querySelector(`g.beam[data-id="${beamId}"], g.beamSpan[data-id="${beamId}"]`)
   return queryDirectChildren(renderedBeam, 'g.note[data-stem.dir], g.chord[data-stem.dir]')[0]?.getAttribute('data-stem.dir') || 'up'
