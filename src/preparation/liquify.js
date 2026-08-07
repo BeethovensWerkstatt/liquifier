@@ -26,6 +26,7 @@ import { liquifyTremolos } from './liquify/tremolos.js'
 import { liquifyStaffGrpBraces } from './liquify/staffGrpBraces.js'
 import { liquifyMetamarks } from './liquify/metamarks.js'
 import { liquifyDeletions } from './liquify/deletions.js'
+import { liquifyWords } from './liquify/words.js'
 // import { adjustViewBoxForContent } from './liquify/viewbox.js'
 
 // const duration = '5s'
@@ -80,7 +81,7 @@ export const liquifyMusic = (ftSvg, dtSvg, tools) => {
   liquifyOctaves(ftSvg, dtSvg, atMeiDom, tools)
   liquifyFermatas(ftSvg, dtSvg, atMeiDom, tools)
   liquifyPedals(ftSvg, dtSvg, atMeiDom, tools)
-  // liquifyWords(ftSvg, dtSvg, atMeiDom, tools)
+  liquifyWords(ftSvg, dtSvg, atMeiDom, tools)
   liquifyFings(ftSvg, dtSvg, atMeiDom, tools)
   liquifyFs(ftSvg, dtSvg, atMeiDom, tools)
   liquifyMetamarks(ftSvg, dtSvg, atMeiDom, tools)
