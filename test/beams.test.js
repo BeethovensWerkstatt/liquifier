@@ -58,7 +58,7 @@ test('liquifyBeams selects unmatched AT beam polygons from the innermost directi
   assert.equal(suppliedPolygonY('down'), 11)
 })
 
-const normalizedBeamGeometry = (stemDir, beamPolygons, dtPolygons) => {
+const normalizedBeamGeometry = (stemDir, beamPolygons, dtPolygons, beamMembers) => {
   const sourcePolygons = beamPolygons || (stemDir === 'down'
     ? [polygon(10), polygon(0)]
     : [polygon(10), polygon(20)])
@@ -86,8 +86,8 @@ const normalizedBeamGeometry = (stemDir, beamPolygons, dtPolygons) => {
   const atMeiDom = parser.parseFromString(`
     <mei xmlns="http://www.music-encoding.org/ns/mei">
       <beam xml:id="at-beam">
-        <note xml:id="note-1" stem.dir="${stemDir}"/>
-        <note xml:id="note-2" stem.dir="${stemDir}"/>
+        ${beamMembers || `<note xml:id="note-1" stem.dir="${stemDir}"/>
+        <note xml:id="note-2" stem.dir="${stemDir}"/>`}
       </beam>
     </mei>
   `, 'text/xml')
@@ -147,6 +147,19 @@ test('liquifyBeams preserves short-beam widths and unequal Phase 8 spacing', () 
     [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 2 }, { x: 0, y: 2 }],
     [{ x: 80, y: 10 }, { x: 100, y: 10 }, { x: 100, y: 12 }, { x: 80, y: 12 }],
     [{ x: 80, y: 15 }, { x: 100, y: 15 }, { x: 100, y: 17 }, { x: 80, y: 17 }]
+  ])
+})
+
+test('liquifyBeams uses members nested in a tuplet for phase-4 beam geometry', () => {
+  const states = normalizedBeamGeometry('up', undefined, undefined, `
+    <tuplet>
+      <note xml:id="note-1" stem.dir="up"/>
+      <note xml:id="note-2" stem.dir="up"/>
+    </tuplet>
+  `)
+
+  assert.deepEqual(states[0].normalization, [
+    { x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 2 }, { x: 0, y: 2 }
   ])
 })
 

@@ -208,13 +208,14 @@ const getMeiBeamMembers = (atMeiDom, beamId) => {
   const meiBeam = atMeiDom.querySelector(`beam[xml\\:id="${beamId}"], beamSpan[xml\\:id="${beamId}"]`)
   if (!meiBeam) return []
 
-  const directMembers = queryDirectChildren(meiBeam, 'note, chord, choice')
+  const getMembers = (container) => queryDirectChildren(container, 'note, chord, choice, tuplet')
     .flatMap(member => {
-      if (member.localName !== 'choice') return [member]
-      const original = queryDirectChild(member, 'orig')
-      return queryDirectChildren(original, 'note, chord')
+      if (member.localName === 'note' || member.localName === 'chord') return [member]
+      if (member.localName === 'choice') return getMembers(queryDirectChild(member, 'orig'))
+      return getMembers(member)
     })
-  if (directMembers.length > 0) return directMembers
+  const nestedMembers = getMembers(meiBeam)
+  if (nestedMembers.length > 0) return nestedMembers
 
   const plist = meiBeam.getAttribute('plist')
   if (!plist) return []
