@@ -29,6 +29,7 @@ import { liquifyDeletions } from './liquify/deletions.js'
 import { liquifyWords } from './liquify/words.js'
 import { liquifyLines } from './liquify/lines.js'
 import { liquifyRepeats } from './liquify/repeats.js'
+import { liquifyRegulationLayout } from './liquify/regulationLayout.js'
 // import { adjustViewBoxForContent } from './liquify/viewbox.js'
 
 // const duration = '5s'
@@ -88,6 +89,9 @@ export const liquifyMusic = (ftSvg, dtSvg, tools) => {
   liquifyFings(ftSvg, dtSvg, atMeiDom, tools)
   liquifyFs(ftSvg, dtSvg, atMeiDom, tools)
   liquifyMetamarks(ftSvg, dtSvg, atMeiDom, tools)
+
+  // Apply orig-to-reg placement after element-specific DT animation is complete.
+  liquifyRegulationLayout(ftSvg, dtSvg, atMeiDom, tools)
 
   // other things
   liquifyDeletions(ftSvg, dtSvg, atMeiDom, tools)

@@ -119,8 +119,10 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
         // Apply animation to the notehead use element
         const atVal = '0 0'
         const dtVal = `${diffX} ${diffY}`
+        const interventionsVal = getInterventionsOffset(atMeiDom, tools.atRegSvgDom, atHead)
         atHead.atVal = atVal
         atHead.dtVal = dtVal
+        atHead.interventionsVal = interventionsVal
         const atNote = chord.querySelector('g.note:not(.bounding-box)[data-id="' + atHead.id + '"]')
         if (atNote) {
           const atHeadUse = atNote.querySelector('.notehead')
@@ -133,7 +135,7 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
               // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
               regulation: { type: 'translate', val: atVal },
               supplements: { type: 'translate', val: atVal },
-              interventions: { type: 'translate', val: atVal }
+              interventions: { type: 'translate', val: interventionsVal }
             }
           })
 
@@ -149,7 +151,7 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
                 // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
                 regulation: { type: 'translate', val: atVal },
                 supplements: { type: 'translate', val: atVal },
-                interventions: { type: 'translate', val: atVal }
+                interventions: { type: 'translate', val: interventionsVal }
               }
             })
           })
@@ -205,7 +207,7 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
                 // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
                 regulation: { type: 'translate', val: atNotesPositions[0].atVal },
                 supplements: { type: 'translate', val: atNotesPositions[0].atVal },
-                interventions: { type: 'translate', val: atNotesPositions[0].atVal }
+                interventions: { type: 'translate', val: atNotesPositions[0].interventionsVal }
               }
             })
           } else {
@@ -222,7 +224,7 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
                 // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
                 regulation: { type: 'translate', val: atNotesPositions[0].atVal },
                 supplements: { type: 'translate', val: atNotesPositions[0].atVal },
-                interventions: { type: 'translate', val: atNotesPositions[0].atVal }
+                interventions: { type: 'translate', val: atNotesPositions[0].interventionsVal }
               }
             })
           }
@@ -242,7 +244,7 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
                 // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
                 regulation: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].atVal },
                 supplements: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].atVal },
-                interventions: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].atVal }
+                interventions: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].interventionsVal }
               }
             })
           } else {
@@ -259,7 +261,7 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
                 // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
                 regulation: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].atVal },
                 supplements: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].atVal },
-                interventions: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].atVal }
+                interventions: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].interventionsVal }
               }
             })
           }
@@ -290,6 +292,7 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
             ? atNotesPositions[0]
             : atNotesPositions[atNotesPositions.length - 1]
           const [regulationStemX, regulationStemY] = stemPosition.atVal.split(' ').map(Number)
+          const [interventionsStemX, interventionsStemY] = stemPosition.interventionsVal.split(' ').map(Number)
           const [findingStemX, findingStemY] = stemPosition.dtVal.split(' ').map(Number)
           const findingsFlagVal = `${findingStemX} ${findingStemY + findingsDiff}`
           const diplomaticFlagVal = `${findingStemX} ${findingStemY + diplomaticDiff}`
@@ -303,11 +306,24 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
               // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
               regulation: { type: 'translate', val: `${regulationStemX} ${regulationStemY}` },
               supplements: { type: 'translate', val: `${regulationStemX} ${regulationStemY}` },
-              interventions: { type: 'translate', val: `${regulationStemX} ${regulationStemY}` }
+              interventions: { type: 'translate', val: `${interventionsStemX} ${interventionsStemY}` }
             }
           })
         }
       }
     })
   })
+}
+
+function getInterventionsOffset (atMeiDom, atRegSvgDom, atHead) {
+  if (!atRegSvgDom) return '0 0'
+
+  const atMeiNote = atMeiDom.querySelector(`note[xml\\:id="${atHead.id}"]`)
+  const choice = closestElement(atMeiNote, 'choice')
+  const regId = choice?.querySelector('reg note')?.getAttribute('xml:id') || atHead.id
+  const regHeadUse = atRegSvgDom.querySelector(`g.note[data-id="${regId}"] .notehead > use`)
+  const transform = regHeadUse?.getAttribute('transform')?.match(/translate\(\s*([\d.-]+)\s*,\s*([\d.-]+)\s*\)/)
+  if (!transform) return '0 0'
+
+  return `${parseFloat(transform[1]) - atHead.x} ${parseFloat(transform[2]) - atHead.y}`
 }
