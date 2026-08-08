@@ -614,10 +614,11 @@ const getBeamEdgesClosestToStems = (points, leftStem, rightStem) => {
  * @returns {Object} Resulting object.
  */
 export const liquifyBeams = (ftSvg, dtSvg, atMeiDom, tools) => {
-  const { getNewPos, correspMappings, setAnimation, logger } = tools
+  const { atRegSvgDom, getNewPos, correspMappings, setAnimation, logger } = tools
 
   // First, prepare/adjust beam paths in the AT
   adjustAtBeams(ftSvg, logger)
+  if (atRegSvgDom) adjustAtBeams(atRegSvgDom, logger)
 
   const beams = ftSvg.querySelectorAll('g.beam:not(.bounding-box), g.beamSpan:not(.bounding-box)')
   beams.forEach(beam => {
@@ -693,6 +694,7 @@ export const liquifyBeams = (ftSvg, dtSvg, atMeiDom, tools) => {
     const stemDir = getBeamStemDirection(ftSvg, atMeiDom, atId)
     const atOrdered = stemDir === 'down' ? [...atSorted].reverse() : atSorted
     const dtOrdered = stemDir === 'down' ? [...dtSorted].reverse() : dtSorted
+    const regulationOrdered = getOrderedRegulationPolygons(atRegSvgDom, atId, stemDir)
     const minCount = Math.min(atSorted.length, dtSorted.length)
 
     if (atSorted.length !== dtSorted.length) {
@@ -731,6 +733,10 @@ export const liquifyBeams = (ftSvg, dtSvg, atMeiDom, tools) => {
 
       // Use normalized beam points for normalization state (aligned with normalized stems)
       const diplomaticPoints = normalizedPointsByAtPolygon.get(atSourcePolygon) || findingsPoints
+      const regulationPoints = regulationOrdered[index]?.getAttribute('points')
+      const interventionsPoints = regulationPoints
+        ? alignPolygonWinding(regulationPoints, atPoints)
+        : atPoints
 
       logger.debug(`[Beam Animation] AT ID: ${atId}, DT ID: ${dtPolygon.dtId}, line ${index}`)
 
@@ -742,7 +748,7 @@ export const liquifyBeams = (ftSvg, dtSvg, atMeiDom, tools) => {
           // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
           regulation: { type: 'points', val: atPoints },
           supplements: { type: 'points', val: atPoints },
-          interventions: { type: 'points', val: atPoints }
+          interventions: { type: 'points', val: interventionsPoints }
         }
       })
 
@@ -776,6 +782,17 @@ export const liquifyBeams = (ftSvg, dtSvg, atMeiDom, tools) => {
       })
     }
   })
+}
+
+function getOrderedRegulationPolygons (atRegSvgDom, beamId, stemDir) {
+  if (!atRegSvgDom || !beamId) return []
+
+  const regulationBeam = Array.from(atRegSvgDom.querySelectorAll('g.beam, g.beamSpan'))
+    .find(beam => beam.getAttribute('data-id') === beamId)
+  if (!regulationBeam) return []
+
+  const sorted = sortPolygonsByPosition(Array.from(regulationBeam.querySelectorAll('polygon')))
+  return stemDir === 'down' ? sorted.reverse().map(polygon => polygon.element) : sorted.map(polygon => polygon.element)
 }
 
 /**

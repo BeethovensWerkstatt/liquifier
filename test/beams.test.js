@@ -283,3 +283,37 @@ test('liquifyBeams normalizes a cross-staff beam with choice-wrapped members', (
     { x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 2 }, { x: 0, y: 2 }
   ])
 })
+
+test('liquifyBeams uses regulation engraving geometry at interventions', () => {
+  const ftSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg">
+      <g class="beam" data-id="at-beam">${polygon(10)}</g>
+    </svg>
+  `, 'image/svg+xml').documentElement
+  const dtSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg">
+      <g class="beam" data-id="dt-beam">${polygon(20)}</g>
+    </svg>
+  `, 'image/svg+xml').documentElement
+  const atRegSvgDom = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg">
+      <g class="beam" data-id="at-beam">${polygon(40)}</g>
+    </svg>
+  `, 'image/svg+xml').documentElement.ownerDocument
+  const atMeiDom = parser.parseFromString(`
+    <mei><beam xml:id="at-beam"><note xml:id="note-1" stem.dir="up"/></beam></mei>
+  `, 'text/xml')
+  const animationCalls = []
+
+  liquifyBeams(ftSvg, dtSvg, atMeiDom, {
+    atRegSvgDom,
+    getNewPos: point => point,
+    correspMappings: new Map([['at-beam', ['dt-beam']]]),
+    setAnimation: descriptor => animationCalls.push(descriptor),
+    logger: { debug () {}, info () {}, warn () {}, error () {} }
+  })
+
+  assert.deepEqual(parsePoints(animationCalls[0].states.interventions.val), [
+    { x: 0, y: 40 }, { x: 10, y: 40 }, { x: 10, y: 42 }, { x: 0, y: 42 }
+  ])
+})

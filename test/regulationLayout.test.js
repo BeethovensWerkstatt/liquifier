@@ -41,3 +41,25 @@ test('liquifyRegulationLayout leaves unchanged positions unwrapped', () => {
   assert.equal(ftSvg.querySelector('[data-bw-regulation-layout]'), null)
   assert.equal(calls.length, 0)
 })
+
+test('liquifyRegulationLayout matches an articulated regulation element by data ID', () => {
+  const ftSvg = parseSvg(`
+    <svg xmlns="http://www.w3.org/2000/svg">
+      <g class="artic" data-id="artic-1"><use transform="translate(100, 200)"/></g>
+    </svg>`)
+  const atRegSvgDom = parseSvg(`
+    <svg xmlns="http://www.w3.org/2000/svg">
+      <g class="artic" data-id="artic-other"><use transform="translate(10, 20)"/></g>
+      <g class="artic" data-id="artic-1"><use transform="translate(125, 240)"/></g>
+    </svg>`).ownerDocument
+  const calls = []
+
+  liquifyRegulationLayout(ftSvg, null, null, {
+    atRegSvgDom,
+    setAnimation: descriptor => calls.push(descriptor)
+  })
+
+  assert.equal(calls.length, 1)
+  assert.equal(calls[0].states.interventions.val, '25 40')
+})
+

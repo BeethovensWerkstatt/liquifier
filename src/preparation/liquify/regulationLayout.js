@@ -3,15 +3,28 @@ import { appendNewElement } from '../../utils/dom.js'
 const regulationSelectors = [
   'g.rest:not(.bounding-box)',
   'g.mRest:not(.bounding-box)',
+  'g.accid:not(.bounding-box)',
+  'g.keyAccid:not(.bounding-box)',
+  'g.dots:not(.bounding-box)',
+  'g.dot:not(.bounding-box)',
+  'g.artic:not(.bounding-box)',
   'g.clef:not(.bounding-box)',
   'g.keySig:not(.bounding-box)',
   'g.meterSig:not(.bounding-box)',
   'g.barLine:not(.bounding-box)',
+  'g.tupletNum:not(.bounding-box)',
+  'g.bTrem:not(.bounding-box)',
+  'g.fTrem:not(.bounding-box)',
+  'g.slur:not(.bounding-box)',
+  'g.tie:not(.bounding-box)',
+  'g.curve:not(.bounding-box)',
+  'g.hairpin:not(.bounding-box)',
   'g.dir:not(.bounding-box)',
   'g.dynam:not(.bounding-box)',
   'g.tempo:not(.bounding-box)',
   'g.pedal:not(.bounding-box)',
   'g.fing:not(.bounding-box)',
+  'g.syl:not(.bounding-box)',
   'g.fermata:not(.bounding-box)',
   'g.trill:not(.bounding-box)',
   'g.octave:not(.bounding-box)',
@@ -76,7 +89,8 @@ export function liquifyRegulationLayout (ftSvg, dtSvg, atMeiDom, tools) {
 
 function findMatchingRegElement (atRegSvgDom, element, id) {
   const classNames = new Set((element.getAttribute('class') || '').split(/\s+/).filter(Boolean))
-  return Array.from(atRegSvgDom.querySelectorAll(`[data-id="${id}"]`))
+  return Array.from(atRegSvgDom.querySelectorAll('g'))
+    .filter(candidate => candidate.getAttribute('data-id') === id)
     .find(candidate => {
       const candidateClasses = (candidate.getAttribute('class') || '').split(/\s+/)
       return candidateClasses.some(className => classNames.has(className))
