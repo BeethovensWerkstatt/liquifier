@@ -48,7 +48,7 @@ import { liquifyRegulationLayout } from './liquify/regulationLayout.js'
  * @param {Function} tools.convertD - Converts DT path data into FT coordinate space
  * @param {number} tools.scaleFactor - DT-to-AT scale factor
  * @param {Map<string, string[]>} tools.correspMappings - AT element id to DT ids mapping
- * @param {string} tools.stateModel - Active state model (fluidTranscript or fluidSystems)
+ * @param {string} tools.stateModel - Active fluid-transcript state model.
  * @param {Function} tools.setAnimation - Phase-aware animation descriptor writer
  * @param {Object} tools.logger - Logger instance
  * @returns {void} No return value.

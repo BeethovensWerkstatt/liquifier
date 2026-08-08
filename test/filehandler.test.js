@@ -76,10 +76,6 @@ test('getFilesObject returns expected page-based output paths', () => {
     path.join(outputDir, 'sources/SRC_01/fluidTranscripts/p005/SRC_01_p005_wz06_ft/SRC_01_p005_wz06_ft_v001.svg')
   )
   assert.equal(
-    triple.fsSvgPath,
-    path.join(outputDir, 'sources/SRC_01/fluidSystems/p005/SRC_01_p005_wz06_fs.svg')
-  )
-  assert.equal(
     triple.ftHtmlPath,
     path.join(outputDir, 'sources/SRC_01/fluidHTML/p005/SRC_01_p005_wz06_ft.html')
   )

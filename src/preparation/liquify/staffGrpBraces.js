@@ -1,5 +1,5 @@
 /**
- * Animate staff group braces (system braces) in fluid systems output.
+ * Animate staff group braces (system braces) in fluid transcript output.
  *
  * Current data status: no DT<->AT correspondence yet.
  * For now, these AT-only elements stay hidden through regulation and become

@@ -68,7 +68,7 @@ async function processData ({ data, triple, config, verovio, logger }) {
     logger.info(triple.ftSvgDate + ' ' + triple.ftSvgDate)
   }
   if (config.types.indexOf('fluidTranscripts') >= 0) {
-    logger.info(triple.fsSvgPath + ' ' + triple.fsSvgDate)
+    logger.info(triple.ftSvgPath + ' ' + triple.ftSvgDate)
   }
   if (config.types.indexOf('editedAt') >= 0) {
     logger.info(triple.editedAtPath + ' ' + triple.editedAtDate)
@@ -111,7 +111,7 @@ async function processData ({ data, triple, config, verovio, logger }) {
       }
     }
 
-    // Fluid Systems rendering
+    // Fluid transcript rendering
     if (config.types.indexOf('fluidTranscripts') >= 0) {
       if (config.media.indexOf('svg') >= 0 || config.media.indexOf('midi') >= 0) {
         await renderFluidTranscriptsSvg(renderParams)

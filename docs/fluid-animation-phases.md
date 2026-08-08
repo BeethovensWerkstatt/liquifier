@@ -59,5 +59,6 @@ The sequence is fixed and must always be used in this order:
 
 ## Current Code Anchors
 
-- Canonical sequence constant: `src/rendering/renderers.js` (`FLUID_SYSTEMS_STATE_SEQUENCE`)
-- Animation resolvers and setters: `src/preparation/fluidTranscripts.js`
+- Animation asset preparation and eight-phase animation writer: `src/utils/ft/animation.js`
+- Fluid-transcript composition and writing-zone visibility: `src/rendering/renderers/ftAnimation.js`
+- Staff-line and reading-order system animation: `src/utils/ft/staffLines.js`

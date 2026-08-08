@@ -389,13 +389,6 @@ export function getFilesObject (file, inputDir = './', outputDir = './cache') {
         const fileName = path.basename(this.ftSvgPath, '.svg')
         return path.join(this.ftStateSvgDir, `${fileName}_v${String(index).padStart(3, '0')}.svg`)
       },
-      get fsSvgPath () {
-        const basePath = path.join(outputDir, this.at.replace('_at.xml', '_fs.svg').replace('/annotatedTranscripts/', '/fluidSystems/'))
-        return insertPageFolder(basePath, this.page)
-      },
-      get fsSvgDate () {
-        return gitFileDate(this.fsSvgPath)
-      },
       get ftHtmlPath () {
         const basePath = this.ftSvgPath.replace('.svg', '.html').replace('/fluidTranscripts/', '/fluidHTML/')
         return basePath // Already has page folder from ftSvgPath
