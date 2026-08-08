@@ -27,6 +27,8 @@ import { liquifyStaffGrpBraces } from './liquify/staffGrpBraces.js'
 import { liquifyMetamarks } from './liquify/metamarks.js'
 import { liquifyDeletions } from './liquify/deletions.js'
 import { liquifyWords } from './liquify/words.js'
+import { liquifyLines } from './liquify/lines.js'
+import { liquifyRepeats } from './liquify/repeats.js'
 // import { adjustViewBoxForContent } from './liquify/viewbox.js'
 
 // const duration = '5s'
@@ -71,7 +73,8 @@ export const liquifyMusic = (ftSvg, dtSvg, tools) => {
 
   // controlevents
   liquifyBeams(ftSvg, dtSvg, atMeiDom, tools)
-  // liquifyRepeats(ftSvg, dtSvg, atMeiDom, tools)
+  liquifyRepeats(ftSvg, dtSvg, atMeiDom, tools)
+  liquifyLines(ftSvg, dtSvg, atMeiDom, tools)
   liquifyDirs(ftSvg, dtSvg, atMeiDom, tools)
   liquifyTempo(ftSvg, dtSvg, atMeiDom, tools)
   liquifyDynams(ftSvg, dtSvg, atMeiDom, tools)
