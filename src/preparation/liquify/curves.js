@@ -1,3 +1,5 @@
+import { closestElement } from '../../utils/dom.js'
+
 /**
  * Animate curves (slurs, ties, etc.) between AT and DT transcriptions
  * For each curve in the AT (fluid transcription):
@@ -11,12 +13,14 @@
  * @returns {Element|null} Resulting object.
  */
 export const liquifyCurves = (ftSvg, dtSvg, atMeiDom, tools) => {
-  const { convertD, correspMappings, setAnimation } = tools
+  const { atRegSvgDom, convertD, correspMappings, setAnimation } = tools
 
   const curves = ftSvg.querySelectorAll('.slur:not(.bounding-box), .tie:not(.bounding-box), .curve:not(.bounding-box)')
   curves.forEach(curve => {
     const atId = curve.getAttribute('data-id')
     const dtIds = correspMappings.get(atId)
+    const regulationD = getRegulationCurvePath(atRegSvgDom, atMeiDom, atId, curve)
+    if (regulationD) curve.setAttribute('data-bw-regulation-layout', 'true')
     if (!dtIds || dtIds.length === 0) {
       const atPath = curve.querySelector('path')
       setAnimation({
@@ -27,7 +31,7 @@ export const liquifyCurves = (ftSvg, dtSvg, atMeiDom, tools) => {
           // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
           regulation: { type: 'd', val: atPath?.getAttribute('d') || '' },
           supplements: { type: 'd', val: atPath?.getAttribute('d') || '' },
-          interventions: { type: 'd', val: atPath?.getAttribute('d') || '' }
+          interventions: { type: 'd', val: regulationD || atPath?.getAttribute('d') || '' }
         }
       })
       return
@@ -49,7 +53,7 @@ export const liquifyCurves = (ftSvg, dtSvg, atMeiDom, tools) => {
           // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
           regulation: { type: 'd', val: atPath?.getAttribute('d') || '' },
           supplements: { type: 'd', val: atPath?.getAttribute('d') || '' },
-          interventions: { type: 'd', val: atPath?.getAttribute('d') || '' }
+          interventions: { type: 'd', val: regulationD || atPath?.getAttribute('d') || '' }
         }
       })
       return
@@ -85,7 +89,7 @@ export const liquifyCurves = (ftSvg, dtSvg, atMeiDom, tools) => {
             // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
             regulation: { type: 'd', val: atPath?.getAttribute('d') || '' },
             supplements: { type: 'd', val: atPath?.getAttribute('d') || '' },
-            interventions: { type: 'd', val: atPath?.getAttribute('d') || '' }
+            interventions: { type: 'd', val: regulationD || atPath?.getAttribute('d') || '' }
           }
         })
         return
@@ -106,10 +110,25 @@ export const liquifyCurves = (ftSvg, dtSvg, atMeiDom, tools) => {
             // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
             regulation: { type: 'd', val: atD },
             supplements: { type: 'd', val: atD },
-            interventions: { type: 'd', val: atD }
+            interventions: { type: 'd', val: regulationD || atD }
           }
         })
       }
     })
   })
+}
+
+function getRegulationCurvePath (atRegSvgDom, atMeiDom, atId, curve) {
+  if (!atRegSvgDom) return null
+
+  const classNames = (curve.getAttribute('class') || '').split(/\s+/)
+  const curveType = ['slur', 'tie', 'curve'].find(type => classNames.includes(type))
+  const atCurve = Array.from(atMeiDom.querySelectorAll(curveType || 'curve'))
+    .find(element => element.getAttribute('xml:id') === atId)
+  const choice = closestElement(atCurve, 'choice')
+  const regId = choice?.querySelector(`reg ${curveType}`)?.getAttribute('xml:id') || atId
+  const regCurve = Array.from(atRegSvgDom.querySelectorAll('g'))
+    .find(element => element.getAttribute('data-id') === regId)
+
+  return regCurve?.querySelector('path')?.getAttribute('d') || null
 }

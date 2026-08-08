@@ -188,6 +188,10 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
         // Get stem direction from MEI - use attribute selector that works in Node.js
         const meiChord = atMeiDom.querySelector(`chord[xml\\:id="${atId}"]`)
         const stemDir = meiChord?.getAttribute('stem.dir') || 'up'
+        const stemPosition = stemDir === 'up'
+          ? atNotesPositions[0]
+          : atNotesPositions[atNotesPositions.length - 1]
+        const interventionsStemD = getRegulationStemPath(atMeiDom, tools.atRegSvgDom, atId, stemPosition.interventionsVal)
 
         // Calculate new d attribute based on stem direction for FINDINGS and DIPLOMATIC states
         let findingsD, findingsStemEndY, diplomaticD, diplomaticStemEndY
@@ -275,7 +279,7 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
             // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
             regulation: { type: 'd', val: atD },
             supplements: { type: 'd', val: atD },
-            interventions: { type: 'd', val: atD }
+            interventions: { type: 'd', val: interventionsStemD || atD }
           }
         })
 
@@ -286,11 +290,15 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
           const originalStemEndY = stemDir === 'up' ? Math.min(atY1, atY2) : Math.max(atY1, atY2)
           const findingsDiff = findingsStemEndY - originalStemEndY
           const diplomaticDiff = diplomaticStemEndY - originalStemEndY
+          const interventionsStemMatch = interventionsStemD?.match(/M\s*[\d.-]+\s+([\d.-]+)\s+L\s*[\d.-]+\s+([\d.-]+)/)
+          const interventionsStemEndY = interventionsStemMatch
+            ? stemDir === 'up'
+              ? Math.min(parseFloat(interventionsStemMatch[1]), parseFloat(interventionsStemMatch[2]))
+              : Math.max(parseFloat(interventionsStemMatch[1]), parseFloat(interventionsStemMatch[2]))
+            : originalStemEndY
+          const interventionsDiff = interventionsStemEndY - originalStemEndY
 
           // Match the note-derived translation applied to the stem itself.
-          const stemPosition = stemDir === 'up'
-            ? atNotesPositions[0]
-            : atNotesPositions[atNotesPositions.length - 1]
           const [regulationStemX, regulationStemY] = stemPosition.atVal.split(' ').map(Number)
           const [interventionsStemX, interventionsStemY] = stemPosition.interventionsVal.split(' ').map(Number)
           const [findingStemX, findingStemY] = stemPosition.dtVal.split(' ').map(Number)
@@ -306,7 +314,7 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
               // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
               regulation: { type: 'translate', val: `${regulationStemX} ${regulationStemY}` },
               supplements: { type: 'translate', val: `${regulationStemX} ${regulationStemY}` },
-              interventions: { type: 'translate', val: `${interventionsStemX} ${interventionsStemY}` }
+              interventions: { type: 'translate', val: `${interventionsStemX} ${interventionsStemY + interventionsDiff}` }
             }
           })
         }
@@ -326,4 +334,20 @@ function getInterventionsOffset (atMeiDom, atRegSvgDom, atHead) {
   if (!transform) return '0 0'
 
   return `${parseFloat(transform[1]) - atHead.x} ${parseFloat(transform[2]) - atHead.y}`
+}
+
+function getRegulationStemPath (atMeiDom, atRegSvgDom, atId, offset) {
+  if (!atRegSvgDom) return null
+
+  const atChord = atMeiDom.querySelector(`chord[xml\\:id="${atId}"]`)
+  const choice = closestElement(atChord, 'choice')
+  const regId = choice?.querySelector('reg chord')?.getAttribute('xml:id') || atId
+  const regPath = atRegSvgDom.querySelector(`g.chord[data-id="${regId}"] .stem > path`)?.getAttribute('d')
+  if (!regPath) return null
+
+  const [offsetX, offsetY] = offset.split(' ').map(Number)
+  const match = regPath.match(/^M\s*([\d.-]+)\s+([\d.-]+)\s+L\s*([\d.-]+)\s+([\d.-]+)$/)
+  if (!match) return regPath
+
+  return `M${parseFloat(match[1]) - offsetX} ${parseFloat(match[2]) - offsetY} L${parseFloat(match[3]) - offsetX} ${parseFloat(match[4]) - offsetY}`
 }

@@ -1,4 +1,6 @@
 const getOctaveAnchor = octave => {
+  if (!octave) return null
+
   const use = octave.querySelector('use')
   if (use) {
     const transform = use.getAttribute('transform')
@@ -53,6 +55,11 @@ const getLocalDtGeometry = (atPoints, dtPoints, getNewPos, groupOffset) => {
   })
 }
 
+const getLocalGeometry = (points, groupOffset) => {
+  if (!points) return null
+  return points.map(point => ({ x: point.x - groupOffset.x, y: point.y - groupOffset.y }))
+}
+
 /**
  * Animate octave markings, including their extenders and ending brackets.
  * Verovio renders the AT glyph with a translated <use>, whereas Thulemeier
@@ -66,7 +73,7 @@ const getLocalDtGeometry = (atPoints, dtPoints, getNewPos, groupOffset) => {
  * @returns {void} No return value.
  */
 export const liquifyOctaves = (ftSvg, dtSvg, atMeiDom, tools) => {
-  const { getNewPos, correspMappings, setAnimation, applyUnmatchedClass, logger } = tools
+  const { atRegSvgDom, getNewPos, correspMappings, setAnimation, applyUnmatchedClass, logger } = tools
   const octaves = ftSvg.querySelectorAll('g.octave:not(.bounding-box)')
 
   octaves.forEach(octave => {
@@ -103,6 +110,12 @@ export const liquifyOctaves = (ftSvg, dtSvg, atMeiDom, tools) => {
     const normalizedAnchor = getNewPos(atAnchor, dtAnchor)
     const groupOffset = { x: normalizedAnchor.x - atAnchor.x, y: normalizedAnchor.y - atAnchor.y }
     const findingOffset = `${groupOffset.x} ${groupOffset.y}`
+    const regOctave = getRegulationOctave(atRegSvgDom, atMeiDom, atId)
+    const regAnchor = getOctaveAnchor(regOctave)
+    const regulationOffset = regAnchor
+      ? { x: regAnchor.x - atAnchor.x, y: regAnchor.y - atAnchor.y }
+      : { x: 0, y: 0 }
+    if (regOctave && regAnchor) octave.setAttribute('data-bw-regulation-layout', 'true')
     setAnimation({
       element: octave,
       referenceId: dtOctave.getAttribute('data-id'),
@@ -111,20 +124,22 @@ export const liquifyOctaves = (ftSvg, dtSvg, atMeiDom, tools) => {
         normalization: { type: 'translate', val: findingOffset },
         regulation: { type: 'translate', val: '0 0' },
         supplements: { type: 'translate', val: '0 0' },
-        interventions: { type: 'translate', val: '0 0' }
+        interventions: { type: 'translate', val: `${regulationOffset.x} ${regulationOffset.y}` }
       }
     })
 
-    animateExtenderGeometry(octave, dtOctave, getNewPos, groupOffset, setAnimation)
+    animateExtenderGeometry(octave, dtOctave, regOctave, getNewPos, groupOffset, regulationOffset, setAnimation)
   })
 }
 
-const animateExtenderGeometry = (atOctave, dtOctave, getNewPos, groupOffset, setAnimation) => {
+const animateExtenderGeometry = (atOctave, dtOctave, regOctave, getNewPos, groupOffset, regulationOffset, setAnimation) => {
   const atPath = atOctave.querySelector('path')
   const dtPath = dtOctave.querySelector('path')
   const atPathPoints = parsePathPoints(atPath)
   const dtPathPoints = parsePathPoints(dtPath)
+  const regPathPoints = parsePathPoints(regOctave?.querySelector('path'))
   const normalizedPathPoints = getLocalDtGeometry(atPathPoints, dtPathPoints, getNewPos, groupOffset)
+  const regulationPathPoints = getLocalGeometry(regPathPoints, regulationOffset)
 
   if (atPathPoints && normalizedPathPoints) {
     const atPathValue = formatPath(atPathPoints)
@@ -136,7 +151,7 @@ const animateExtenderGeometry = (atOctave, dtOctave, getNewPos, groupOffset, set
         normalization: { type: 'd', val: normalizedPathValue },
         regulation: { type: 'd', val: atPathValue },
         supplements: { type: 'd', val: atPathValue },
-        interventions: { type: 'd', val: atPathValue }
+        interventions: { type: 'd', val: regulationPathPoints ? formatPath(regulationPathPoints) : atPathValue }
       }
     })
   }
@@ -145,7 +160,9 @@ const animateExtenderGeometry = (atOctave, dtOctave, getNewPos, groupOffset, set
   const dtPolyline = dtOctave.querySelector('polyline')
   const atPolylinePoints = parsePolylinePoints(atPolyline)
   const dtPolylinePoints = parsePolylinePoints(dtPolyline)
+  const regPolylinePoints = parsePolylinePoints(regOctave?.querySelector('polyline'))
   const normalizedPolylinePoints = getLocalDtGeometry(atPolylinePoints, dtPolylinePoints, getNewPos, groupOffset)
+  const regulationPolylinePoints = getLocalGeometry(regPolylinePoints, regulationOffset)
 
   if (atPolylinePoints && normalizedPolylinePoints) {
     const atPolylineValue = formatPoints(atPolylinePoints)
@@ -157,8 +174,22 @@ const animateExtenderGeometry = (atOctave, dtOctave, getNewPos, groupOffset, set
         normalization: { type: 'points', val: normalizedPolylineValue },
         regulation: { type: 'points', val: atPolylineValue },
         supplements: { type: 'points', val: atPolylineValue },
-        interventions: { type: 'points', val: atPolylineValue }
+        interventions: { type: 'points', val: regulationPolylinePoints ? formatPoints(regulationPolylinePoints) : atPolylineValue }
       }
     })
   }
+}
+
+function getRegulationOctave (atRegSvgDom, atMeiDom, atId) {
+  if (!atRegSvgDom) return null
+
+  const atOctave = Array.from(atMeiDom?.querySelectorAll('octave') || [])
+    .find(element => element.getAttribute('xml:id') === atId)
+  const choice = atOctave?.parentNode?.parentNode?.localName === 'choice'
+    ? atOctave.parentNode.parentNode
+    : null
+  const regId = choice?.querySelector('reg octave')?.getAttribute('xml:id') || atId
+
+  return Array.from(atRegSvgDom.querySelectorAll('g'))
+    .find(element => element.getAttribute('data-id') === regId) || null
 }

@@ -1,4 +1,4 @@
-import { hasClass } from '../../utils/dom.js'
+import { closestElement, hasClass } from '../../utils/dom.js'
 
 /**
  * Prepares animations for <hairpin> elements (crescendo/diminuendo wedges)
@@ -34,7 +34,7 @@ import { hasClass } from '../../utils/dom.js'
  * @returns {number} Resulting numeric value.
  */
 export function liquifyHairpins (ftSvg, dtSvg, atMeiDom, tools) {
-  const { correspMappings, setAnimation, applyUnmatchedClass, logger } = tools
+  const { atRegSvgDom, correspMappings, setAnimation, applyUnmatchedClass, logger } = tools
 
   // Find all AT hairpin groups in FT SVG (system-specific)
   // Query SVG first (not MEI) to only get hairpins in this system
@@ -47,6 +47,8 @@ export function liquifyHairpins (ftSvg, dtSvg, atMeiDom, tools) {
       logger.warn('[liquifyHairpins] AT hairpin group missing data-id, skipping')
       return
     }
+    const regulationLegs = getRegulationLegs(atRegSvgDom, atMeiDom, atId, logger)
+    if (regulationLegs) atHairpinGroup.setAttribute('data-bw-regulation-layout', 'true')
 
     // Warn about spanning hairpins (partial representations that cross system boundaries)
     // This indicates a data issue where the hairpin should be placed in the correct system
@@ -66,10 +68,10 @@ export function liquifyHairpins (ftSvg, dtSvg, atMeiDom, tools) {
 
     if (dtHairpinIds.length === 1) {
       // Simple 1:1 correspondence
-      handleSingleCorrespondence(atHairpinGroup, dtHairpinIds[0], atId, dtSvg, tools)
+      handleSingleCorrespondence(atHairpinGroup, dtHairpinIds[0], atId, dtSvg, tools, regulationLegs)
     } else {
       // Multi-correspondence: animate to first DT hairpin
-      handleMultiCorrespondence(atHairpinGroup, dtHairpinIds, atId, dtSvg, tools)
+      handleMultiCorrespondence(atHairpinGroup, dtHairpinIds, atId, dtSvg, tools, regulationLegs)
     }
   })
 
@@ -111,7 +113,7 @@ function handleEditorialHairpin (atHairpinGroup, setAnimation, applyUnmatchedCla
  * @param {Object} tools - Helper functions and mapping objects used during liquification.
  * @returns {Object} Resulting object.
  */
-function handleSingleCorrespondence (atHairpinGroup, dtHairpinId, atId, dtSvg, tools) {
+function handleSingleCorrespondence (atHairpinGroup, dtHairpinId, atId, dtSvg, tools, regulationLegs) {
   const { getNewPos, setAnimation, logger } = tools
 
   // Find DT hairpin in DT SVG
@@ -160,16 +162,16 @@ function handleSingleCorrespondence (atHairpinGroup, dtHairpinId, atId, dtSvg, t
   // Each is an array of {x, y} points
 
   // Convert coordinates and animate each leg
-  animateHairpinLeg(atPolylines[0], atLegs.upper, dtLegs.upper, getNewPos, setAnimation, logger)
+  animateHairpinLeg(atPolylines[0], atLegs.upper, dtLegs.upper, regulationLegs?.upper, getNewPos, setAnimation, logger)
 
   // For the lower leg, we need to either use an existing polyline or create a new one
   if (atPolylines.length > 1) {
-    animateHairpinLeg(atPolylines[1], atLegs.lower, dtLegs.lower, getNewPos, setAnimation, logger)
+    animateHairpinLeg(atPolylines[1], atLegs.lower, dtLegs.lower, regulationLegs?.lower, getNewPos, setAnimation, logger)
   } else {
     // Clone the first polyline for the lower leg
     const lowerPolyline = atPolylines[0].cloneNode(true)
     atHairpinGroup.appendChild(lowerPolyline)
-    animateHairpinLeg(lowerPolyline, atLegs.lower, dtLegs.lower, getNewPos, setAnimation, logger)
+    animateHairpinLeg(lowerPolyline, atLegs.lower, dtLegs.lower, regulationLegs?.lower, getNewPos, setAnimation, logger)
   }
 }
 
@@ -184,7 +186,7 @@ function handleSingleCorrespondence (atHairpinGroup, dtHairpinId, atId, dtSvg, t
  * @param {Object} tools - Helper functions and mapping objects used during liquification.
  * @returns {Object} Resulting object.
  */
-function handleMultiCorrespondence (atHairpinGroup, dtHairpinIds, atId, dtSvg, tools) {
+function handleMultiCorrespondence (atHairpinGroup, dtHairpinIds, atId, dtSvg, tools, regulationLegs) {
   const { logger } = tools
 
   logger.debug(`[liquifyHairpins] Multi-correspondence for AT ${atId}: ${dtHairpinIds.length} DT hairpins`)
@@ -207,7 +209,7 @@ function handleMultiCorrespondence (atHairpinGroup, dtHairpinIds, atId, dtSvg, t
 
   // Use the first available DT hairpin in this system
   const firstDtId = availableDtIds[0]
-  handleSingleCorrespondence(atHairpinGroup, firstDtId, atId, dtSvg, tools)
+  handleSingleCorrespondence(atHairpinGroup, firstDtId, atId, dtSvg, tools, regulationLegs)
 }
 
 /**
@@ -315,7 +317,7 @@ function parsePolylinePoints (pointsAttr) {
  * @param {{debug: Function, info: Function, warn: Function, error: Function}} logger - Logger instance
  * @returns {Object} Resulting object.
  */
-function animateHairpinLeg (polyline, atPoints, dtPoints, getNewPos, setAnimation, logger) {
+function animateHairpinLeg (polyline, atPoints, dtPoints, regulationPoints, getNewPos, setAnimation, logger) {
   // Update the polyline's base points attribute to match this leg's AT position
   const basePointsStr = atPoints.map(p => `${p.x},${p.y}`).join(' ')
   polyline.setAttribute('points', basePointsStr)
@@ -353,6 +355,7 @@ function animateHairpinLeg (polyline, atPoints, dtPoints, getNewPos, setAnimatio
   // Format as points attribute strings
   const atPointsStr = atPoints.map(p => `${p.x},${p.y}`).join(' ')
   const findingsPointsStr = findingsPoints.map(p => `${p.x},${p.y}`).join(' ')
+  const interventionsPointsStr = regulationPoints?.map(p => `${p.x},${p.y}`).join(' ') || atPointsStr
 
   logger.debug(`[liquifyHairpins] Animating hairpin leg: AT ${atPointsStr} -> finding ${findingsPointsStr}`)
 
@@ -365,7 +368,21 @@ function animateHairpinLeg (polyline, atPoints, dtPoints, getNewPos, setAnimatio
       // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
       regulation: { type: 'points', val: atPointsStr },
       supplements: { type: 'points', val: atPointsStr },
-      interventions: { type: 'points', val: atPointsStr }
+      interventions: { type: 'points', val: interventionsPointsStr }
     }
   })
+}
+
+function getRegulationLegs (atRegSvgDom, atMeiDom, atId, logger) {
+  if (!atRegSvgDom) return null
+
+  const atHairpin = Array.from(atMeiDom?.querySelectorAll('hairpin') || [])
+    .find(element => element.getAttribute('xml:id') === atId)
+  const choice = closestElement(atHairpin, 'choice')
+  const regId = choice?.querySelector('reg hairpin')?.getAttribute('xml:id') || atId
+  const regHairpin = Array.from(atRegSvgDom.querySelectorAll('g'))
+    .find(element => element.getAttribute('data-id') === regId)
+  if (!regHairpin) return null
+
+  return splitHairpinIntoLegs(Array.from(regHairpin.querySelectorAll('polyline')), 'regulation', logger)
 }

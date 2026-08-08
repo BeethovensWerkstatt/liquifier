@@ -83,3 +83,38 @@ test('liquifyChords moves choice-contained noteheads to their separately rendere
   assert.equal(noteheadAnimation.states.regulation.val, '0 0')
   assert.equal(noteheadAnimation.states.interventions.val, '30 30')
 })
+
+test('liquifyChords uses the regulation stem path relative to its note movement', () => {
+  const ftSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg"><g class="chord" data-id="at-chord">
+      <g class="stem"><path d="M0 100 L0 50"/><g class="flag"/></g>
+      <g class="note" data-id="at-note"><g class="notehead"><use transform="translate(0, 100)"/></g></g>
+    </g></svg>
+  `, 'image/svg+xml').documentElement
+  const dtSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg"><g class="chord" data-id="dt-chord">
+      <g class="stem"><path d="M0 100 L0 50"/></g>
+      <g class="note" data-id="dt-note"><g class="notehead"><use x="0" y="100"/></g></g>
+    </g></svg>
+  `, 'image/svg+xml').documentElement
+  const atMeiDom = parser.parseFromString('<mei><chord xml:id="at-chord" stem.dir="up"><note xml:id="at-note"/></chord></mei>', 'text/xml')
+  const atRegSvgDom = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg"><g class="chord" data-id="at-chord"><g class="stem"><path d="M10 110 L10 30"/></g></g>
+      <g class="note" data-id="at-note"><g class="notehead"><use transform="translate(10, 110)"/></g></g></svg>
+  `, 'image/svg+xml').documentElement
+  const calls = []
+
+  liquifyChords(ftSvg, dtSvg, atMeiDom, {
+    scaleFactor: 1,
+    getNewPos: (atPoint, dtPoint) => dtPoint,
+    correspMappings: new Map([['at-chord', ['dt-chord']]]),
+    atRegSvgDom,
+    setAnimation: descriptor => calls.push(descriptor),
+    logger: { debug () {}, info () {}, warn () {}, error () {} }
+  })
+
+  const stemAnimation = calls.find(call => call.element.localName === 'path' && call.states.interventions?.type === 'd')
+  const flagAnimation = calls.find(call => call.element.getAttribute('class') === 'flag')
+  assert.equal(stemAnimation.states.interventions.val, 'M0 100 L0 20')
+  assert.equal(flagAnimation.states.interventions.val, '10 -20')
+})

@@ -55,6 +55,7 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
     // default value for regulation and supplements position
     const atOrigVal = '0 0'
     const atRegVal = `${interventionsHead.x - atHead.x} ${interventionsHead.y - atHead.y}`
+    const interventionsStemD = getRegulationStemPath(regNote.querySelector('.stem > path')?.getAttribute('d'), atRegVal)
 
     // If no DT correspondence, hide the note
     if (!dtIds || dtIds.length === 0) {
@@ -204,7 +205,7 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
             // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
             regulation: { type: 'd', val: atD },
             supplements: { type: 'd', val: atD },
-            interventions: { type: 'd', val: atD }
+            interventions: { type: 'd', val: interventionsStemD || atD }
           }
         })
 
@@ -215,6 +216,13 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
           const originalStemEndY = stemDir === 'up' ? Math.min(atY1, atY2) : Math.max(atY1, atY2)
           const findingsDiff = findingsStemEndY - originalStemEndY
           const diplomaticDiff = diplomaticStemEndY - originalStemEndY
+          const interventionsStemMatch = interventionsStemD?.match(/M\s*[\d.-]+\s+([\d.-]+)\s+L\s*[\d.-]+\s+([\d.-]+)/)
+          const interventionsStemEndY = interventionsStemMatch
+            ? stemDir === 'up'
+              ? Math.min(parseFloat(interventionsStemMatch[1]), parseFloat(interventionsStemMatch[2]))
+              : Math.max(parseFloat(interventionsStemMatch[1]), parseFloat(interventionsStemMatch[2]))
+            : originalStemEndY
+          const interventionsDiff = interventionsStemEndY - originalStemEndY
 
           // Add translate animation: flags follow the stem endpoint
           setAnimation({
@@ -225,7 +233,7 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
               // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
               regulation: { type: 'translate', val: '0 0' },
               supplements: { type: 'translate', val: '0 0' },
-              interventions: { type: 'translate', val: '0 0' }
+              interventions: { type: 'translate', val: `0 ${interventionsDiff}` }
             }
           })
         }
@@ -243,4 +251,14 @@ function isChordMember (note) {
   }
 
   return false
+}
+
+function getRegulationStemPath (path, offset) {
+  if (!path) return null
+
+  const [offsetX, offsetY] = offset.split(' ').map(Number)
+  const match = path.match(/^M\s*([\d.-]+)\s+([\d.-]+)\s+L\s*([\d.-]+)\s+([\d.-]+)$/)
+  if (!match) return path
+
+  return `M${parseFloat(match[1]) - offsetX} ${parseFloat(match[2]) - offsetY} L${parseFloat(match[3]) - offsetX} ${parseFloat(match[4]) - offsetY}`
 }

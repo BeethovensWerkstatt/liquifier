@@ -47,6 +47,33 @@ test('liquifyOctaves translates the complete Verovio octave group to its Thuleme
   assert.equal(calls[2].states.regulation.val, '200,180 200,0 110,0')
 })
 
+test('liquifyOctaves uses regulation anchor and extender geometry at interventions', () => {
+  const ftSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg"><g class="octave" data-id="at-octave"><use transform="translate(100, 200)"/><path d="M110 0 L200 0"/><polyline points="200,180 200,0 110,0"/></g></svg>
+  `, 'image/svg+xml').documentElement
+  const dtSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg"><g class="octave" data-id="dt-octave"><use x="100" y="200"/><path d="M110 0 L200 0"/><polyline points="200,180 200,0 110,0"/></g></svg>
+  `, 'image/svg+xml').documentElement
+  const atRegSvgDom = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg"><g class="octave" data-id="at-octave"><use transform="translate(200, 300)"/><path d="M210 100 L350 100"/><polyline points="350,280 350,100 210,100"/></g></svg>
+  `, 'image/svg+xml').documentElement
+  const calls = []
+
+  liquifyOctaves(ftSvg, dtSvg, null, {
+    atRegSvgDom,
+    getNewPos: (atPoint, dtPoint) => dtPoint,
+    correspMappings: new Map([['at-octave', ['dt-octave']]]),
+    setAnimation: descriptor => calls.push(descriptor),
+    applyUnmatchedClass () {},
+    logger
+  })
+
+  assert.equal(calls[0].states.interventions.val, '100 100')
+  assert.equal(calls[1].states.interventions.val, 'M110 0 L250 0')
+  assert.equal(calls[2].states.interventions.val, '250,180 250,0 110,0')
+  assert.equal(ftSvg.querySelector('g.octave').getAttribute('data-bw-regulation-layout'), 'true')
+})
+
 test('liquifyOctaves supports number-only octave markings', () => {
   const ftSvg = parser.parseFromString(`
     <svg xmlns="http://www.w3.org/2000/svg"><g class="octave" data-id="at-octave"><use x="100" y="200"/></g></svg>

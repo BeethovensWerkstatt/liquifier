@@ -92,12 +92,14 @@ export const addAnimatedTranscription = ({ ftSvgDom, atPreparation, atDom, sourc
   animateFtStaffLines(transcriptionGroup, ftSvgDom.querySelector('.diplomatic'), tools, matchedStaffLineContext)
   animateFtReadingOrderSystems(transcriptionGroup, ftSvgDom.querySelector('.diplomatic'), editedAtDom, tools, readingOrderSystemDistance)
   liquifyMusic(transcriptionGroup, ftSvgDom.querySelector('.diplomatic'), tools)
+  animateOtherWritingZones(transcriptionGroup)
 
   ftSvgDom.querySelector('.diplomatic').setAttribute('style', 'display: none;')
   ftSvgDom.querySelectorAll('.rastrum.bounding-box').forEach(bbox => bbox.parentNode.removeChild(bbox))
   ftSvgDom.querySelectorAll('.pageLabelBox, .sysPreview, .pageBg, .pageLabel, .sysLabel').forEach(element => {
     addTransform(element, 'opacity', constants.ftAssetPhaseOpacityValues.labelsHiddenUntilEnd)
   })
+  ftSvgDom.querySelectorAll()
   return ftSvgDom
 }
 
@@ -111,4 +113,32 @@ export const extractAnimatedTranscription = (ftSvgDom) => {
   const companion = ftSvgDom.cloneNode(true)
   companion.querySelectorAll('.facsimileBg, .shapes, .diplomatic').forEach(layer => layer.parentNode.removeChild(layer))
   return companion
+}
+
+/**
+ * Keep only the current writing zone visible until supplements. The current
+ * writing zone is the first wrapper inserted by addSystemLabelBlocks.
+ *
+ * @param {Element} transcriptionGroup - Animated AT transcription container.
+ * @returns {void}
+ */
+export function animateOtherWritingZones (transcriptionGroup) {
+  const writingZones = Array.from(transcriptionGroup.querySelectorAll('g.writingZone'))
+  const otherWritingZones = writingZones.slice(1)
+  const opacityValues = ['0', '0', '0', '0', '0', '0', '1', '1']
+  const otherSystemIds = new Set(
+    otherWritingZones.flatMap(writingZone => Array.from(writingZone.querySelectorAll('g.systemBegin[data-id]'))
+      .map(systemBegin => systemBegin.getAttribute('data-id')))
+  )
+
+  otherWritingZones.forEach(writingZone => {
+    writingZone.setAttribute('opacity', '0')
+    addTransform(writingZone, 'opacity', opacityValues)
+  })
+
+  transcriptionGroup.querySelectorAll('g.bw-system-rastrum[data-system-id]').forEach(rastrum => {
+    if (!otherSystemIds.has(rastrum.getAttribute('data-system-id'))) return
+    rastrum.setAttribute('opacity', '0')
+    addTransform(rastrum, 'opacity', opacityValues)
+  })
 }
