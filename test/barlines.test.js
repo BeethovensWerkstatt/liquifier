@@ -73,3 +73,34 @@ test('liquifyBarlines expands a single AT line for horizontally ordered double D
   const rightBarline = animationCalls.find(call => call.element.getAttribute('d') === 'M100 0 L100 20')
   assert.equal(rightBarline.states.finding.val, 'M150 0 L150 20')
 })
+
+test('liquifyBarlines expands one AT line for multiple additional DT barlines', () => {
+  const ftSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg">
+      <g class="measure" data-id="measure-1">
+        <g class="barLine"><path d="M10 0 L10 20" stroke-width="27"/></g>
+      </g>
+    </svg>
+  `, 'image/svg+xml').documentElement
+  const dtSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg">
+      <g class="barLine" data-id="dt-left"><path d="M40 0 L40 20"/></g>
+      <g class="barLine" data-id="dt-middle"><path d="M50 0 L50 20"/></g>
+      <g class="barLine" data-id="dt-right"><path d="M60 0 L60 20"/></g>
+    </svg>
+  `, 'image/svg+xml').documentElement
+  const animationCalls = []
+
+  liquifyBarlines(ftSvg, dtSvg, null, {
+    getNewPos: (atPos, dtPos) => dtPos,
+    correspMappings: new Map([['measure-1', ['dt-left', 'dt-middle', 'dt-right']]]),
+    setAnimation: descriptor => animationCalls.push(descriptor)
+  })
+
+  assert.equal(animationCalls.length, 3)
+  assert.equal(ftSvg.querySelectorAll('.barLine path').length, 3)
+  assert.deepEqual(
+    new Set(animationCalls.map(call => call.states.finding.val)),
+    new Set(['M40 0 L40 20', 'M50 0 L50 20', 'M60 0 L60 20'])
+  )
+})

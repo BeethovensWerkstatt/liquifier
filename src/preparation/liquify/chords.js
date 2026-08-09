@@ -101,6 +101,11 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
       // sort both arrays by y position to match notes correctly
       atNotesPositions.sort((a, b) => a.y - b.y)
       dtNotesPositions.sort((a, b) => a.y - b.y)
+      atNotesPositions.forEach(atHead => {
+        atHead.atVal = '0 0'
+        atHead.dtVal = '0 0'
+        atHead.interventionsVal = '0 0'
+      })
 
       // animate each notehead individually
       atNotesPositions.forEach((atHead, index) => {

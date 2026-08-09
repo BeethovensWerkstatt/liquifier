@@ -221,11 +221,13 @@ export const liquifyBarlines = (ftSvg, dtSvg, atMeiDom, tools) => {
     // If multiple DT barlines in this system, create clones for each additional one
     if (availableDtBarlines.length > atBarline.length) {
       const parent = atBarline[atBarline.length - 1].parentNode
+      let insertionPoint = atBarline[atBarline.length - 1]
       for (let i = atBarline.length; i < availableDtBarlines.length; i++) {
         const clone = atBarline[0].cloneNode(true)
         // Insert clone after the previous element
-        parent.insertBefore(clone, atBarline[i - 1].nextSibling)
+        parent.insertBefore(clone, insertionPoint.nextSibling)
         barLineElements.push(clone)
+        insertionPoint = clone
       }
     }
 
