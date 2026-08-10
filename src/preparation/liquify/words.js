@@ -1,4 +1,5 @@
 import { getTextWidth } from './textAnimation.js'
+import { queryDirectChildren } from '../../utils/dom.js'
 
 const createTextRun = (textElement, content, role) => {
   const run = textElement.cloneNode(false)
@@ -117,6 +118,22 @@ export const liquifyWords = (ftSvg, dtSvg, atMeiDom, { getNewPos, correspMapping
         supplements: { type: 'opacity', val: '1' },
         interventions: { type: 'opacity', val: '1' }
       }
+    })
+
+    // hyphen connectors (rendered by Verovio as a bare <rect> for con="d" syllables) have no
+    // DT equivalent - in the DT they would just be a dash within the word's text - so they
+    // must follow the AT text run's visibility instead of staying statically visible
+    queryDirectChildren(syllable, 'rect').forEach(hyphen => {
+      setAnimation({
+        element: hyphen,
+        states: {
+          finding: { type: 'opacity', val: '0' },
+          normalization: { type: 'opacity', val: '0' },
+          regulation: { type: 'opacity', val: '1' },
+          supplements: { type: 'opacity', val: '1' },
+          interventions: { type: 'opacity', val: '1' }
+        }
+      })
     })
   })
 }
