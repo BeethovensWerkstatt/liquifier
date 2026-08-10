@@ -667,6 +667,20 @@ export const retrieveGeneticStateFromAt = (atDom, stateSet) => {
 }
 
 /**
+ * Resolves an AT to its final genetic state (all writing-zone genetic states active), i.e. all
+ * `<add>` elements unwrapped and all `<del>` elements removed. Used wherever a single, coherent
+ * reading is required (AT SVG, AT MIDI), as opposed to a specific preceding genetic state.
+ * @param {Element} atDom - The AT DOM element.
+ * @param {Element} sourceDom - The source DOM element, used to resolve writing-zone genetic states.
+ * @returns {Element} - The cloned AT DOM element with all genetic states applied.
+ */
+export const resolveFinalGeneticStateAt = (atDom, sourceDom) => {
+  const genDescWzs = getWritingZoneGenDescs(atDom, sourceDom)
+  const allStateIds = genDescWzs.flatMap(genDesc => Array.from(genDesc.querySelectorAll('genState')).map(state => state.getAttribute('xml:id'))).filter(Boolean)
+  return retrieveGeneticStateFromAt(atDom, allStateIds)
+}
+
+/**
  * Adds DT-to-facsimile-shape cross-references to the Fluid Transcript SVG.
  * @param {Element} ftSvgDom - The FT SVG DOM element.
  * @param {Element} dtDom - The source DT DOM element.

@@ -95,7 +95,7 @@ async function processData ({ data, triple, config, verovio, logger }) {
         await renderAnnotatedTranscriptSvg(renderParams)
       }
       if (config.media.indexOf('midi') >= 0) {
-        renderAnnotatedTranscriptMidi(renderParams)
+        await renderAnnotatedTranscriptMidi(renderParams)
       }
     }
 

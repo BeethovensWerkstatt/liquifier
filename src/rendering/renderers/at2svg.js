@@ -1,5 +1,6 @@
 import { prepareEditedAtDom } from '../../preparation/editedAnnotatedTranscripts.js'
 import { prepareAtForVerovio } from '../../preparation/annotatedTranscripts.js'
+import { resolveFinalGeneticStateAt } from './ft2svg.js'
 import { renderContinuousAt } from '../verovioHandler.js'
 import { writeData } from '../../filehandlers/filehandler.js'
 import { shouldRender } from '../../utils/rendering.js'
@@ -25,7 +26,8 @@ export async function renderAnnotatedTranscriptSvg ({ data, triple, verovio, pag
   if (shouldRender(recreate, [atDate], atSvgDate)) {
     logger.info('Rendering Annotated Transcript for ' + atSvgPath + ' ...')
 
-    const editedAtDom = prepareEditedAtDom(data.atDom, data.dtDom)
+    const finalStateAtDom = resolveFinalGeneticStateAt(data.atDom, data.sourceDom)
+    const editedAtDom = prepareEditedAtDom(finalStateAtDom, data.dtDom)
     prepareAtForVerovio(editedAtDom)
 
     // this is necessary to reset Verovio's choiceXPathQuery – it will just add the new otherwise

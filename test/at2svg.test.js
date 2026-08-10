@@ -101,6 +101,77 @@ test('renderAnnotatedTranscriptSvg renders the full AT from the edited AT using 
   fs.rmSync(tmpRoot, { recursive: true, force: true })
 })
 
+test('renderAnnotatedTranscriptSvg resolves genetic add/del states before rendering', async () => {
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'liquifier-test-'))
+  const atSvgPath = path.join(tmpRoot, 'SRC_p001_wz01_at.svg')
+
+  const geneticAtXml = `
+<mei xmlns="http://www.music-encoding.org/ns/mei">
+  <meiHead/>
+  <music>
+    <body>
+      <mdiv>
+        <score>
+          <scoreDef>
+            <staffGrp>
+              <staffDef n="1" xml:id="sd1"/>
+            </staffGrp>
+          </scoreDef>
+          <section>
+            <annot class="#bw_writingZoneBegin" corresp="#wz1"/>
+            <measure xml:id="m1">
+              <staff xml:id="s1" n="1">
+                <layer xml:id="l1">
+                  <add state="#state-a"><note xml:id="n-added" corresp="../diplomaticTranscripts/SRC_p001_wz01_dt.xml#d1"/></add>
+                  <del state="#state-a"><note xml:id="n-deleted" corresp="../diplomaticTranscripts/SRC_p001_wz01_dt.xml#d2"/></del>
+                </layer>
+              </staff>
+            </measure>
+          </section>
+        </score>
+      </mdiv>
+    </body>
+  </music>
+</mei>`
+
+  const sourceXml = `
+<mei xmlns="http://www.music-encoding.org/ns/mei">
+  <genDesc xml:id="wz1">
+    <genState xml:id="state-a" class="#geneticOrder_writingLayerLevel"/>
+  </genDesc>
+</mei>`
+
+  const atDom = parser.parseFromString(geneticAtXml, 'text/xml')
+  const dtDom = parser.parseFromString('<mei xmlns="http://www.music-encoding.org/ns/mei"/>', 'text/xml')
+  const sourceDom = parser.parseFromString(sourceXml, 'text/xml')
+
+  const verovio = createMockVerovio()
+  const logger = { info: () => {}, debug: () => {}, warn: () => {}, error: () => {} }
+
+  await renderAnnotatedTranscriptSvg({
+    data: { atDom, dtDom, sourceDom },
+    triple: {
+      atDate: new Date(),
+      atSvgPath,
+      atSvgDate: new Date(0)
+    },
+    verovio,
+    pageDimensions: { width: 210, height: 297 },
+    recreate: false,
+    logger
+  })
+
+  // the "add" state is active (it belongs to the writing zone's genetic states), so its
+  // content must be unwrapped, while the "del" content must be removed entirely
+  const renderedDomString = verovio.calls.find(call => call.method === 'renderData').domString
+  assert.ok(renderedDomString.includes('n-added'))
+  assert.ok(!renderedDomString.includes('n-deleted'))
+  assert.ok(!renderedDomString.includes('<add'))
+  assert.ok(!renderedDomString.includes('<del'))
+
+  fs.rmSync(tmpRoot, { recursive: true, force: true })
+})
+
 test('renderAnnotatedTranscriptSvg skips rendering when the AT SVG is up to date', async () => {
   const infoMessages = []
   const atDom = parser.parseFromString(atXml, 'text/xml')
