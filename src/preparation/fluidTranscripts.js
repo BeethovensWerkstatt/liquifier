@@ -6,7 +6,7 @@ import { queryDirectChildren, removeElement } from '../utils/dom.js'
  * @param {Document} atMeiDom - Annotated transcript MEI DOM.
  * @returns {Map<string, number>} Mapping from AT measure IDs to block indices.
  */
-function buildAtMeasureBlockMap (atMeiDom) {
+export function buildAtMeasureBlockMap (atMeiDom) {
   const map = new Map()
   if (!atMeiDom) return map
 
@@ -43,7 +43,7 @@ function buildAtMeasureBlockMap (atMeiDom) {
  * @param {Document} atMeiDom - Annotated transcript MEI DOM.
  * @returns {Map<number, string>} Mapping from block indices to AT sb IDs.
  */
-function buildAtBlockSbMap (atMeiDom) {
+export function buildAtBlockSbMap (atMeiDom) {
   const blockMap = buildAtMeasureBlockMap(atMeiDom)
   const sbByBlock = new Map()
   if (!atMeiDom || blockMap.size === 0) return sbByBlock

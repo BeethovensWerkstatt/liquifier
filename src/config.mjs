@@ -20,7 +20,8 @@ export const constants = {
     shapes: ['0', '1', '0', '0', '0', '0', '0', '0'],
     diplomatic: ['0', '0', '1', '1', '1', '1', '1', '1'],
     transcription: ['0', '0', '1', '1', '1', '1', '1', '1'],
-    labelsHiddenUntilEnd: ['0', '0', '0', '0', '0', '1', '1', '1']
+    labelsHiddenUntilEnd: ['0', '0', '0', '0', '0', '1', '1', '1'],
+    otherWritingZones: ['0', '0', '0', '0', '0', '0', '1', '1']
   },
   ftWritingZoneHighlight: {
     opacity: '1',

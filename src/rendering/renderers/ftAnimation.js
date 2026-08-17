@@ -3,7 +3,8 @@ import { addTransform, prepareAssets } from '../../utils/ft/animation.js'
 import { animateFtReadingOrderSystems, animateFtStaffLines } from '../../utils/ft/staffLines.js'
 import { retrieveHorizontalPositionFromDt } from '../../utils/ft/positioning.js'
 import { liquifyMusic } from '../../preparation/liquify.js'
-import { resolveMatchedStaffLineContextForCurrentDt } from '../../preparation/fluidTranscripts.js'
+import { buildAtBlockSbMap, buildAtMeasureBlockMap, resolveMatchedStaffLineContextForCurrentDt } from '../../preparation/fluidTranscripts.js'
+import { closestElement, queryDirectChildren } from '../../utils/dom.js'
 import { constants } from '../../config.mjs'
 
 /**
@@ -88,11 +89,12 @@ export const addAnimatedTranscription = ({ ftSvgDom, atPreparation, atDom, sourc
   tools.sourceDtMeiDom = sourceDtDom || dtDom
   tools.activeSvgLayers = activeSvgLayers
   const matchedStaffLineContext = resolveMatchedStaffLineContextForCurrentDt(atDom, dtDom, logger)
+  animateUnmatchedAtBlocks(transcriptionGroup, editedAtDom, matchedStaffLineContext.matchedStaffLineBlocks)
   const readingOrderSystemDistance = constants.ftReadingOrderSystemDistanceMm * currentPage.vrvMeiUnit * constants.verovioGeneralScaling
   animateFtStaffLines(transcriptionGroup, ftSvgDom.querySelector('.diplomatic'), tools, matchedStaffLineContext)
   animateFtReadingOrderSystems(transcriptionGroup, ftSvgDom.querySelector('.diplomatic'), editedAtDom, tools, readingOrderSystemDistance)
   liquifyMusic(transcriptionGroup, ftSvgDom.querySelector('.diplomatic'), tools)
-  animateOtherWritingZones(transcriptionGroup)
+  animateOtherWritingZones(transcriptionGroup, atDom, matchedStaffLineContext.matchedStaffLineBlocks)
 
   ftSvgDom.querySelector('.diplomatic').setAttribute('style', 'display: none;')
   ftSvgDom.querySelectorAll('.rastrum.bounding-box').forEach(bbox => bbox.parentNode.removeChild(bbox))
@@ -116,29 +118,79 @@ export const extractAnimatedTranscription = (ftSvgDom) => {
 }
 
 /**
- * Keep only the current writing zone visible until supplements. The current
- * writing zone is the first wrapper inserted by addSystemLabelBlocks.
+ * Keep only writing zones matched to the current DT page visible until supplements.
  *
  * @param {Element} transcriptionGroup - Animated AT transcription container.
+ * @param {Document} [atMeiDom] - Edited annotated transcript MEI DOM.
+ * @param {Set<number>|null} [matchedBlocks] - AT blocks belonging to the current DT page.
  * @returns {void}
  */
-export function animateOtherWritingZones (transcriptionGroup) {
+export function animateOtherWritingZones (transcriptionGroup, atMeiDom = null, matchedBlocks = null) {
   const writingZones = Array.from(transcriptionGroup.querySelectorAll('g.writingZone'))
-  const otherWritingZones = writingZones.slice(1)
-  const opacityValues = ['0', '0', '0', '0', '0', '0', '1', '1']
+  const blockSbMap = buildAtBlockSbMap(atMeiDom)
+  const matchedSystemIds = new Set(
+    Array.from(matchedBlocks || []).map(blockIndex => blockSbMap.get(blockIndex)).filter(Boolean)
+  )
+  const currentWritingZones = matchedSystemIds.size > 0
+    ? writingZones.filter(writingZone => queryDirectChildren(writingZone, 'g.systemBegin[data-system-id]')
+      .some(systemBegin => matchedSystemIds.has(systemBegin.getAttribute('data-system-id'))))
+    : writingZones.slice(0, 1)
+  const otherWritingZones = writingZones.filter(writingZone => !currentWritingZones.includes(writingZone))
   const otherSystemIds = new Set(
-    otherWritingZones.flatMap(writingZone => Array.from(writingZone.querySelectorAll('g.systemBegin[data-id]'))
+    otherWritingZones.flatMap(writingZone => queryDirectChildren(writingZone, 'g.systemBegin[data-id]')
       .map(systemBegin => systemBegin.getAttribute('data-id')))
   )
 
   otherWritingZones.forEach(writingZone => {
     writingZone.setAttribute('opacity', '0')
-    addTransform(writingZone, 'opacity', opacityValues)
+    addTransform(writingZone, 'opacity', constants.ftAssetPhaseOpacityValues.otherWritingZones)
   })
 
   transcriptionGroup.querySelectorAll('g.bw-system-rastrum[data-system-id]').forEach(rastrum => {
     if (!otherSystemIds.has(rastrum.getAttribute('data-system-id'))) return
     rastrum.setAttribute('opacity', '0')
-    addTransform(rastrum, 'opacity', opacityValues)
+    addTransform(rastrum, 'opacity', constants.ftAssetPhaseOpacityValues.otherWritingZones)
+  })
+}
+
+/**
+ * Keeps AT material from other DT pages hidden until the supplements phase.
+ *
+ * @param {SVGElement} transcriptionGroup - Animated AT transcription container.
+ * @param {Document} atMeiDom - Edited annotated transcript MEI DOM.
+ * @param {Set<number>|null} matchedBlocks - AT blocks belonging to the current DT page.
+ * @returns {void} No return value.
+ */
+export function animateUnmatchedAtBlocks (transcriptionGroup, atMeiDom, matchedBlocks) {
+  if (!(matchedBlocks instanceof Set) || matchedBlocks.size === 0) return
+
+  const measureBlockMap = buildAtMeasureBlockMap(atMeiDom)
+  if (measureBlockMap.size === 0) return
+
+  const unmatchedMeasures = Array.from(transcriptionGroup.querySelectorAll('g.measure:not(.bounding-box)'))
+    .filter(measure => {
+      const blockIndex = measureBlockMap.get(measure.getAttribute('data-id'))
+      return Number.isFinite(blockIndex) && !matchedBlocks.has(blockIndex)
+    })
+  const unmatchedContainers = new Set()
+
+  unmatchedMeasures.forEach(measure => {
+    const system = closestElement(measure, 'g.systemBegin')
+    const systemMeasures = system
+      ? Array.from(system.querySelectorAll('g.measure:not(.bounding-box)'))
+      : []
+    const systemIsUnmatched = systemMeasures.length > 0 && systemMeasures.every(systemMeasure => {
+      const blockIndex = measureBlockMap.get(systemMeasure.getAttribute('data-id'))
+      return Number.isFinite(blockIndex) && !matchedBlocks.has(blockIndex)
+    })
+
+    unmatchedContainers.add(systemIsUnmatched ? system : measure)
+  })
+
+  unmatchedContainers.forEach(container => {
+    if (!container) return
+    container.setAttribute('data-bw-unmatched-container', 'true')
+    container.setAttribute('opacity', '0')
+    addTransform(container, 'opacity', constants.ftAssetPhaseOpacityValues.otherWritingZones)
   })
 }
