@@ -40,6 +40,37 @@ test('liquifyNotes keeps cross-staff phase-4 stems at the diplomatic length', ()
   assert.equal(stemAnimation.states.normalization.val, 'M0 100 L0 200')
 })
 
+test('liquifyNotes ignores non-note diplomatic correspondences when matching a note', () => {
+  const ftSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg"><g class="note" data-id="a1">
+      <g class="notehead"><use transform="translate(0, 100)"/></g>
+    </g></svg>
+  `, 'image/svg+xml').documentElement
+  const dtSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg">
+      <g class="metaMark" data-id="dt-metamark"/>
+      <g class="note" data-id="dt-note"><g class="notehead"><use x="0" y="100"/></g></g>
+    </svg>
+  `, 'image/svg+xml').documentElement
+  const atRegSvgDom = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg"><g class="note" data-id="a1"><g class="notehead"><use transform="translate(0, 100)"/></g></g></svg>
+  `, 'image/svg+xml').documentElement
+  const atMeiDom = parser.parseFromString('<mei><note xml:id="a1"/></mei>', 'text/xml')
+  const calls = []
+
+  liquifyNotes(ftSvg, dtSvg, atMeiDom, {
+    scaleFactor: 1,
+    getNewPos: point => point,
+    correspMappings: new Map([['a1', ['dt-metamark', 'dt-note']]]),
+    atRegSvgDom,
+    setAnimation: descriptor => calls.push(descriptor)
+  })
+
+  const noteAnimation = calls.find(call => call.element.getAttribute('data-id') === 'a1')
+  assert.equal(noteAnimation.referenceId, 'dt-note')
+  assert.notEqual(noteAnimation.states.finding, null)
+})
+
 test('liquifyNotes uses regulation stem geometry and moves the flag endpoint', () => {
   const ftSvg = parser.parseFromString(`
     <svg xmlns="http://www.w3.org/2000/svg"><g class="note" data-id="a1">

@@ -58,17 +58,22 @@ test('liquifyBeams selects unmatched AT beam polygons from the innermost directi
   assert.equal(suppliedPolygonY('down'), 11)
 })
 
-const normalizedBeamGeometry = (stemDir, beamPolygons, dtPolygons, beamMembers) => {
+const normalizedBeamGeometry = (stemDir, beamPolygons, dtPolygons, beamMembers, movingMembers = false) => {
   const sourcePolygons = beamPolygons || (stemDir === 'down'
     ? [polygon(10), polygon(0)]
     : [polygon(10), polygon(20)])
   const diplomaticPolygons = dtPolygons || sourcePolygons
+  const positionValues = movingMembers
+    ? '0 0;0 0;0 0;10 0;10 0;10 0;10 0;10 0'
+    : '0 0;0 0;0 0;0 0;0 0;0 0;0 0;0 0'
   const ftSvg = parser.parseFromString(`
     <svg xmlns="http://www.w3.org/2000/svg">
       <g class="note" data-id="note-1">
+        <animateTransform attributeName="transform" values="${positionValues}"/>
         <g class="stem"><path d="M0 ${stemDir === 'up' ? '100' : '0'} L0 ${stemDir === 'up' ? '0' : '100'}"/></g>
       </g>
       <g class="note" data-id="note-2">
+        <animateTransform attributeName="transform" values="${positionValues}"/>
         <g class="stem"><path d="M100 ${stemDir === 'up' ? '100' : '0'} L100 ${stemDir === 'up' ? '0' : '100'}"/></g>
       </g>
       <g class="beam" data-id="at-beam">
@@ -219,6 +224,49 @@ test('liquifyBeams uses phase-4 chord stem translations for normalized beam geom
 
   assert.deepEqual(parsePoints(animationCalls[0].states.normalization.val), [
     { x: 5, y: 40 }, { x: 20, y: 80 }, { x: 20, y: 82 }, { x: 5, y: 42 }
+  ])
+})
+
+test('liquifyBeams uses phase-4 chord notehead translations when chord stems are static', () => {
+  const ftSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg">
+      <g class="beam" data-id="at-beam">
+        ${polygon(10)}
+        <g class="chord" data-id="chord-1" data-stem.dir="up"><g class="note"><g class="notehead"/></g><g class="note"><g class="notehead"><animateTransform attributeName="transform" values="5 20;5 20;5 20;5 20;5 20;0 0;0 0;0 0"/></g></g><g class="stem"><path d="M0 100 L0 0"><animate attributeName="d" values="M0 100 L0 0;M0 100 L0 0;M0 100 L0 0;M0 100 L0 20;M0 100 L0 20;M0 100 L0 0;M0 100 L0 0;M0 100 L0 0"/></path></g></g>
+        <g class="chord" data-id="chord-2" data-stem.dir="up"><g class="note"><g class="notehead"/></g><g class="note"><g class="notehead"><animateTransform attributeName="transform" values="10 40;10 40;10 40;10 40;10 40;0 0;0 0;0 0"/></g></g><g class="stem"><path d="M10 100 L10 0"><animate attributeName="d" values="M10 100 L10 0;M10 100 L10 0;M10 100 L10 0;M10 100 L10 40;M10 100 L10 40;M10 100 L10 0;M10 100 L10 0;M10 100 L10 0"/></path></g></g>
+      </g>
+    </svg>
+  `, 'image/svg+xml').documentElement
+  const dtSvg = parser.parseFromString(`<svg xmlns="http://www.w3.org/2000/svg"><g class="beam" data-id="dt-beam">${polygon(10)}</g></svg>`, 'image/svg+xml').documentElement
+  const atMeiDom = parser.parseFromString(`
+    <mei><beam xml:id="at-beam">
+      <chord xml:id="chord-1" stem.dir="up"/>
+      <chord xml:id="chord-2" stem.dir="up"/>
+    </beam></mei>
+  `, 'text/xml')
+  const animationCalls = []
+
+  liquifyBeams(ftSvg, dtSvg, atMeiDom, {
+    getNewPos: point => point,
+    correspMappings: new Map([['at-beam', ['dt-beam']]]),
+    setAnimation: descriptor => animationCalls.push(descriptor),
+    logger: { debug () {}, info () {}, warn () {}, error () {} }
+  })
+
+  assert.deepEqual(parsePoints(animationCalls[0].states.normalization.val), [
+    { x: 5, y: 40 }, { x: 20, y: 80 }, { x: 20, y: 82 }, { x: 5, y: 42 }
+  ])
+})
+
+test('liquifyBeams skips static editorial members when selecting normalization endpoints', () => {
+  const states = normalizedBeamGeometry('up', undefined, undefined, `
+    <note xml:id="static-note" stem.dir="up"/>
+    <note xml:id="note-1" stem.dir="up"/>
+    <note xml:id="note-2" stem.dir="up"/>
+  `, true)
+
+  assert.deepEqual(states[0].normalization, [
+    { x: 10, y: 0 }, { x: 110, y: 0 }, { x: 110, y: 2 }, { x: 10, y: 2 }
   ])
 })
 

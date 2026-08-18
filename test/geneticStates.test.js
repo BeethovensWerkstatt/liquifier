@@ -2,7 +2,8 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { JSDOM } from 'jsdom'
 
-import { addGeneticInformation, getGeneticStates, retrieveGeneticStateFromAt } from '../src/rendering/renderers/ft2svg.js'
+import { prepareEditedAtDom } from '../src/preparation/editedAnnotatedTranscripts.js'
+import { addGeneticInformation, getGeneticStates, resolveFinalGeneticStateAt, retrieveGeneticStateFromAt } from '../src/rendering/renderers/ft2svg.js'
 
 const parser = new (new JSDOM().window.DOMParser)()
 
@@ -75,6 +76,47 @@ test('retrieveGeneticStateFromAt skips nested states detached with an active del
 
   assert.equal(statedAt.querySelector('del'), null)
   assert.equal(statedAt.querySelector('restore'), null)
+})
+
+test('resolveFinalGeneticStateAt activates every writing-zone state without text-stage classes', () => {
+  const atDom = parser.parseFromString(`
+    <mei>
+      <annot class="#bw_writingZoneBegin" corresp="#wz-1"/>
+      <add state="#state-a"><note xml:id="added-note"/></add>
+      <del state="#state-b"><note xml:id="deleted-note"/></del>
+    </mei>
+  `, 'text/xml').documentElement
+  const sourceDom = parser.parseFromString(`
+    <mei><genDesc xml:id="wz-1">
+      <genState xml:id="state-a" class="#geneticOrder_writingLayerLevel"/>
+      <genState xml:id="state-b" class="#geneticOrder_otherLevel"/>
+    </genDesc></mei>
+  `, 'text/xml').documentElement
+
+  const finalStateAt = resolveFinalGeneticStateAt(atDom, sourceDom)
+
+  assert.equal(finalStateAt.querySelector('add'), null)
+  assert.equal(finalStateAt.querySelector('del'), null)
+  assert.ok(finalStateAt.querySelector('[xml\\:id="added-note"]'))
+  assert.equal(finalStateAt.querySelector('[xml\\:id="deleted-note"]'), null)
+})
+
+test('resolveFinalGeneticStateAt keeps active additions out of supplied markup', () => {
+  const atDom = parser.parseFromString(`
+    <mei><music>
+      <annot class="#bw_writingZoneBegin" corresp="#wz-1"/>
+      <add state="#state-a"><note xml:id="added-note" corresp="../diplomaticTranscripts/example_dt.xml#dt-note"/></add>
+    </music></mei>
+  `, 'text/xml')
+  const sourceDom = parser.parseFromString(`
+    <mei><genDesc xml:id="wz-1"><genState xml:id="state-a"/></genDesc></mei>
+  `, 'text/xml')
+
+  const editedAt = prepareEditedAtDom(resolveFinalGeneticStateAt(atDom, sourceDom), parser.parseFromString('<mei/>', 'text/xml'))
+
+  assert.equal(editedAt.querySelector('add'), null)
+  assert.equal(editedAt.querySelector('supplied [xml\\:id="added-note"]'), null)
+  assert.ok(editedAt.querySelector('[xml\\:id="added-note"]'))
 })
 
 test('addGeneticInformation writes one replaceable metadata element for each file type', () => {

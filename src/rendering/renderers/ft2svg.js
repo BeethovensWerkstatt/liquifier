@@ -63,7 +63,6 @@ export const fluidTranscriptDefaultCss = `
  * @param {*} params - Rendering parameters.
  * @param {Object} params.data - Source data (atDom, dtDom, sourceDom, reconstructionDom).
  * @param {Object} params.triple - File paths and dates.
- * @param {Object} params.verovio - Verovio toolkit instance.
  * @param {Object} params.pageDimensions - Page dimensions for rendering.
  * @param {boolean} params.recreate - Force recreation flag.
  * @param {string[]} params.media - Requested output media.
@@ -110,20 +109,19 @@ export async function renderFluidTranscriptsSvg ({ data, triple, verovio, pageDi
       ftSvgDom.querySelector('.diplomatic').removeAttribute('transform') */
 
       const genDescWzs = getWritingZoneGenDescs(data.atDom, data.sourceDom)
-      const allStateIds = genDescWzs.flatMap(genDesc => Array.from(genDesc.querySelectorAll('genState')).map(state => state.getAttribute('xml:id'))).filter(Boolean)
 
       // handle annotated transcription
       const atSourceDom = data.atDom.cloneNode(true)
       const dtSourceDom = data.dtDom.cloneNode(true)
-      const statedAt = retrieveGeneticStateFromAt(data.atDom, allStateIds)
-      const atSvgDom = await prepareAtForFt(statedAt, data.dtDom, data, verovio, pageDimensions, layoutInfo, logger, triple)
+      const statedAt = resolveFinalGeneticStateAt(data.atDom, data.sourceDom)
+      const atPreparation = await prepareAtForFt(statedAt, data.dtDom, data, verovio, pageDimensions, layoutInfo, logger, triple)
       // result is also available as data.atSvgDom = atSvgDom
       // data.editedAtDom is also available for later use in FT processing
 
       addAnimatedTranscription({
         ftSvgDom,
-        atPreparation: { atSvgDom, atRegSvgDom: data.atRegSvgDom, editedAtDom: data.editedAtDom },
-        atDom: data.atDom,
+        atPreparation,
+        atDom: statedAt,
         sourceAtDom: atSourceDom,
         sourceDtDom: dtSourceDom,
         dtDom: data.dtDom,
@@ -262,7 +260,7 @@ const prepareDtForFt = async (dtDom, sourceDom, data, layoutInfo, logger, path) 
  * @param {Object} layoutInfo - Layout information for rendering.
  * @param {Object} logger - Logger instance for logging messages and errors.
  * @param {string} path - File path for logging purposes.
- * @return {Promise<Document>} Promise resolving to the prepared annotated transcript SVG DOM.
+ * @returns {Promise<{atSvgDom: Document, atRegSvgDom: Document, editedAtDom: Document}>} Prepared AT forms.
  */
 const prepareAtForFt = async (atDom, dtDom, data, verovio, pageDimensions, layoutInfo, logger, triple) => {
   try {
@@ -279,7 +277,7 @@ const prepareAtForFt = async (atDom, dtDom, data, verovio, pageDimensions, layou
     data.atSvgDom = preparedAt.atSvgDom
     data.atRegSvgDom = preparedAt.atRegSvgDom
     data.editedAtDom = preparedAt.editedAtDom
-    return preparedAt.atSvgDom
+    return preparedAt
   } catch (error) {
     logger.error('Error preparing annotated transcript for Fluid Transcripts: ' + error.message)
     logger.debug('Source file: ' + triple.sourceFullPath)

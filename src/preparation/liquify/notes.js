@@ -57,8 +57,12 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
     const atRegVal = `${interventionsHead.x - atHead.x} ${interventionsHead.y - atHead.y}`
     const interventionsStemD = getRegulationStemPath(regNote.querySelector('.stem > path')?.getAttribute('d'), atRegVal)
 
-    // If no DT correspondence, hide the note
-    if (!dtIds || dtIds.length === 0) {
+    const dtNotes = (dtIds || [])
+      .map(dtId => ({ dtId, element: dtSvg.querySelector(`g.note[data-id="${dtId}"]`) }))
+      .filter(({ element }) => element)
+
+    // If no DT note correspondence, hide the note.
+    if (dtNotes.length === 0) {
       setAnimation({
         element: note,
         states: {
@@ -73,22 +77,7 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
       return
     }
 
-    dtIds.forEach(dtId => {
-      const dtNote = dtSvg.querySelector(`g.note[data-id="${dtId}"]`)
-      if (!dtNote) {
-        setAnimation({
-          element: note,
-          states: {
-            finding: null,
-            normalization: null,
-            // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
-            regulation: { type: 'translate', val: atOrigVal },
-            supplements: { type: 'translate', val: atOrigVal },
-            interventions: { type: 'translate', val: atRegVal }
-          }
-        })
-        return
-      }
+    dtNotes.forEach(({ dtId, element: dtNote }) => {
       const dtHead = {
         x: parseFloat(dtNote.querySelector('.notehead > use')?.getAttribute('x')),
         y: parseFloat(dtNote.querySelector('.notehead > use')?.getAttribute('y'))

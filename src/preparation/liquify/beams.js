@@ -255,11 +255,23 @@ const calculateDiplomaticBeams = (ftSvg, atMeiDom, beamId, atPolygons, logger) =
 
   // Get the SVG elements for first and last notes to find stem endpoints
   const getMemberId = member => member.getAttribute('xml:id') || member.getAttribute('data-id')
-  const firstNoteId = getMemberId(beamMembers[0])
-  const lastNoteId = getMemberId(beamMembers[beamMembers.length - 1])
-
-  const firstNoteGroup = ftSvg.querySelector(`g[data-id="${firstNoteId}"]`)
-  const lastNoteGroup = ftSvg.querySelector(`g[data-id="${lastNoteId}"]`)
+  const getRenderedMember = member => ftSvg.querySelector(`g[data-id="${getMemberId(member)}"]`)
+  const hasMovingPositionAnimation = animation => {
+    const values = animation?.getAttribute('values')?.split(';') || []
+    return new Set(values.map(value => value.trim())).size > 1
+  }
+  const hasPositionAnimation = member => {
+    const renderedMember = getRenderedMember(member)
+    return hasMovingPositionAnimation(queryDirectChild(renderedMember, 'animateTransform[attributeName="transform"]')) ||
+      Array.from(renderedMember?.querySelectorAll('.notehead') || [])
+        .some(notehead => hasMovingPositionAnimation(queryDirectChild(notehead, 'animateTransform[attributeName="transform"]')))
+  }
+  const positionedMembers = beamMembers.filter(hasPositionAnimation)
+  const endpointMembers = positionedMembers.length >= 2 ? positionedMembers : beamMembers
+  const firstMember = endpointMembers[0]
+  const lastMember = endpointMembers[endpointMembers.length - 1]
+  const firstNoteGroup = getRenderedMember(firstMember)
+  const lastNoteGroup = getRenderedMember(lastMember)
 
   if (!firstNoteGroup || !lastNoteGroup) {
     logger.debug(`[Beam Normalization] Could not find note groups for beam ${beamId}`)
@@ -277,8 +289,8 @@ const calculateDiplomaticBeams = (ftSvg, atMeiDom, beamId, atPolygons, logger) =
 
   // Get stem direction from MEI
   const getStemDirection = (member, renderedMember) => member.getAttribute('stem.dir') || renderedMember?.getAttribute('data-stem.dir') || 'up'
-  const firstNoteStemDir = getStemDirection(beamMembers[0], firstNoteGroup)
-  const lastNoteStemDir = getStemDirection(beamMembers[beamMembers.length - 1], lastNoteGroup)
+  const firstNoteStemDir = getStemDirection(firstMember, firstNoteGroup)
+  const lastNoteStemDir = getStemDirection(lastMember, lastNoteGroup)
 
   // Parse stem path to get endpoint for a specific state
   // Frame indices: 0=digitalFacsimile, 1=writingZone, 2=finding, 3=normalization,
@@ -321,8 +333,13 @@ const calculateDiplomaticBeams = (ftSvg, atMeiDom, beamId, atPolygons, logger) =
    */
   const getNotePosition = (noteGroup, frameIndex) => {
     // The animate element should have been set by liquifyNotes/liquifyChords
-    // It's an animateTransform element that is a DIRECT child of the note group (not nested in accidentals etc)
+    // Prefer the member group, then an animated notehead, then its stem. Chord stems
+    // can carry a no-op transform while a nested notehead holds the DT-facing movement.
+    const noteheadAnimate = Array.from(noteGroup.querySelectorAll('.notehead'))
+      .map(notehead => queryDirectChild(notehead, 'animateTransform[attributeName="transform"]'))
+      .find(Boolean)
     const animateElement = queryDirectChild(noteGroup, 'animateTransform[attributeName="transform"]') ||
+      noteheadAnimate ||
       queryDirectChild(noteGroup.querySelector('.stem > path'), 'animateTransform[attributeName="transform"]')
 
     if (!animateElement) {
@@ -451,8 +468,8 @@ const calculateDiplomaticBeams = (ftSvg, atMeiDom, beamId, atPolygons, logger) =
     y: lastStemEndDiplomatic.y + lastNotePosDiplomatic.y
   }
   const crossStaffEndpoints = [
-    beamMembers[0].hasAttribute('staff'),
-    beamMembers[beamMembers.length - 1].hasAttribute('staff')
+    firstMember.hasAttribute('staff'),
+    lastMember.hasAttribute('staff')
   ]
 
   if (crossStaffEndpoints.filter(Boolean).length === 1) {
