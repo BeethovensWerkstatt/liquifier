@@ -11,20 +11,20 @@ To run and test the liquifier docker image locally, follow these steps:
      git clone git@github.com:BeethovensWerkstatt/liquifier.git
      cd liquifier
      ```
-    2. Initialize the Thulemeier submodule:  
+  2. Initialize the Thulemeier submodule:  
       ```bash
       git submodule update --init --recursive
       ```
-    3. create the docker image:  
+  3. create the docker image:  
      ```bash
      docker build -t liquifier:latest .
      ```
-    4. Move to the `BeethovensWerkstatt/data` directory:  
+  4. Move to the `BeethovensWerkstatt/data` directory:  
      ```bash
      cd <path/to/BeethovensWerkstatt/data>
      ```
      *(This might be* `cd ../data` *if the `liquifier` repo is cloned next to `data`.)*
-    5. Run the docker image:  
+  5. Run the docker image:  
      ```bash
      docker run --rm -ti -v $(pwd)/data:/usr/src/app/data -v $(pwd)/cache:/usr/src/app/cache -v $(pwd)/.git:/usr/src/app/.git:ro -w /usr/src/app liquifier node index.js --input-dir=/usr/src/app/data/sources --output-dir=/usr/src/app/cache
      ```
