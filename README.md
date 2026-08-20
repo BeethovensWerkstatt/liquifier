@@ -26,7 +26,7 @@ To run and test the liquifier docker image locally, follow these steps:
      *(This might be* `cd ../data` *if the `liquifier` repo is cloned next to `data`.)*
   5. Run the docker image:  
      ```bash
-     docker run --rm -ti -v $(pwd)/data:/usr/src/app/data -v $(pwd)/cache:/usr/src/app/cache -v $(pwd)/.git:/usr/src/app/.git:ro -w /usr/src/app liquifier node index.js --input-dir=/usr/src/app/data/sources --output-dir=/usr/src/app/cache
+     docker run --rm -ti -v $(pwd)/data:/usr/src/app/data -v $(pwd)/cache:/usr/src/app/cache -v $(pwd)/.git:/usr/src/app/.git:ro -w /usr/src/app liquifier node index.js --input-dir=/usr/src/app/data/sources --output-dir=/usr/src/app/cache --types=fluidTranscripts,at,editedAt --media=svg,midi --context-document=Notirungsbuch_K D-BNba_MH_60_Engelmann/diplomaticTranscripts/D-BNba_MH_60_Engelmann_p007_wz01_dt.xml
      ```
 
 The `-v` flags mount the `data` and `cache` directories from the host machine into the
