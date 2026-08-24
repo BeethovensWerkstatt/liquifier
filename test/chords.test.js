@@ -152,3 +152,35 @@ test('liquifyChords uses the regulation stem path relative to its note movement'
   assert.equal(stemAnimation.states.interventions.val, 'M0 100 L0 20')
   assert.equal(flagAnimation.states.interventions.val, '10 -20')
 })
+
+test('liquifyChords translates an up-stem with its lower cross-staff note', () => {
+  const ftSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg"><g class="chord" data-id="at-chord">
+      <g class="stem"><path d="M10 100 L10 20"/></g>
+      <g class="note" data-id="at-upper"><g class="notehead"><use transform="translate(10, 20)"/></g></g>
+      <g class="note" data-id="at-lower"><g class="notehead"><use transform="translate(10, 100)"/></g></g>
+    </g></svg>
+  `, 'image/svg+xml').documentElement
+  const dtSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg"><g class="chord" data-id="dt-chord">
+      <g class="stem"><path d="M15 130 L15 30"/></g>
+      <g class="note" data-id="dt-upper"><g class="notehead"><use x="15" y="30"/></g></g>
+      <g class="note" data-id="dt-lower"><g class="notehead"><use x="15" y="130"/></g></g>
+    </g></svg>
+  `, 'image/svg+xml').documentElement
+  const atMeiDom = parser.parseFromString(`
+    <mei><staff n="2"><layer><chord xml:id="at-chord" stem.dir="up"><note xml:id="at-upper" staff="1"/><note xml:id="at-lower"/></chord></layer></staff></mei>
+  `, 'text/xml')
+  const calls = []
+
+  liquifyChords(ftSvg, dtSvg, atMeiDom, {
+    scaleFactor: 1,
+    getNewPos: (atPoint, dtPoint) => dtPoint,
+    correspMappings: new Map([['at-chord', ['dt-chord']]]),
+    setAnimation: descriptor => calls.push(descriptor),
+    logger: { debug () {}, info () {}, warn () {}, error () {} }
+  })
+
+  const stemTranslate = calls.find(call => call.element.localName === 'path' && call.states.finding?.type === 'translate')
+  assert.equal(stemTranslate.states.finding.val, '5 30')
+})

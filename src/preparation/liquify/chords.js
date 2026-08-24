@@ -193,9 +193,16 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
         // Get stem direction from MEI - use attribute selector that works in Node.js
         const meiChord = atMeiDom.querySelector(`chord[xml\\:id="${atId}"]`)
         const stemDir = meiChord?.getAttribute('stem.dir') || 'up'
-        const stemPosition = stemDir === 'up'
-          ? atNotesPositions[0]
-          : atNotesPositions[atNotesPositions.length - 1]
+        const chordStaff = closestElement(meiChord, 'staff')?.getAttribute('n')
+        const crossStaffChord = Array.from(meiChord?.querySelectorAll('note[staff]') || [])
+          .some(note => note.getAttribute('staff') !== chordStaff)
+        const stemPosition = crossStaffChord
+          ? stemDir === 'up'
+            ? atNotesPositions[atNotesPositions.length - 1]
+            : atNotesPositions[0]
+          : stemDir === 'up'
+            ? atNotesPositions[0]
+            : atNotesPositions[atNotesPositions.length - 1]
         const interventionsStemD = getRegulationStemPath(atMeiDom, tools.atRegSvgDom, atId, stemPosition.interventionsVal)
 
         // Calculate new d attribute based on stem direction for FINDINGS and DIPLOMATIC states
@@ -211,12 +218,12 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
             setAnimation({
               element: atStem,
               states: {
-                finding: { type: 'translate', val: atNotesPositions[0].dtVal },
-                normalization: { type: 'translate', val: atNotesPositions[0].dtVal },
+                finding: { type: 'translate', val: stemPosition.dtVal },
+                normalization: { type: 'translate', val: stemPosition.dtVal },
                 // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
-                regulation: { type: 'translate', val: atNotesPositions[0].atVal },
-                supplements: { type: 'translate', val: atNotesPositions[0].atVal },
-                interventions: { type: 'translate', val: atNotesPositions[0].interventionsVal }
+                regulation: { type: 'translate', val: stemPosition.atVal },
+                supplements: { type: 'translate', val: stemPosition.atVal },
+                interventions: { type: 'translate', val: stemPosition.interventionsVal }
               }
             })
           } else {
@@ -228,12 +235,12 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
             setAnimation({
               element: atStem,
               states: {
-                finding: { type: 'translate', val: atNotesPositions[0].dtVal },
-                normalization: { type: 'translate', val: atNotesPositions[0].dtVal },
+                finding: { type: 'translate', val: stemPosition.dtVal },
+                normalization: { type: 'translate', val: stemPosition.dtVal },
                 // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
-                regulation: { type: 'translate', val: atNotesPositions[0].atVal },
-                supplements: { type: 'translate', val: atNotesPositions[0].atVal },
-                interventions: { type: 'translate', val: atNotesPositions[0].interventionsVal }
+                regulation: { type: 'translate', val: stemPosition.atVal },
+                supplements: { type: 'translate', val: stemPosition.atVal },
+                interventions: { type: 'translate', val: stemPosition.interventionsVal }
               }
             })
           }
@@ -248,12 +255,12 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
             setAnimation({
               element: atStem,
               states: {
-                finding: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].dtVal },
-                normalization: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].dtVal },
+                finding: { type: 'translate', val: stemPosition.dtVal },
+                normalization: { type: 'translate', val: stemPosition.dtVal },
                 // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
-                regulation: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].atVal },
-                supplements: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].atVal },
-                interventions: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].interventionsVal }
+                regulation: { type: 'translate', val: stemPosition.atVal },
+                supplements: { type: 'translate', val: stemPosition.atVal },
+                interventions: { type: 'translate', val: stemPosition.interventionsVal }
               }
             })
           } else {
@@ -265,12 +272,12 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
             setAnimation({
               element: atStem,
               states: {
-                finding: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].dtVal },
-                normalization: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].dtVal },
+                finding: { type: 'translate', val: stemPosition.dtVal },
+                normalization: { type: 'translate', val: stemPosition.dtVal },
                 // readingOrder: automatically derived from normalization in fluidTranscripts.js; omitted here intentionally
-                regulation: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].atVal },
-                supplements: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].atVal },
-                interventions: { type: 'translate', val: atNotesPositions[atNotesPositions.length - 1].interventionsVal }
+                regulation: { type: 'translate', val: stemPosition.atVal },
+                supplements: { type: 'translate', val: stemPosition.atVal },
+                interventions: { type: 'translate', val: stemPosition.interventionsVal }
               }
             })
           }

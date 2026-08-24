@@ -1,4 +1,4 @@
-import { queryDirectChild, queryDirectChildren, removeElement } from '../../utils/dom.js'
+import { closestElement, queryDirectChild, queryDirectChildren, removeElement } from '../../utils/dom.js'
 
 /**
  * Prepare AT beam elements for animation
@@ -434,18 +434,21 @@ const calculateDiplomaticBeams = (ftSvg, atMeiDom, beamId, atPolygons, logger) =
     return null
   }
 
-  const sourcePolygons = atPolygons.map(polygon => parsePolygonPoints(polygon.getAttribute('points')))
-  const referencePoints = sourcePolygons.reduce((widest, points) => {
+  const sourcePolygons = atPolygons.map(element => ({ element, points: parsePolygonPoints(element.getAttribute('points')) }))
+  const referencePolygon = sourcePolygons.reduce((widest, polygon) => {
+    const points = polygon.points
+    const widestPoints = widest.points
     const width = Math.max(...points.map(point => point.x)) - Math.min(...points.map(point => point.x))
-    const widestWidth = Math.max(...widest.map(point => point.x)) - Math.min(...widest.map(point => point.x))
-    if (width !== widestWidth) return width > widestWidth ? points : widest
+    const widestWidth = Math.max(...widestPoints.map(point => point.x)) - Math.min(...widestPoints.map(point => point.x))
+    if (width !== widestWidth) return width > widestWidth ? polygon : widest
 
     const averageY = points.reduce((sum, point) => sum + point.y, 0) / points.length
-    const widestAverageY = widest.reduce((sum, point) => sum + point.y, 0) / widest.length
+    const widestAverageY = widestPoints.reduce((sum, point) => sum + point.y, 0) / widestPoints.length
     return firstNoteStemDir === 'down'
-      ? (averageY > widestAverageY ? points : widest)
-      : (averageY < widestAverageY ? points : widest)
+      ? (averageY > widestAverageY ? polygon : widest)
+      : (averageY < widestAverageY ? polygon : widest)
   })
+  const referencePoints = referencePolygon.points
   const sourceReferenceLeft = {
     x: firstStemEndSource.x + firstNotePosSource.x,
     y: firstStemEndSource.y + firstNotePosSource.y
@@ -467,10 +470,13 @@ const calculateDiplomaticBeams = (ftSvg, atMeiDom, beamId, atPolygons, logger) =
     x: lastStemEndDiplomatic.x + lastNotePosDiplomatic.x,
     y: lastStemEndDiplomatic.y + lastNotePosDiplomatic.y
   }
-  const crossStaffEndpoints = [
-    firstMember.hasAttribute('staff'),
-    lastMember.hasAttribute('staff')
-  ]
+  const isCrossStaffMember = member => {
+    const memberStaff = closestElement(member, 'staff')?.getAttribute('n')
+    const memberNotes = member.localName === 'chord' ? member.querySelectorAll('note') : [member]
+    return Array.from(memberNotes).some(note => note.hasAttribute('staff') && note.getAttribute('staff') !== memberStaff)
+  }
+  const crossStaffEndpoints = [isCrossStaffMember(firstMember), isCrossStaffMember(lastMember)]
+  let crossStaffStem = null
 
   if (crossStaffEndpoints.filter(Boolean).length === 1) {
     const crossStaffIsFirst = crossStaffEndpoints[0]
@@ -488,6 +494,23 @@ const calculateDiplomaticBeams = (ftSvg, atMeiDom, beamId, atPolygons, logger) =
         crossStaffIsFirst ? firstNoteStemDir : lastNoteStemDir,
         crossStaffEndpoint.y - (crossStaffIsFirst ? firstNotePosDiplomatic.y : lastNotePosDiplomatic.y)
       )
+      const stemPath = crossStaffIsFirst ? firstStem : lastStem
+      const stemTransform = queryDirectChild(stemPath, 'animateTransform[attributeName="transform"]')
+      const stemTransformValues = stemTransform?.getAttribute('values')?.split(';') || []
+      const crossStaffStemDir = crossStaffIsFirst ? firstNoteStemDir : lastNoteStemDir
+      const stemEndpoint = getStemEndpoint(stemPath, crossStaffStemDir, 0)
+      const crossStaffEdge = crossStaffIsFirst ? referenceEdges.left : referenceEdges.right
+      const otherEdge = crossStaffIsFirst ? referenceEdges.right : referenceEdges.left
+      const attachedSide = crossStaffEdge.attached.y > crossStaffEdge.other.y ? 'lower' : 'upper'
+      const otherAttachedSide = otherEdge.attached.y > otherEdge.other.y ? 'lower' : 'upper'
+      crossStaffStem = {
+        stemPath,
+        referencePolygon: referencePolygon.element,
+        attachedIndex: crossStaffEdge.attachedIndex,
+        otherIndex: attachedSide === otherAttachedSide ? otherEdge.attachedIndex : otherEdge.otherIndex,
+        findingPosition: parseTransform(stemTransformValues[0]),
+        findingStemX: stemEndpoint.x
+      }
     }
   }
   const sourceWidth = referenceEdges.right.attached.x - referenceEdges.left.attached.x
@@ -509,7 +532,7 @@ const calculateDiplomaticBeams = (ftSvg, atMeiDom, beamId, atPolygons, logger) =
   }
 
   // Keep each Phase 8 beam line's width, spacing, thickness, and winding.
-  const diplomaticPolygons = sourcePolygons.map(points => {
+  const diplomaticPolygons = sourcePolygons.map(({ points }) => {
     const edges = getBeamEdges(points, attachmentBySide)
     const normalizedPoints = points.map(point => ({ ...point }))
 
@@ -530,7 +553,7 @@ const calculateDiplomaticBeams = (ftSvg, atMeiDom, beamId, atPolygons, logger) =
 
   logger.debug(`[Beam Normalization] Beam ${beamId}: ${beamMembers.length} notes, ${atPolygons.length} lines, stem.dir=${firstNoteStemDir}`)
 
-  return { diplomaticPolygons }
+  return { diplomaticPolygons, crossStaffStem }
 }
 
 /**
@@ -557,6 +580,24 @@ const updateStemNormalizationEndpoint = (stemPath, stemDir, endpointY) => {
   values[3] = normalizedPath
   values[4] = normalizedPath
   animate.setAttribute('values', values.join(';'))
+}
+
+const updateStemFindingEndpoint = (stemPath, endpointY) => {
+  const animate = queryDirectChild(stemPath, 'animate[attributeName="d"]')
+  const values = animate?.getAttribute('values')?.split(';')
+  if (!values || values.length < 3) return
+
+  for (let index = 0; index < 3; index++) {
+    const findingPath = replaceStemEndpoint(values[index], endpointY)
+    if (findingPath) values[index] = findingPath
+  }
+  animate.setAttribute('values', values.join(';'))
+}
+
+const interpolateBeamEdgeY = (first, second, x) => {
+  const width = second.x - first.x
+  if (width === 0) return first.y
+  return first.y + ((x - first.x) / width) * (second.y - first.y)
 }
 
 const replaceStemEndpoint = (pathD, endpointY) => {
@@ -768,6 +809,18 @@ export const liquifyBeams = (ftSvg, dtSvg, atMeiDom, tools) => {
           interventions: { type: 'points', val: interventionsPoints }
         }
       })
+
+      const crossStaffStem = normalizedBeams?.crossStaffStem
+      if (crossStaffStem?.referencePolygon === atSourcePolygon) {
+        const findingPoints = parsePolygonPoints(findingsPoints)
+        const endpoint = findingPoints[crossStaffStem.attachedIndex]
+        const otherEndpoint = findingPoints[crossStaffStem.otherIndex]
+        if (endpoint && otherEndpoint) {
+          const stemX = crossStaffStem.findingStemX + crossStaffStem.findingPosition.x
+          const stemY = interpolateBeamEdgeY(otherEndpoint, endpoint, stemX)
+          updateStemFindingEndpoint(crossStaffStem.stemPath, stemY - crossStaffStem.findingPosition.y)
+        }
+      }
 
       if (isTemporary) {
         setAnimation({
