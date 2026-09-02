@@ -759,7 +759,7 @@ function getLocAttribute (annotElem) {
     } else if (clefShape === 'F' && clefLine === '4') {
       loc = (octaveValue - 3) * 7 + pitchValue + 3
     } else if (clefShape === 'C' && clefLine === '3') {
-      loc = (octaveValue - 4) * 7 + pitchValue
+      loc = (octaveValue - 3) * 7 + pitchValue - 3
     }
 
     // F4 in treble should be 1: (4-4) * 7 + 3 - 2
