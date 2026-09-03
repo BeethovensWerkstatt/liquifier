@@ -333,7 +333,7 @@ function getLocFromPitch ({ pname, oct, clefShape, clefLine }) {
   }
 
   if (clefShape === 'C' && clefLine === '3') {
-    return ((octave - 4) * 7) + pitchIndex
+    return ((octave - 3) * 7) + pitchIndex - 3
   }
 
   return null
@@ -374,8 +374,9 @@ function getPitchFromLoc ({ loc, clefShape, clefLine }) {
     pitchIndex = mod(n, 7)
     octave = Math.floor(n / 7) + 3
   } else if (clefShape === 'C' && clefLine === '3') {
-    pitchIndex = mod(loc, 7)
-    octave = Math.floor(loc / 7) + 4
+    const n = loc + 3
+    pitchIndex = mod(n, 7)
+    octave = Math.floor(n / 7) + 3
   } else {
     return null
   }
