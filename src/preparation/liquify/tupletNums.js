@@ -1,3 +1,5 @@
+import { deferRegulation, regulateLayout } from '../../utils/ft/regulation.js'
+
 /**
  * Liquify tuplet numbers
  * Tuplet numbers are editorial additions that don't exist in diplomatic transcripts.
@@ -12,6 +14,8 @@
  * @returns {number} Resulting numeric value.
  */
 export const liquifyTupletNums = (ftSvg, dtSvg, atMeiDom, tools) => {
+  // Interventions phase: move to the reg layout
+  deferRegulation(tools, () => regulateLayout(ftSvg, ftSvg.querySelectorAll('.tupletNum:not(.bounding-box)'), atMeiDom, tools))
   const { setAnimation, logger } = tools
 
   logger.info('[liquifyTupletNums] Starting tuplet number liquification')

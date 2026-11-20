@@ -1,8 +1,19 @@
 import { execSync } from 'node:child_process'
 import { closestElement } from '../utils/dom.js'
-import { uuid } from '../utils/uuid.js'
 
 const MEI_NS = 'http://www.music-encoding.org/ns/mei'
+const HEAD_SHAPE_DURATIONS = new Map([['whole', 1], ['half', 2], ['quarter', 4]])
+const REST_GLYPH_DURATIONS = new Map([
+  ['restWhole', '1'],
+  ['restHalf', '2'],
+  ['restQuarter', '4'],
+  ['rest8th', '8'],
+  ['rest16th', '16'],
+  ['rest32nd', '32'],
+  ['rest64th', '64']
+])
+// Beam lines only roughly span their stems, so an event is attached if it lies this close.
+const BEAM_STEM_TOLERANCE = 5
 
 const TITLE_POSTFIX = ' – auto-generated Annotated Transcription with explicit editorial markup'
 const LIQUIFIER_APP_ID = 'bw_liquifier'
@@ -203,22 +214,168 @@ function canBeWrappedAsSupplied (element) {
  * Returns first diplomatic corresp id from the current data context.
  *
  * @param {Element} element - Element processed by this function.
- * @returns {string} Resulting string.
+ * @returns {string|null} First diplomatic target id.
  */
 function getFirstDiplomaticCorrespId (element) {
-  if (!element || !element.hasAttribute('corresp')) return null
+  return getDiplomaticCorrespIds(element)[0] || null
+}
+
+/**
+ * Returns diplomatic corresp ids from the current data context.
+ *
+ * @param {Element} element - Element processed by this function.
+ * @returns {string[]} Diplomatic target ids.
+ */
+function getDiplomaticCorrespIds (element) {
+  if (!element || !element.hasAttribute('corresp')) return []
 
   const correspTokens = element.getAttribute('corresp').trim().split(/\s+/)
-  const token = correspTokens.find(token => {
+
+  return correspTokens.filter(token => {
     if (!token.includes('#')) return false
     const [filePart] = token.split('#')
     return filePart.includes('/diplomaticTranscripts/') || filePart.endsWith('_dt.xml')
+  }).map(token => token.split('#')[1]).filter(Boolean)
+}
+
+function getDiplomaticElement (element, dtDom, expectedName) {
+  const dtId = getFirstDiplomaticCorrespId(element) ||
+    (element.localName === 'note' ? getFirstDiplomaticCorrespId(element.parentElement) : null)
+  if (!dtId) return null
+
+  const dtElement = dtDom.querySelector(`${expectedName}[xml\\:id="${dtId}"]`)
+  return dtElement || null
+}
+
+function getChildElements (element, name) {
+  return Array.from(element.childNodes).filter(node => node.nodeType === 1 && node.localName === name)
+}
+
+function getDiplomaticTargetElements (element, dtDom) {
+  return getDiplomaticCorrespIds(element)
+    .map(id => dtDom.querySelector(`*[xml\\:id="${id}"]`))
+    .filter(Boolean)
+}
+
+function hasDiplomaticDotCorresp (dot, dtDom) {
+  return getDiplomaticTargetElements(dot, dtDom).some(target => target.localName === 'dot')
+}
+
+function getAncestorBeams (element) {
+  const beams = []
+  for (let node = element.parentNode; node && node.nodeType === 1; node = node.parentNode) {
+    if (node.localName === 'beam') beams.push(node)
+  }
+  return beams
+}
+
+/**
+ * Counts the DT beam lines, referenced by the enclosing (possibly nested) AT beams,
+ * that cover the DT event horizontally. DT beams are plain lines without a reference
+ * to the notes they connect.
+ *
+ * @param {Element} atEvent - AT event, used to find the enclosing beams.
+ * @param {Element} dtEvent - DT event whose x position is tested.
+ * @param {Document} dtDom - Diplomatic transcript.
+ * @returns {number} Number of beam lines attached to the event.
+ */
+function countDiplomaticBeamLines (atEvent, dtEvent, dtDom) {
+  const x = parseFloat(dtEvent.getAttribute('x'))
+  if (!Number.isFinite(x)) return 0
+
+  return getAncestorBeams(atEvent)
+    .flatMap(beam => getDiplomaticTargetElements(beam, dtDom))
+    .filter(line => {
+      if (line.localName !== 'line' || line.getAttribute('func') !== 'beam') return false
+      const x1 = parseFloat(line.getAttribute('x'))
+      const x2 = parseFloat(line.getAttribute('x2'))
+      if (!Number.isFinite(x1) || !Number.isFinite(x2)) return false
+      return x >= Math.min(x1, x2) - BEAM_STEM_TOLERANCE && x <= Math.max(x1, x2) + BEAM_STEM_TOLERANCE
+    }).length
+}
+
+/**
+ * Derives the duration shown in the DT, which never carries @dur: from @head.shape
+ * and @bw:stem.flags (or attached beam lines) for notes and chords, and from the
+ * glyph for rests.
+ *
+ * @param {Element} atEvent - Corresponding AT event.
+ * @param {Element} dtEvent - DT note, chord or rest.
+ * @param {Document} dtDom - Diplomatic transcript.
+ * @returns {string|null} MEI @dur value, or null if the DT does not determine it.
+ */
+function getDiplomaticDuration (atEvent, dtEvent, dtDom) {
+  if (dtEvent.localName === 'rest') {
+    return REST_GLYPH_DURATIONS.get(dtEvent.getAttribute('glyph.name')) || null
+  }
+
+  const heads = dtEvent.localName === 'chord' ? getChildElements(dtEvent, 'note') : [dtEvent]
+  const base = HEAD_SHAPE_DURATIONS.get(heads.map(head => head.getAttribute('head.shape')).find(Boolean))
+  if (!base) return null
+  if (base < 4) return String(base)
+
+  const flags = Math.max(0, ...[dtEvent, ...heads].map(head => parseInt(head.getAttribute('bw:stem.flags'), 10) || 0))
+  const levels = flags > 0 ? flags : countDiplomaticBeamLines(atEvent, dtEvent, dtDom)
+
+  return String(base * 2 ** levels)
+}
+
+/**
+ * Compares AT and DT rhythm. DT dots are standalone elements, so only AT dots that
+ * correspond to a DT <dot> count as diplomatic; all others are editorial additions.
+ *
+ * @param {Element} atEvent - AT note, chord or rest.
+ * @param {Element} dtEvent - Corresponding DT element.
+ * @param {Document} dtDom - Diplomatic transcript.
+ * @returns {{dur: string|null, differs: boolean}} DT duration and whether rhythm differs.
+ */
+function getDiplomaticRhythm (atEvent, dtEvent, dtDom) {
+  const dtDur = getDiplomaticDuration(atEvent, dtEvent, dtDom)
+  const atDur = atEvent.getAttribute('dur')
+  const durDiffers = dtDur !== null && atDur !== null && dtDur !== atDur
+
+  const dotChildren = getChildElements(atEvent, 'dot')
+  const atDots = dotChildren.length + (Number.parseInt(atEvent.getAttribute('dots'), 10) || 0)
+  const dtDots = dotChildren.filter(dot => hasDiplomaticDotCorresp(dot, dtDom)).length
+
+  return { dur: dtDur, differs: durDiffers || atDots !== dtDots }
+}
+
+function applyDiplomaticRhythm (origEvent, rhythm, dtDom) {
+  if (rhythm.dur !== null && origEvent.hasAttribute('dur')) {
+    origEvent.setAttribute('dur', rhythm.dur)
+  }
+
+  origEvent.removeAttribute('dots')
+  getChildElements(origEvent, 'dot')
+    .filter(dot => !hasDiplomaticDotCorresp(dot, dtDom))
+    .forEach(dot => origEvent.removeChild(dot))
+}
+
+// Orig ids derive deterministically from the reg ids, so both renders can be paired later.
+function assignOrigIds (element) {
+  const elements = [element, ...Array.from(element.querySelectorAll('*[xml\\:id]'))]
+  elements.forEach(descendant => {
+    if (descendant.hasAttribute('xml:id')) {
+      descendant.setAttribute('xml:id', 'o' + descendant.getAttribute('xml:id'))
+    }
   })
+}
 
-  if (!token) return null
+function replaceWithEditorialChoice (clone, element, origElement) {
+  const choice = clone.createElementNS(MEI_NS, 'choice')
+  const orig = clone.createElementNS(MEI_NS, 'orig')
+  const reg = clone.createElementNS(MEI_NS, 'reg')
+  reg.setAttribute('resp', '#bw')
 
-  const [, id] = token.split('#')
-  return id || null
+  const regElement = element.cloneNode(true)
+  assignOrigIds(origElement)
+
+  orig.appendChild(origElement)
+  reg.appendChild(regElement)
+  choice.appendChild(orig)
+  choice.appendChild(reg)
+  element.parentNode.replaceChild(choice, element)
 }
 
 const NODE_POSITION_FOLLOWING = 4
@@ -388,100 +545,93 @@ function getPitchFromLoc ({ loc, clefShape, clefLine }) {
 }
 
 /**
- * This function looks for notes in the AT that have a DT correspondence and compares
- * staff location values (@loc): DT @loc is read directly, while AT @loc is derived
- * from AT pname/oct and the currently effective clef (staffDef, then last preceding
- * clef change in the same staff). If they differ, the note is wrapped in
- * <choice><orig/><reg/></choice> where orig carries DT-derived pname/oct and reg
- * keeps the AT pitch.
+ * Compare corresponding note pitch and rhythm. When either differs, wrap the note
+ * in <choice><orig/><reg/></choice>, with DT values in orig and AT values in reg.
  *
  * @param {Object} clone - Working cloned document that is modified in place.
  * @param {Document} dtDom - Source document used by this function.
  * @returns {void} No return value.
  */
-function normalizePitchMismatches (clone, dtDom) {
+function normalizeNoteMismatches (clone, dtDom) {
   if (!dtDom) return
 
   const notes = Array.from(clone.querySelectorAll('music note[corresp]'))
 
   notes.forEach(note => {
-    const atPname = note.getAttribute('pname')
-    const atOct = note.getAttribute('oct')
-    if (!atPname || !atOct) return
-
-    const correspRaw = note.getAttribute('corresp') || ''
-    const diplomaticTokens = correspRaw.trim().split(/\s+/).filter(token => {
-      if (!token.includes('#')) return false
-      const [filePart] = token.split('#')
-      return filePart.includes('/diplomaticTranscripts/') || filePart.endsWith('_dt.xml')
-    })
-
-    if (diplomaticTokens.length > 1) {
+    if (getDiplomaticCorrespIds(note).length > 1) {
       console.warn(`Multiple DT correspondences found for note ${note.getAttribute('xml:id')}; using first token`)
     }
 
-    const dtNoteId = diplomaticTokens.length > 0
-      ? diplomaticTokens[0].split('#')[1]
-      : getFirstDiplomaticCorrespId(note.parentElement)
-    if (!dtNoteId) return
+    const dtNote = getDiplomaticElement(note, dtDom, 'note')
+    if (!dtNote) return
 
-    const dtNote = dtDom.querySelector(`note[xml\\:id="${dtNoteId}"]`)
-    if (!dtNote || !dtNote.hasAttribute('loc')) return
-
-    const clef = getAtClefForNote(note, clone)
-    if (!clef) {
-      console.warn(`Could not determine AT clef for note ${note.getAttribute('xml:id')}`)
-      return
-    }
-
-    const atLoc = getLocFromPitch({
-      pname: atPname,
-      oct: atOct,
-      clefShape: clef.shape,
-      clefLine: clef.line
-    })
-    if (!Number.isFinite(atLoc)) {
-      console.warn(`Unsupported clef for AT loc mapping (${clef.shape}${clef.line}) on note ${note.getAttribute('xml:id')}`)
-      return
-    }
-
+    let dtPitch = null
+    let pitchDiffers = false
+    const atPname = note.getAttribute('pname')
+    const atOct = note.getAttribute('oct')
     const dtLoc = parseInt(dtNote.getAttribute('loc'), 10)
-    if (!Number.isFinite(dtLoc)) {
-      console.warn(`Invalid DT @loc on note ${dtNoteId}`)
-      return
+
+    if (atPname && atOct && !Number.isFinite(dtLoc)) {
+      console.warn(`Invalid DT @loc on note ${dtNote.getAttribute('xml:id')}`)
+    } else if (atPname && atOct) {
+      const clef = getAtClefForNote(note, clone)
+      if (!clef) {
+        console.warn(`Could not determine AT clef for note ${note.getAttribute('xml:id')}`)
+      } else {
+        const atLoc = getLocFromPitch({
+          pname: atPname,
+          oct: atOct,
+          clefShape: clef.shape,
+          clefLine: clef.line
+        })
+        if (!Number.isFinite(atLoc)) {
+          console.warn(`Unsupported clef for AT loc mapping (${clef.shape}${clef.line}) on note ${note.getAttribute('xml:id')}`)
+        } else if (atLoc !== dtLoc) {
+          dtPitch = getPitchFromLoc({
+            loc: dtLoc,
+            clefShape: clef.shape,
+            clefLine: clef.line
+          })
+          if (!dtPitch) {
+            console.warn(`Unsupported clef for DT loc-to-pitch mapping (${clef.shape}${clef.line}) on note ${dtNote.getAttribute('xml:id')}`)
+          } else {
+            pitchDiffers = true
+          }
+        }
+      }
     }
 
-    if (atLoc === dtLoc) return
-
-    const dtPitch = getPitchFromLoc({
-      loc: dtLoc,
-      clefShape: clef.shape,
-      clefLine: clef.line
-    })
-    if (!dtPitch) {
-      console.warn(`Unsupported clef for DT loc-to-pitch mapping (${clef.shape}${clef.line}) on note ${dtNoteId}`)
-      return
-    }
-
-    const choice = clone.createElementNS(MEI_NS, 'choice')
-    const orig = clone.createElementNS(MEI_NS, 'orig')
-    const reg = clone.createElementNS(MEI_NS, 'reg')
-    reg.setAttribute('resp', '#bw')
+    const rhythm = closestElement(note, 'chord') ? null : getDiplomaticRhythm(note, dtNote, dtDom)
+    const rhythmDiffersForNote = Boolean(rhythm?.differs)
+    if (!pitchDiffers && !rhythmDiffersForNote) return
 
     const origNote = note.cloneNode(true)
-    origNote.setAttribute('xml:id', 'o' + uuid())
-    origNote.setAttribute('pname', dtPitch.pname)
-    origNote.setAttribute('oct', dtPitch.oct)
-    origNote.removeAttribute('loc')
+    if (pitchDiffers) {
+      origNote.setAttribute('pname', dtPitch.pname)
+      origNote.setAttribute('oct', dtPitch.oct)
+      origNote.removeAttribute('loc')
+    }
+    if (rhythmDiffersForNote) applyDiplomaticRhythm(origNote, rhythm, dtDom)
 
-    const regNote = note.cloneNode(true)
+    replaceWithEditorialChoice(clone, note, origNote)
+  })
+}
 
-    orig.appendChild(origNote)
-    reg.appendChild(regNote)
-    choice.appendChild(orig)
-    choice.appendChild(reg)
+function normalizeChordAndRestRhythmMismatches (clone, dtDom) {
+  if (!dtDom) return
 
-    note.parentNode.replaceChild(choice, note)
+  const events = Array.from(clone.querySelectorAll('music chord[corresp], music rest[corresp], music mRest[corresp]'))
+  events.forEach(event => {
+    const expectedName = event.localName === 'mRest' ? 'mRest, rest' : event.localName
+    const dtEvent = getDiplomaticElement(event, dtDom, expectedName)
+    if (!dtEvent) return
+
+    const rhythm = getDiplomaticRhythm(event, dtEvent, dtDom)
+    if (!rhythm.differs) return
+
+    const origEvent = event.cloneNode(true)
+    applyDiplomaticRhythm(origEvent, rhythm, dtDom)
+    replaceWithEditorialChoice(clone, event, origEvent)
   })
 }
 
@@ -500,7 +650,8 @@ export function prepareEditedAtDom (atDom, dtDom) {
   ensureLiquifierApplicationEntry(clone)
   ensureRevisionChangeEntry(clone)
 
-  normalizePitchMismatches(clone, dtDom)
+  normalizeNoteMismatches(clone, dtDom)
+  normalizeChordAndRestRhythmMismatches(clone, dtDom)
 
   const music = clone.querySelector('music')
   if (!music) return clone

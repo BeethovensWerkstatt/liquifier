@@ -1,4 +1,5 @@
 import { queryDirectChildren, removeElement } from '../../utils/dom.js'
+import { deferRegulation, regulateLayout } from '../../utils/ft/regulation.js'
 
 /**
  * Merge AT barLine paths sharing the same x position into single continuous lines
@@ -137,6 +138,8 @@ const animateBarline = (barLine, dtBarline, getNewPos, setAnimation) => {
  * @returns {Element|null} Resulting object.
  */
 export const liquifyBarlines = (ftSvg, dtSvg, atMeiDom, tools) => {
+  // Interventions phase: move to the reg layout
+  deferRegulation(tools, () => regulateLayout(ftSvg, ftSvg.querySelectorAll('g.barLine:not(.bounding-box)'), atMeiDom, tools))
   const { getNewPos, correspMappings, setAnimation } = tools
 
   // First, merge multi-staff barlines into single continuous lines

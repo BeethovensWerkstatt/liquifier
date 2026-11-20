@@ -1,3 +1,5 @@
+import { deferRegulation, regulateLayout } from '../../utils/ft/regulation.js'
+
 /**
  * Animate clefs between AT and DT transcriptions
  * For each clef in the AT (fluid transcription):
@@ -11,6 +13,8 @@
  * @returns {number} Resulting numeric value.
  */
 export const liquifyClefs = (ftSvg, dtSvg, atMeiDom, tools) => {
+  // Interventions phase: move to the reg layout
+  deferRegulation(tools, () => regulateLayout(ftSvg, ftSvg.querySelectorAll('.clef:not(.bounding-box)'), atMeiDom, tools))
   const { getNewPos, correspMappings, setAnimation, logger } = tools
 
   const clefs = ftSvg.querySelectorAll('.clef:not(.bounding-box)')

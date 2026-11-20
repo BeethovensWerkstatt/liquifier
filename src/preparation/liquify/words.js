@@ -1,5 +1,6 @@
 import { getTextWidth } from './textAnimation.js'
 import { queryDirectChildren } from '../../utils/dom.js'
+import { deferRegulation, regulateLayout } from '../../utils/ft/regulation.js'
 
 const createTextRun = (textElement, content, role) => {
   const run = textElement.cloneNode(false)
@@ -58,7 +59,10 @@ const getInheritedTranslateAtPhase = (element, phaseIndex) => {
  * @param {Function} tools.setAnimation - Phase-aware animation descriptor writer.
  * @returns {void} No return value.
  */
-export const liquifyWords = (ftSvg, dtSvg, atMeiDom, { getNewPos, correspMappings, setAnimation }) => {
+export const liquifyWords = (ftSvg, dtSvg, atMeiDom, tools) => {
+  // Interventions phase: move to the reg layout
+  deferRegulation(tools, () => regulateLayout(ftSvg, ftSvg.querySelectorAll('g.syl:not(.bounding-box)'), atMeiDom, tools))
+  const { getNewPos, correspMappings, setAnimation } = tools
   ftSvg.querySelectorAll('g.syl:not(.bounding-box)').forEach(syllable => {
     const atId = syllable.getAttribute('data-id')
     const dtId = correspMappings.get(atId)?.[0]

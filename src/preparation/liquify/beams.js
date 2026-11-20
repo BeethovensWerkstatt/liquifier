@@ -1,4 +1,7 @@
 import { closestElement, queryDirectChild, queryDirectChildren, removeElement } from '../../utils/dom.js'
+import { alignPolygonWinding, parsePolygonPoints, sortPolygonsByPosition } from '../../utils/svgGeometry.js'
+import { regulatePolygonLines } from '../../utils/ft/choices.js'
+import { findMatchingRegElement } from '../../utils/ft/phaseEight.js'
 
 /**
  * Prepare AT beam elements for animation
@@ -556,19 +559,6 @@ const calculateDiplomaticBeams = (ftSvg, atMeiDom, beamId, atPolygons, logger) =
   return { diplomaticPolygons, crossStaffStem }
 }
 
-/**
- * Parse polygon points string into array of {x, y} objects
- *
- * @param {Array<*>} pointsStr - Collection of values used by this function.
- * @returns {Object} Resulting object.
- */
-const parsePolygonPoints = (pointsStr) => {
-  return pointsStr.trim().split(/\s+/).map(point => {
-    const [x, y] = point.split(',').map(Number)
-    return { x, y }
-  })
-}
-
 const updateStemNormalizationEndpoint = (stemPath, stemDir, endpointY) => {
   const animate = queryDirectChild(stemPath, 'animate[attributeName="d"]')
   const values = animate?.getAttribute('values')?.split(';')
@@ -852,8 +842,53 @@ export const liquifyBeams = (ftSvg, dtSvg, atMeiDom, tools) => {
       })
     }
   })
+
+  // Interventions phase: shape the beam lines like in the reg rendering
+  if (atRegSvgDom) beams.forEach(beam => regulateBeamLines(ftSvg, beam, atMeiDom, tools))
 }
 
+/**
+ * Reshapes the lines of a beam to the beam lines of the reg rendering, which differ
+ * when rhythm edits add or remove a beam line (e.g. from eighth to sixteenth notes).
+ *
+ * @param {SVGElement} ftSvg - Fluid transcription SVG.
+ * @param {Element} beam - Beam in the fluid transcription SVG.
+ * @param {Document} atMeiDom - AT MEI DOM, used to find the stem direction.
+ * @param {Object} tools - Shared animation helper bundle.
+ * @returns {void}
+ */
+export const regulateBeamLines = (ftSvg, beam, atMeiDom, tools) => {
+  const atId = beam.getAttribute('data-id')
+  const regBeam = findMatchingRegElement(tools.atRegSvgDom, beam, atId)
+  if (!regBeam) return
+
+  const stemDir = getBeamStemDirection(ftSvg, atMeiDom, atId)
+  const polygons = orderBeamLines(queryDirectChildren(beam, 'polygon'), stemDir)
+  const regPolygons = orderBeamLines(queryDirectChildren(regBeam, 'polygon'), stemDir)
+  regulatePolygonLines(polygons, regPolygons.map(polygon => polygon.getAttribute('points')), tools)
+}
+
+/**
+ * Orders beam lines with the primary beam first: the line next to the stem ends,
+ * which is the top one for stems up.
+ *
+ * @param {Element[]} polygons - Beam lines.
+ * @param {string} stemDir - Stem direction of the beam.
+ * @returns {Element[]} Ordered beam lines.
+ */
+const orderBeamLines = (polygons, stemDir) => {
+  const sorted = sortPolygonsByPosition(polygons).map(entry => entry.element)
+  return stemDir === 'down' ? sorted.reverse() : sorted
+}
+
+/**
+ * Returns the beam lines of a beam in the reg rendering, primary line first.
+ *
+ * @param {Document|null} atRegSvgDom - AT SVG rendered with choices resolved to reg.
+ * @param {string} beamId - Id of the beam.
+ * @param {string} stemDir - Stem direction of the beam.
+ * @returns {Element[]} Beam lines, or an empty list if the reg rendering has no such beam.
+ */
 function getOrderedRegulationPolygons (atRegSvgDom, beamId, stemDir) {
   if (!atRegSvgDom || !beamId) return []
 
@@ -865,35 +900,20 @@ function getOrderedRegulationPolygons (atRegSvgDom, beamId, stemDir) {
   return stemDir === 'down' ? sorted.reverse().map(polygon => polygon.element) : sorted.map(polygon => polygon.element)
 }
 
-/**
- * Sort polygons by their vertical position (top to bottom)
- * Calculates the average Y coordinate of each polygon's points and sorts
- * from smallest (top) to largest (bottom).
- *
- * @param {Array<SVGPolygonElement>} polygons - Array of polygon elements
- * @returns {Array<Object>} Sorted array of {element, avgY} objects
- */
-const sortPolygonsByPosition = (polygons) => {
-  return polygons.map(polygon => {
-    const pointsStr = polygon.getAttribute('points')
-    const points = pointsStr.trim().split(/\s+/).map(point => {
-      const [x, y] = point.split(',').map(Number)
-      return { x, y }
-    })
-
-    // Calculate average Y position
-    const avgY = points.reduce((sum, p) => sum + p.y, 0) / points.length
-
-    return { element: polygon, avgY, points }
-  }).sort((a, b) => a.avgY - b.avgY)
-}
-
 const cloneBeamPolygon = (beam, polygon) => {
   const clone = polygon.cloneNode(true)
   beam.appendChild(clone)
   return clone
 }
 
+/**
+ * Returns the stem direction of a beam, which is the one of its first note.
+ *
+ * @param {SVGElement} ftSvg - Fluid transcription SVG.
+ * @param {Document} atMeiDom - AT MEI DOM.
+ * @param {string} beamId - Id of the beam.
+ * @returns {string} `up` or `down`.
+ */
 const getBeamStemDirection = (ftSvg, atMeiDom, beamId) => {
   const meiBeamMembers = getMeiBeamMembers(atMeiDom, beamId)
   if (meiBeamMembers.length > 0) return meiBeamMembers[0].getAttribute('stem.dir') || 'up'
@@ -901,25 +921,6 @@ const getBeamStemDirection = (ftSvg, atMeiDom, beamId) => {
   const renderedBeam = ftSvg.querySelector(`g.beam[data-id="${beamId}"], g.beamSpan[data-id="${beamId}"]`)
   return queryDirectChildren(renderedBeam, 'g.note[data-stem.dir], g.chord[data-stem.dir]')[0]?.getAttribute('data-stem.dir') || 'up'
 }
-
-const alignPolygonWinding = (points, referencePoints) => {
-  const polygonPoints = parsePolygonPoints(points)
-  const reference = parsePolygonPoints(referencePoints)
-  if (polygonPoints.length !== 4 || reference.length !== 4) return points
-
-  const polygonWinding = calculatePolygonWinding(polygonPoints)
-  const referenceWinding = calculatePolygonWinding(reference)
-  if (polygonWinding === 0 || referenceWinding === 0 || Math.sign(polygonWinding) === Math.sign(referenceWinding)) {
-    return points
-  }
-
-  return [...polygonPoints].reverse().map(point => `${point.x},${point.y}`).join(' ')
-}
-
-const calculatePolygonWinding = (points) => points.reduce((area, point, index) => {
-  const next = points[(index + 1) % points.length]
-  return area + point.x * next.y - next.x * point.y
-}, 0)
 
 /**
  * Convert polygon points from AT to DT coordinate system

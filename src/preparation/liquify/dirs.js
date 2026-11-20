@@ -1,6 +1,7 @@
 import { computeTextDiff } from '../../utils/textDiff.js'
 import { addClass } from '../../utils/dom.js'
 import { applyTextLengthAnimation, getTextLengthStates } from './textAnimation.js'
+import { deferRegulation, regulateLayout } from '../../utils/ft/regulation.js'
 
 /**
  * Prepares animations for <dir> elements (musical directions like "pizz.", "8tel auch 6te", etc.)
@@ -40,6 +41,8 @@ import { applyTextLengthAnimation, getTextLengthStates } from './textAnimation.j
  * @returns {void} No return value.
  */
 export function liquifyDirs (ftSvg, dtSvg, atMeiDom, tools) {
+  // Interventions phase: move to the reg layout
+  deferRegulation(tools, () => regulateLayout(ftSvg, ftSvg.querySelectorAll('g.dir:not(.bounding-box)'), atMeiDom, tools))
   const { getNewPos, correspMappings, applyUnmatchedClass, setAnimation, logger } = tools
 
   // Find all AT <dir> elements

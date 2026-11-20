@@ -1,4 +1,5 @@
 import { closestElement } from '../../utils/dom.js'
+import { deferRegulation, markRegulationHandled, regulateLayout } from '../../utils/ft/regulation.js'
 
 /**
  * Animate curves (slurs, ties, etc.) between AT and DT transcriptions
@@ -13,6 +14,8 @@ import { closestElement } from '../../utils/dom.js'
  * @returns {Element|null} Resulting object.
  */
 export const liquifyCurves = (ftSvg, dtSvg, atMeiDom, tools) => {
+  // Interventions phase: move to the reg layout
+  deferRegulation(tools, () => regulateLayout(ftSvg, ftSvg.querySelectorAll('.slur:not(.bounding-box), .tie:not(.bounding-box), .curve:not(.bounding-box)'), atMeiDom, tools))
   const { atRegSvgDom, convertD, correspMappings, setAnimation } = tools
 
   const curves = ftSvg.querySelectorAll('.slur:not(.bounding-box), .tie:not(.bounding-box), .curve:not(.bounding-box)')
@@ -20,7 +23,7 @@ export const liquifyCurves = (ftSvg, dtSvg, atMeiDom, tools) => {
     const atId = curve.getAttribute('data-id')
     const dtIds = correspMappings.get(atId)
     const regulationD = getRegulationCurvePath(atRegSvgDom, atMeiDom, atId, curve)
-    if (regulationD) curve.setAttribute('data-bw-regulation-layout', 'true')
+    if (regulationD) markRegulationHandled(tools, curve)
     if (!dtIds || dtIds.length === 0) {
       const atPath = curve.querySelector('path')
       setAnimation({
@@ -118,6 +121,15 @@ export const liquifyCurves = (ftSvg, dtSvg, atMeiDom, tools) => {
   })
 }
 
+/**
+ * Returns the path of a slur, tie or curve in the reg rendering, which is the one of its `<reg>` branch if it is edited in a `<choice>`.
+ *
+ * @param {Document|null} atRegSvgDom - AT SVG rendered with choices resolved to reg.
+ * @param {Document} atMeiDom - Edited AT MEI DOM.
+ * @param {string} atId - Id of the curve in the fluid transcript.
+ * @param {Element} curve - Curve group in the fluid transcript.
+ * @returns {string|null} Path data, or null if the reg rendering has no such curve.
+ */
 function getRegulationCurvePath (atRegSvgDom, atMeiDom, atId, curve) {
   if (!atRegSvgDom) return null
 

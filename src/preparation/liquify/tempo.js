@@ -1,4 +1,5 @@
 import { applyTextLengthAnimation, getStaticTextLengthStates, getTextLengthStates } from './textAnimation.js'
+import { deferRegulation, regulateLayout } from '../../utils/ft/regulation.js'
 
 /**
  * Liquify tempo elements
@@ -10,6 +11,8 @@ import { applyTextLengthAnimation, getStaticTextLengthStates, getTextLengthState
  * @returns {void} No return value.
  */
 export function liquifyTempo (ftSvg, dtSvg, atMeiDom, tools) {
+  // Interventions phase: move to the reg layout
+  deferRegulation(tools, () => regulateLayout(ftSvg, ftSvg.querySelectorAll('g.tempo:not(.bounding-box)'), atMeiDom, tools))
   const { getNewPos, correspMappings, setAnimation, logger } = tools
 
   logger.info('[liquifyTempo] Starting tempo liquification')

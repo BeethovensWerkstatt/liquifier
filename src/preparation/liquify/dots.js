@@ -1,4 +1,5 @@
 import { hasClass, queryDirectChildren } from '../../utils/dom.js'
+import { deferRegulation, regulateLayout } from '../../utils/ft/regulation.js'
 
 /**
  * Animate repeat dots between AT and DT transcriptions.
@@ -13,6 +14,8 @@ import { hasClass, queryDirectChildren } from '../../utils/dom.js'
  * @returns {void} No return value.
  */
 export const liquifyDots = (ftSvg, dtSvg, atMeiDom, tools) => {
+  // Interventions phase: move to the reg layout
+  deferRegulation(tools, () => regulateLayout(ftSvg, ftSvg.querySelectorAll('g.dots:not(.bounding-box), g.dot:not(.bounding-box)'), atMeiDom, tools))
   const { getNewPos, correspMappings, setAnimation } = tools
 
   ftSvg.querySelectorAll('g.measure:not(.bounding-box)').forEach(measure => {

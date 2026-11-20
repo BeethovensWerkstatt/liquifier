@@ -1,4 +1,6 @@
 import { closestElement } from '../../utils/dom.js'
+import { regulateRhythm } from '../../utils/ft/rhythm.js'
+import { deferRegulation, regulateLayout } from '../../utils/ft/regulation.js'
 
 /**
  * Animate chords between AT and DT transcriptions, including noteheads, stems, ledger lines, and flags
@@ -333,8 +335,24 @@ export const liquifyChords = (ftSvg, dtSvg, atMeiDom, tools) => {
       }
     })
   })
+
+  // Interventions phase: move to the reg layout, and break chords with edited rhythms down to their parts
+  deferRegulation(tools, () => {
+    chords.forEach(chord => {
+      regulateLayout(ftSvg, [chord, ...chord.querySelectorAll('g.note:not(.bounding-box)')], atMeiDom, tools)
+    })
+    chords.forEach(chord => regulateRhythm(ftSvg, chord, atMeiDom, tools))
+  })
 }
 
+/**
+ * Returns how far a notehead moves from the orig to the reg rendering.
+ *
+ * @param {Document} atMeiDom - Edited AT MEI DOM.
+ * @param {Document|null} atRegSvgDom - AT SVG rendered with choices resolved to reg.
+ * @param {{id: string, x: number, y: number}} atHead - Notehead in the fluid transcript.
+ * @returns {string} Offset as `x y`, or `0 0` if the reg rendering has no such notehead.
+ */
 function getInterventionsOffset (atMeiDom, atRegSvgDom, atHead) {
   if (!atRegSvgDom) return '0 0'
 
@@ -348,6 +366,15 @@ function getInterventionsOffset (atMeiDom, atRegSvgDom, atHead) {
   return `${parseFloat(transform[1]) - atHead.x} ${parseFloat(transform[2]) - atHead.y}`
 }
 
+/**
+ * Returns the stem of a chord in the reg rendering, moved back by an offset so that it fits after the chord's own movement.
+ *
+ * @param {Document} atMeiDom - Edited AT MEI DOM.
+ * @param {Document|null} atRegSvgDom - AT SVG rendered with choices resolved to reg.
+ * @param {string} atId - Id of the chord in the fluid transcript.
+ * @param {string} offset - Movement of the chord as `x y`.
+ * @returns {string|null} Path data, or null if the reg rendering has no such stem.
+ */
 function getRegulationStemPath (atMeiDom, atRegSvgDom, atId, offset) {
   if (!atRegSvgDom) return null
 

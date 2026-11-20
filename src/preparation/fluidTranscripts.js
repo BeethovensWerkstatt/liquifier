@@ -1,4 +1,5 @@
 import { queryDirectChildren, removeElement } from '../utils/dom.js'
+import { setStaffLineBlock } from '../utils/ft/bookkeeping.js'
 
 /**
  * Builds an AT measure-to-reading-order-block map.
@@ -112,7 +113,6 @@ export function adjustAtStaffLines (svg, atMeiDom, measureBlockMap = buildAtMeas
       const templateLines = Array.from(blockMeasures[0].querySelectorAll('g.staff:not(.bounding-box) > path'))
       const systemRastrum = document.createElementNS('http://www.w3.org/2000/svg', 'g')
       systemRastrum.setAttribute('class', 'bw-system-rastrum')
-      systemRastrum.setAttribute('data-bw-block', String(blockIndex))
       const atSbId = blockToAtSbId.get(blockIndex)
       if (atSbId) systemRastrum.setAttribute('data-system-id', atSbId)
 
@@ -127,8 +127,7 @@ export function adjustAtStaffLines (svg, atMeiDom, measureBlockMap = buildAtMeas
         if (strokeWidth) line.setAttribute('stroke-width', strokeWidth)
         if (stroke) line.setAttribute('stroke', stroke)
         line.setAttribute('class', 'rastrum')
-        line.setAttribute('data-bw-block', String(blockIndex))
-        line.setAttribute('data-bw-line-index', String(lineIndex))
+        setStaffLineBlock(line, blockIndex, lineIndex)
         systemRastrum.appendChild(line)
       })
 

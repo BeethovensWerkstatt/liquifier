@@ -9,7 +9,7 @@ import { liquifyBeams } from './liquify/beams.js'
 import { liquifyMeterSigs } from './liquify/meterSigs.js'
 import { liquifyClefs } from './liquify/clefs.js'
 import { liquifyChords } from './liquify/chords.js'
-import { liquifyLedgerLines } from './liquify/liquifyLedgerLines.js'
+import { liquifyLedgerLines } from './liquify/ledgerLines.js'
 import { liquifyTrills } from './liquify/trills.js'
 import { liquifyFermatas } from './liquify/fermatas.js'
 import { liquifyPedals } from './liquify/pedals.js'
@@ -29,7 +29,10 @@ import { liquifyDeletions } from './liquify/deletions.js'
 import { liquifyWords } from './liquify/words.js'
 import { liquifyLines } from './liquify/lines.js'
 import { liquifyRepeats } from './liquify/repeats.js'
-import { liquifyRegulationLayout } from './liquify/regulationLayout.js'
+import { liquifyKeySigs } from './liquify/keySigs.js'
+import { finishChoices } from '../utils/ft/choices.js'
+import { markInterventions } from '../utils/ft/phaseEight.js'
+import { runDeferredRegulation } from '../utils/ft/regulation.js'
 // import { adjustViewBoxForContent } from './liquify/viewbox.js'
 
 // const duration = '5s'
@@ -63,6 +66,7 @@ export const liquifyMusic = (ftSvg, dtSvg, tools) => {
   liquifyRests(ftSvg, dtSvg, atMeiDom, tools)
   liquifyChords(ftSvg, dtSvg, atMeiDom, tools)
   liquifyLedgerLines(ftSvg, dtSvg, atMeiDom, tools)
+  liquifyKeySigs(ftSvg, dtSvg, atMeiDom, tools)
   liquifyAccids(ftSvg, dtSvg, atMeiDom, tools)
   liquifyClefs(ftSvg, dtSvg, atMeiDom, tools)
   liquifyDots(ftSvg, dtSvg, atMeiDom, tools)
@@ -90,8 +94,13 @@ export const liquifyMusic = (ftSvg, dtSvg, tools) => {
   liquifyFs(ftSvg, dtSvg, atMeiDom, tools)
   liquifyMetamarks(ftSvg, dtSvg, atMeiDom, tools)
 
-  // Apply orig-to-reg placement after element-specific DT animation is complete.
-  liquifyRegulationLayout(ftSvg, dtSvg, atMeiDom, tools)
+  // Interventions phase (phase 8): the modules above register what their elements do in this phase,
+  // which has to wait until all of them have finished (see utils/ft/regulation.js).
+  if (tools.atRegSvgDom) {
+    runDeferredRegulation(ftSvg, atMeiDom, tools)
+    finishChoices(ftSvg, tools)
+    markInterventions(ftSvg)
+  }
 
   // other things
   liquifyDeletions(ftSvg, dtSvg, atMeiDom, tools)

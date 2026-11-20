@@ -62,3 +62,21 @@ The sequence is fixed and must always be used in this order:
 - Animation asset preparation and eight-phase animation writer: `src/utils/ft/animation.js`
 - Fluid-transcript composition and writing-zone visibility: `src/rendering/renderers/ftAnimation.js`
 - Staff-line and reading-order system animation: `src/utils/ft/staffLines.js`
+- Per-element animation of notation, one module per element type: `src/preparation/liquify/*.js`
+- Interventions phase helpers: `src/utils/ft/phaseEight.js`, `src/utils/ft/regulation.js`, `src/utils/ft/choices.js`, `src/utils/ft/rhythm.js`
+
+## The Interventions Phase in the Code
+
+Each `liquify<Elements>` module animates its elements through all eight phases. For the interventions phase, the
+elements move from the layout of the `./orig` rendering to the layout of the `./reg` rendering, and editorial
+changes (e.g. a rhythm edit) become visible. Since this depends on the animations of all other elements and changes
+the structure of the SVG, a module registers this part with `deferRegulation`, and `liquifyMusic` runs it once all
+modules have finished.
+
+- `regulateLayout` shifts elements to their reg position, unless an animation already does so.
+- `choices.js` keeps Verovio's `choice` / `orig` / `reg` markup only where something differs, so that structural
+  selectors such as `.choice > .orig` reach exactly what is edited. Elements whose only difference is their rhythm
+  are unwrapped, and just the parts that differ (e.g. a flag, dots, one beam line) get a choice of their own.
+- Everything that arrives in the interventions phase gets the classes `intervention suppl`, everything that
+  leaves gets `intervention remove`.
+- Temporary bookkeeping is kept in memory, never in attributes of the generated SVG.

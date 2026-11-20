@@ -1,3 +1,6 @@
+import { regulateRhythm } from '../../utils/ft/rhythm.js'
+import { deferRegulation, regulateLayout } from '../../utils/ft/regulation.js'
+
 /**
  * Animates rest elements in a fluid transcript.
  * Rests are simpler than notes as they only need position animation,
@@ -105,5 +108,11 @@ export function liquifyRests (ftSvg, dtSvg, atMeiDom, tools) {
         }
       })
     })
+  })
+
+  // Interventions phase: move to the reg layout, and replace rests whose rhythm is edited
+  deferRegulation(tools, () => {
+    regulateLayout(ftSvg, rests, atMeiDom, tools)
+    rests.forEach(rest => regulateRhythm(ftSvg, rest, atMeiDom, tools))
   })
 }

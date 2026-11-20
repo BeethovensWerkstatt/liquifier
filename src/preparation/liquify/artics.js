@@ -1,3 +1,5 @@
+import { deferRegulation, regulateLayout } from '../../utils/ft/regulation.js'
+
 /**
  * Animate articulation symbols between AT and DT transcriptions
  * Articulations are performance markings like staccato dots, accent marks, tenuto lines, etc.
@@ -18,6 +20,8 @@
  * @returns {number} Resulting numeric value.
  */
 export const liquifyArtics = (ftSvg, dtSvg, atMeiDom, tools) => {
+  // Interventions phase: move to the reg layout
+  deferRegulation(tools, () => regulateLayout(ftSvg, ftSvg.querySelectorAll('g.artic:not(.bounding-box)'), atMeiDom, tools))
   const { getNewPos, correspMappings, setAnimation, logger } = tools
 
   // Get all articulation groups from fluid transcription (excluding bounding boxes)

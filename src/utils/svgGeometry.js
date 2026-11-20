@@ -117,3 +117,64 @@ export function computeApproxBBox (node) {
     height: Math.max(0, yRange.max - yRange.min)
   }
 }
+
+/**
+ * Parses the `points` attribute of a polygon.
+ *
+ * @param {string} pointsStr - Points such as `0,0 10,0 10,5 0,5`.
+ * @returns {Array<{x: number, y: number}>} Points of the polygon.
+ */
+export const parsePolygonPoints = (pointsStr) => {
+  return pointsStr.trim().split(/\s+/).map(point => {
+    const [x, y] = point.split(',').map(Number)
+    return { x, y }
+  })
+}
+
+/**
+ * Sorts polygons by their vertical position (top to bottom).
+ *
+ * @param {Array<Element>} polygons - Polygon elements.
+ * @returns {Array<{element: Element, avgY: number, points: Array<{x: number, y: number}>}>} Polygons with their average y, sorted from the smallest to the largest.
+ */
+export const sortPolygonsByPosition = (polygons) => {
+  return polygons.map(polygon => {
+    const points = parsePolygonPoints(polygon.getAttribute('points'))
+    const avgY = points.reduce((sum, p) => sum + p.y, 0) / points.length
+
+    return { element: polygon, avgY, points }
+  }).sort((a, b) => a.avgY - b.avgY)
+}
+
+/**
+ * Returns the signed area of a polygon, which tells its winding order.
+ *
+ * @param {Array<{x: number, y: number}>} points - Points of the polygon.
+ * @returns {number} Twice the signed area.
+ */
+const calculatePolygonWinding = (points) => points.reduce((area, point, index) => {
+  const next = points[(index + 1) % points.length]
+  return area + point.x * next.y - next.x * point.y
+}, 0)
+
+/**
+ * Brings the points of a four-point polygon into the winding order of a reference polygon,
+ * so that the two can be animated into each other without twisting.
+ *
+ * @param {string} points - Points to adjust.
+ * @param {string} referencePoints - Points whose winding order is wanted.
+ * @returns {string} Points in the winding order of the reference.
+ */
+export const alignPolygonWinding = (points, referencePoints) => {
+  const polygonPoints = parsePolygonPoints(points)
+  const reference = parsePolygonPoints(referencePoints)
+  if (polygonPoints.length !== 4 || reference.length !== 4) return points
+
+  const polygonWinding = calculatePolygonWinding(polygonPoints)
+  const referenceWinding = calculatePolygonWinding(reference)
+  if (polygonWinding === 0 || referenceWinding === 0 || Math.sign(polygonWinding) === Math.sign(referenceWinding)) {
+    return points
+  }
+
+  return [...polygonPoints].reverse().map(point => `${point.x},${point.y}`).join(' ')
+}

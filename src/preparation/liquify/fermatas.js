@@ -1,3 +1,5 @@
+import { deferRegulation, regulateLayout } from '../../utils/ft/regulation.js'
+
 /**
  * Animate fermatas between AT and DT transcriptions
  * For each fermata in the AT (fluid transcription):
@@ -11,6 +13,8 @@
  * @returns {number} Resulting numeric value.
  */
 export const liquifyFermatas = (ftSvg, dtSvg, atMeiDom, tools) => {
+  // Interventions phase: move to the reg layout
+  deferRegulation(tools, () => regulateLayout(ftSvg, ftSvg.querySelectorAll('g.fermata:not(.bounding-box)'), atMeiDom, tools))
   const { getNewPos, correspMappings, setAnimation, logger } = tools
 
   const fermatas = ftSvg.querySelectorAll('g.fermata:not(.bounding-box)')

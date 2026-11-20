@@ -1,3 +1,5 @@
+import { deferRegulation, regulateLayout } from '../../utils/ft/regulation.js'
+
 /**
  * Animate meter signatures between AT and DT transcriptions
  * For each meter signature in the AT (fluid transcription):
@@ -11,6 +13,8 @@
  * @returns {number} Resulting numeric value.
  */
 export const liquifyMeterSigs = (ftSvg, dtSvg, atMeiDom, tools) => {
+  // Interventions phase: move to the reg layout
+  deferRegulation(tools, () => regulateLayout(ftSvg, ftSvg.querySelectorAll('.meterSig:not(.bounding-box)'), atMeiDom, tools))
   const { getNewPos, correspMappings, setAnimation, logger } = tools
 
   const meterSigs = ftSvg.querySelectorAll('.meterSig:not(.bounding-box)')

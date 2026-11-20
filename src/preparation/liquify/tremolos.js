@@ -1,4 +1,7 @@
 import { queryDirectChild, queryDirectChildren, removeElement } from '../../utils/dom.js'
+import { regulatePolygonLines } from '../../utils/ft/choices.js'
+import { findMatchingRegElement } from '../../utils/ft/phaseEight.js'
+import { sortPolygonsByPosition } from '../../utils/svgGeometry.js'
 
 /**
  * Animate tremolo elements (`bTrem`, `fTrem`) between AT and DT transcriptions.
@@ -90,6 +93,45 @@ export const liquifyTremolos = (ftSvg, dtSvg, atMeiDom, tools) => {
       createDtOnlyStroke(trem, atId, i, sortedDt[i].points, getNewPos, setAnimation)
     }
   })
+
+  // Interventions phase: move the strokes to the strokes of the reg rendering
+  if (tools.atRegSvgDom) tremolos.forEach(trem => regulateTremoloStrokes(trem, tools))
+}
+
+/**
+ * Moves the strokes of a tremolo to the strokes of the reg rendering. The reg rendering still
+ * has the stroke glyph as a single symbol, so its strokes are computed in the same way as for the
+ * orig. Like for beams, strokes that only exist in one rendering fade in or out. The tremolo is
+ * not shifted as a whole, as the chord inside it has its own animation.
+ *
+ * @param {Element} trem - Tremolo group in the fluid transcription SVG.
+ * @param {Object} tools - Shared animation helper bundle.
+ * @returns {void}
+ */
+export function regulateTremoloStrokes (trem, tools) {
+  const { atRegSvgDom, logger } = tools
+  const regTrem = findMatchingRegElement(atRegSvgDom, trem, trem.getAttribute('data-id'))
+  const regGlyph = queryDirectChild(regTrem, 'use')
+  if (!regGlyph) return
+
+  const strokes = sortPolygonsByPosition(queryDirectChildren(trem, 'polygon').filter(isAtStroke)).map(entry => entry.element)
+  const regStrokes = getGlyphStrokePolygons(atRegSvgDom, regGlyph, logger)
+    .map(points => ({ points: points.map(point => `${point.x},${point.y}`).join(' '), avgY: points.reduce((sum, point) => sum + point.y, 0) / points.length }))
+    .sort((a, b) => a.avgY - b.avgY)
+    .map(stroke => stroke.points)
+
+  regulatePolygonLines(strokes, regStrokes, tools)
+}
+
+/**
+ * Returns whether a polygon is a stroke of the AT, as opposed to a stroke that only exists in the DT.
+ *
+ * @param {Element} polygon - Polygon in a tremolo group.
+ * @returns {boolean} Whether it is an AT stroke.
+ */
+function isAtStroke (polygon) {
+  const classNames = (polygon.getAttribute('class') || '').split(/\s+/)
+  return classNames.includes('bw-trem-inline') && !classNames.includes('bw-trem-dt-only')
 }
 
 /**
@@ -206,21 +248,20 @@ function collectDtStrokes (dtSvg, dtIds, logger) {
 }
 
 /**
- * Expand a glyph `<use>` into inline tremolo stroke polygons.
+ * Compute the stroke polygons of a tremolo glyph from its SMuFL symbol, without changing the DOM.
  *
- * @param {SVGElement} ftSvg - FT SVG root.
- * @param {Element} trem - Tremolo group containing the use.
- * @param {Element} glyphUse - Glyph use element.
- * @param {Object} logger - Logger.
- * @returns {SVGPolygonElement[]} Inline AT stroke polygons.
+ * @param {Element|Document} root - SVG root that holds the glyph symbol.
+ * @param {Element} glyphUse - `<use>` that references the tremolo glyph.
+ * @param {Object} [logger] - Logger instance.
+ * @returns {Array<Array<{x: number, y: number}>>} Stroke polygons in the coordinates of the use's parent.
  */
-function expandGlyphUseToInlineStrokes (ftSvg, trem, glyphUse, logger) {
+export function getGlyphStrokePolygons (root, glyphUse, logger) {
   const href = (glyphUse.getAttribute('href') || glyphUse.getAttribute('xlink:href') || '').trim()
   if (!href.startsWith('#')) return []
 
-  const symbol = ftSvg.querySelector(href)
+  const symbol = root.querySelector(href)
   if (!symbol) {
-    logger.debug?.(`[Tremolos] Glyph symbol not found: ${href}`)
+    logger?.debug?.(`[Tremolos] Glyph symbol not found: ${href}`)
     return []
   }
 
@@ -228,25 +269,29 @@ function expandGlyphUseToInlineStrokes (ftSvg, trem, glyphUse, logger) {
   const d = path?.getAttribute('d') || ''
   if (!d) return []
 
-  const subpaths = parsePathToPolygons(d)
-
-  if (subpaths.length === 0) return []
-
   const pathTransforms = parseTransformFunctions(path?.getAttribute('transform') || '')
   const useTransforms = parseTransformFunctions(glyphUse.getAttribute('transform') || '')
 
+  return parsePathToPolygons(d)
+    .map(polyPoints => polyPoints.map(point => applyTransformFunctions(applyTransformFunctions(point, pathTransforms), useTransforms)))
+    .filter(transformed => transformed.length >= 3)
+}
+
+/**
+ * Replace a tremolo glyph by its strokes, as inline polygons that can be animated.
+ *
+ * @param {Element} ftSvg - Fluid transcription SVG.
+ * @param {Element} trem - Tremolo group.
+ * @param {Element} glyphUse - `<use>` that references the tremolo glyph.
+ * @param {Object} logger - Logger instance.
+ * @returns {Element[]} Created stroke polygons.
+ */
+function expandGlyphUseToInlineStrokes (ftSvg, trem, glyphUse, logger) {
   const doc = trem.ownerDocument
   const insertBeforeNode = queryDirectChild(trem, 'g.chord, g.note')
   const created = []
 
-  subpaths.forEach((polyPoints, i) => {
-    const transformed = polyPoints.map(point => {
-      const pathSpace = applyTransformFunctions(point, pathTransforms)
-      return applyTransformFunctions(pathSpace, useTransforms)
-    })
-
-    if (transformed.length < 3) return
-
+  getGlyphStrokePolygons(ftSvg, glyphUse, logger).forEach((transformed, i) => {
     const poly = doc.createElementNS('http://www.w3.org/2000/svg', 'polygon')
     poly.setAttribute('class', 'bw-trem-stroke bw-trem-inline')
     poly.setAttribute('stroke-opacity', '1')

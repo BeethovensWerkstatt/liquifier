@@ -1,4 +1,5 @@
 import { applyTextLengthAnimation, getTextLengthStates } from './textAnimation.js'
+import { deferRegulation, regulateLayout } from '../../utils/ft/regulation.js'
 
 /**
  * Liquifies dynamics elements, handling two cases:
@@ -23,6 +24,8 @@ import { applyTextLengthAnimation, getTextLengthStates } from './textAnimation.j
  * @returns {void} No return value.
  */
 export function liquifyDynams (ftSvg, dtSvg, atMeiDom, tools) {
+  // Interventions phase: move to the reg layout
+  deferRegulation(tools, () => regulateLayout(ftSvg, ftSvg.querySelectorAll('g.dynam:not(.bounding-box)'), atMeiDom, tools))
   const { getNewPos, correspMappings, setAnimation, logger } = tools
 
   logger.info('[liquifyDynams] Starting dynamics animation')

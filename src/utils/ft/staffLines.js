@@ -1,4 +1,6 @@
 import { computeApproxBBox } from '../svgGeometry.js'
+import { getStaffLineBlock, isStaffLineClone, markStaffLineClone } from './bookkeeping.js'
+import { getAnimations, getStaticThenRegStates } from './phaseEight.js'
 
 const parseLinePath = (d) => {
   const match = String(d || '').match(/M\s*([\d.-]+)\s+([\d.-]+)\s+L\s*([\d.-]+)\s+([\d.-]+)/)
@@ -177,8 +179,7 @@ const groupFtStaffLinesByBlock = (staffLines) => {
   const byBlock = new Map()
 
   staffLines.forEach(line => {
-    const blockRaw = line.getAttribute('data-bw-block')
-    const blockIndex = Number.parseInt(blockRaw, 10)
+    const blockIndex = getStaffLineBlock(line)?.block
     if (!Number.isFinite(blockIndex)) return
 
     if (!byBlock.has(blockIndex)) byBlock.set(blockIndex, [])
@@ -187,9 +188,7 @@ const groupFtStaffLinesByBlock = (staffLines) => {
 
   byBlock.forEach(lines => {
     lines.sort((a, b) => {
-      const aIdx = Number.parseInt(a.getAttribute('data-bw-line-index') || '0', 10)
-      const bIdx = Number.parseInt(b.getAttribute('data-bw-line-index') || '0', 10)
-      return aIdx - bIdx
+      return (getStaffLineBlock(a)?.lineIndex || 0) - (getStaffLineBlock(b)?.lineIndex || 0)
     })
   })
 
@@ -445,7 +444,81 @@ export const animateFtReadingOrderSystems = (atLayer, dtLayer, atMeiDom, { getNe
   })
 }
 
-export const animateFtStaffLines = (atLayer, dtLayer, { getNewPos, setAnimation, logger }, matchedStaffLineContext = null) => {
+/**
+ * Returns the staff-line path of the reg rendering that corresponds to an FT staff line,
+ * so that staff lines end where the reg layout ends in the interventions phase.
+ *
+ * @param {Element[]} ftStaffLines - FT staff-line paths in document order.
+ * @param {Document|null} atRegSvgDom - AT SVG rendered with choices resolved to reg.
+ * @param {Element} ftLine - FT staff line.
+ * @param {string} fallbackD - Path data to use when no counterpart exists.
+ * @returns {string} Path data for the interventions phase.
+ */
+const getRegStaffLineD = (ftStaffLines, atRegSvgDom, ftLine, fallbackD) => {
+  const regLines = atRegSvgDom ? Array.from(atRegSvgDom.querySelectorAll('path.rastrum')) : []
+  const index = ftStaffLines.indexOf(ftLine)
+  if (regLines.length !== ftStaffLines.length || index < 0) return fallbackD
+  return regLines[index].getAttribute('d') || fallbackD
+}
+
+/**
+ * Animates the staff lines of the AT through all eight phases: lines of systems that match the
+ * current DT move from the DT staff lines to the AT staff lines, and in the interventions phase
+ * all lines end where the reg rendering places them.
+ *
+ * @param {Element} atLayer - Group with the AT transcription.
+ * @param {Element} dtLayer - Group with the DT transcription.
+ * @param {Object} tools - Shared animation helper bundle.
+ * @param {Object|null} [matchedStaffLineContext] - AT blocks that match the current DT.
+ * @returns {void}
+ */
+export const animateFtStaffLines = (atLayer, dtLayer, tools, matchedStaffLineContext = null) => {
+  animateMatchedStaffLines(atLayer, dtLayer, tools, matchedStaffLineContext)
+  animateUnmatchedStaffLines(atLayer, tools)
+}
+
+/**
+ * Staff lines of systems that are not matched to the current DT have no animation of
+ * their own, but start and end where the reg rendering places them.
+ *
+ * @param {Element} atLayer - Group with the AT transcription.
+ * @param {Object} tools - Shared animation helper bundle.
+ * @returns {void}
+ */
+const animateUnmatchedStaffLines = (atLayer, { atRegSvgDom, setAnimation, logger }) => {
+  if (!atRegSvgDom) return
+
+  const ftLines = Array.from(atLayer.querySelectorAll('path.rastrum')).filter(line => !isStaffLineClone(line))
+  const regLines = Array.from(atRegSvgDom.querySelectorAll('path.rastrum'))
+  if (ftLines.length === 0) return
+  if (ftLines.length !== regLines.length) {
+    logger?.warn(`[Regulation Layout] ${ftLines.length} FT but ${regLines.length} reg staff lines; keeping FT staff lines`)
+    return
+  }
+
+  ftLines.forEach((line, index) => {
+    const d = line.getAttribute('d')
+    const regD = regLines[index].getAttribute('d')
+    const hasPathAnimation = getAnimations(line).some(animation => animation.getAttribute('attributeName') === 'd')
+    if (hasPathAnimation || !d || !regD || d === regD) return
+
+    setAnimation({
+      element: line,
+      states: getStaticThenRegStates('d', d, regD)
+    })
+  })
+}
+
+/**
+ * Animates the staff lines of the systems that match the current DT.
+ *
+ * @param {Element} atLayer - Group with the AT transcription.
+ * @param {Element} dtLayer - Group with the DT transcription.
+ * @param {Object} tools - Shared animation helper bundle.
+ * @param {Object|null} matchedStaffLineContext - AT blocks that match the current DT.
+ * @returns {void}
+ */
+const animateMatchedStaffLines = (atLayer, dtLayer, { getNewPos, setAnimation, logger, atRegSvgDom }, matchedStaffLineContext) => {
   const ftStaffLines = Array.from(atLayer.querySelectorAll('path.rastrum'))
   const dtStaffLines = Array.from(dtLayer.querySelectorAll('.rastrum:not(.bounding-box) > path'))
 
@@ -492,7 +565,7 @@ export const animateFtStaffLines = (atLayer, dtLayer, { getNewPos, setAnimation,
             readingOrder: { type: 'd', val: dtAsAtD },
             regulation: { type: 'd', val: atD },
             supplements: { type: 'd', val: atD },
-            interventions: { type: 'd', val: atD }
+            interventions: { type: 'd', val: getRegStaffLineD(ftStaffLines, atRegSvgDom, ftLine, atD) }
           }
         })
       }
@@ -507,7 +580,7 @@ export const animateFtStaffLines = (atLayer, dtLayer, { getNewPos, setAnimation,
     if (index < ftStaffLines.length) return baseLine
 
     const clone = baseLine.cloneNode(true)
-    clone.setAttribute('data-bw-staff-clone', String(index))
+    markStaffLineClone(clone)
     baseLine.parentNode.appendChild(clone)
     return clone
   })
@@ -529,7 +602,7 @@ export const animateFtStaffLines = (atLayer, dtLayer, { getNewPos, setAnimation,
         readingOrder: { type: 'd', val: dtAsAtD },
         regulation: { type: 'd', val: atD },
         supplements: { type: 'd', val: atD },
-        interventions: { type: 'd', val: atD }
+        interventions: { type: 'd', val: getRegStaffLineD(ftStaffLines, atRegSvgDom, ftLine, atD) }
       }
     })
   })

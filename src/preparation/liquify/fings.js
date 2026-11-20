@@ -1,3 +1,5 @@
+import { deferRegulation, regulateLayout } from '../../utils/ft/regulation.js'
+
 /**
  * Animate fingerings between AT and DT transcriptions
  * For each fingering in the AT (fluid transcription):
@@ -13,6 +15,8 @@
  * @returns {number} Resulting numeric value.
  */
 export const liquifyFings = (ftSvg, dtSvg, atMeiDom, tools) => {
+  // Interventions phase: move to the reg layout
+  deferRegulation(tools, () => regulateLayout(ftSvg, ftSvg.querySelectorAll('g.fing:not(.bounding-box)'), atMeiDom, tools))
   const { getNewPos, correspMappings, setAnimation, logger } = tools
 
   const fings = ftSvg.querySelectorAll('g.fing:not(.bounding-box)')

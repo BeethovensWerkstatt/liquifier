@@ -1,4 +1,6 @@
 import { closestElement, hasClass } from '../../utils/dom.js'
+import { regulateRhythm } from '../../utils/ft/rhythm.js'
+import { deferRegulation, regulateLayout } from '../../utils/ft/regulation.js'
 
 /**
  * Animate notes between AT and DT transcriptions, including noteheads, stems, ledger lines, and flags
@@ -229,8 +231,21 @@ export const liquifyNotes = (ftSvg, dtSvg, atMeiDom, tools) => {
       }
     })
   })
+
+  // Interventions phase: move to the reg layout, and show edited rhythms
+  deferRegulation(tools, () => {
+    const regulatedNotes = Array.from(notes).filter(note => !isChordMember(note))
+    regulateLayout(ftSvg, regulatedNotes, atMeiDom, tools)
+    regulatedNotes.forEach(note => regulateRhythm(ftSvg, note, atMeiDom, tools))
+  })
 }
 
+/**
+ * Returns whether a note is part of a chord, whose animation is handled by the chord.
+ *
+ * @param {Element} note - Note group in the fluid transcript.
+ * @returns {boolean} Whether one of the ancestors is a chord.
+ */
 function isChordMember (note) {
   let ancestor = note.parentNode
 
@@ -242,6 +257,13 @@ function isChordMember (note) {
   return false
 }
 
+/**
+ * Moves the stem of a note in the reg rendering back by an offset, so that it fits after the note's own movement.
+ *
+ * @param {string|undefined} path - Path data of the stem in the reg rendering.
+ * @param {string} offset - Movement of the note as `x y`.
+ * @returns {string|null} Path data, or null if there is no stem.
+ */
 function getRegulationStemPath (path, offset) {
   if (!path) return null
 

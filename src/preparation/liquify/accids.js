@@ -1,4 +1,5 @@
 import { hasClass, queryDirectChild } from '../../utils/dom.js'
+import { deferRegulation, regulateLayout } from '../../utils/ft/regulation.js'
 
 /**
  * Animate accidentals between AT and DT transcriptions
@@ -17,6 +18,8 @@ import { hasClass, queryDirectChild } from '../../utils/dom.js'
  * @returns {string} Resulting string.
  */
 export const liquifyAccids = (ftSvg, dtSvg, atMeiDom, tools) => {
+  // Interventions phase: move to the reg layout
+  deferRegulation(tools, () => regulateLayout(ftSvg, ftSvg.querySelectorAll('.accid:not(.bounding-box), .keyAccid:not(.bounding-box)'), atMeiDom, tools))
   const { getNewPos, correspMappings, setAnimation, logger } = tools
 
   // TODO: Implement keyAccids!

@@ -189,7 +189,6 @@ export function animateUnmatchedAtBlocks (transcriptionGroup, atMeiDom, matchedB
 
   unmatchedContainers.forEach(container => {
     if (!container) return
-    container.setAttribute('data-bw-unmatched-container', 'true')
     container.setAttribute('opacity', '0')
     addTransform(container, 'opacity', constants.ftAssetPhaseOpacityValues.otherWritingZones)
   })

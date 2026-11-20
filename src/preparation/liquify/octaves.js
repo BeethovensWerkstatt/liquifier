@@ -1,3 +1,5 @@
+import { deferRegulation, markRegulationHandled, regulateLayout } from '../../utils/ft/regulation.js'
+
 const getOctaveAnchor = octave => {
   if (!octave) return null
 
@@ -73,6 +75,8 @@ const getLocalGeometry = (points, groupOffset) => {
  * @returns {void} No return value.
  */
 export const liquifyOctaves = (ftSvg, dtSvg, atMeiDom, tools) => {
+  // Interventions phase: move to the reg layout
+  deferRegulation(tools, () => regulateLayout(ftSvg, ftSvg.querySelectorAll('g.octave:not(.bounding-box)'), atMeiDom, tools))
   const { atRegSvgDom, getNewPos, correspMappings, setAnimation, applyUnmatchedClass, logger } = tools
   const octaves = ftSvg.querySelectorAll('g.octave:not(.bounding-box)')
 
@@ -115,7 +119,7 @@ export const liquifyOctaves = (ftSvg, dtSvg, atMeiDom, tools) => {
     const regulationOffset = regAnchor
       ? { x: regAnchor.x - atAnchor.x, y: regAnchor.y - atAnchor.y }
       : { x: 0, y: 0 }
-    if (regOctave && regAnchor) octave.setAttribute('data-bw-regulation-layout', 'true')
+    if (regOctave && regAnchor) markRegulationHandled(tools, octave)
     setAnimation({
       element: octave,
       referenceId: dtOctave.getAttribute('data-id'),
@@ -180,6 +184,14 @@ const animateExtenderGeometry = (atOctave, dtOctave, regOctave, getNewPos, group
   }
 }
 
+/**
+ * Returns the octave line in the reg rendering, which is the one of its `<reg>` branch if it is edited in a `<choice>`.
+ *
+ * @param {Document|null} atRegSvgDom - AT SVG rendered with choices resolved to reg.
+ * @param {Document} atMeiDom - Edited AT MEI DOM.
+ * @param {string} atId - Id of the octave in the fluid transcript.
+ * @returns {Element|null} Octave group in the reg rendering.
+ */
 function getRegulationOctave (atRegSvgDom, atMeiDom, atId) {
   if (!atRegSvgDom) return null
 

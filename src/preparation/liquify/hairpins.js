@@ -1,4 +1,5 @@
 import { closestElement, hasClass } from '../../utils/dom.js'
+import { deferRegulation, markRegulationHandled, regulateLayout } from '../../utils/ft/regulation.js'
 
 /**
  * Prepares animations for <hairpin> elements (crescendo/diminuendo wedges)
@@ -34,6 +35,8 @@ import { closestElement, hasClass } from '../../utils/dom.js'
  * @returns {number} Resulting numeric value.
  */
 export function liquifyHairpins (ftSvg, dtSvg, atMeiDom, tools) {
+  // Interventions phase: move to the reg layout
+  deferRegulation(tools, () => regulateLayout(ftSvg, ftSvg.querySelectorAll('g.hairpin:not(.bounding-box)'), atMeiDom, tools))
   const { atRegSvgDom, correspMappings, setAnimation, applyUnmatchedClass, logger } = tools
 
   // Find all AT hairpin groups in FT SVG (system-specific)
@@ -48,7 +51,7 @@ export function liquifyHairpins (ftSvg, dtSvg, atMeiDom, tools) {
       return
     }
     const regulationLegs = getRegulationLegs(atRegSvgDom, atMeiDom, atId, logger)
-    if (regulationLegs) atHairpinGroup.setAttribute('data-bw-regulation-layout', 'true')
+    if (regulationLegs) markRegulationHandled(tools, atHairpinGroup)
 
     // Warn about spanning hairpins (partial representations that cross system boundaries)
     // This indicates a data issue where the hairpin should be placed in the correct system
@@ -373,6 +376,15 @@ function animateHairpinLeg (polyline, atPoints, dtPoints, regulationPoints, getN
   })
 }
 
+/**
+ * Returns the legs of a hairpin in the reg rendering, which is the one of its `<reg>` branch if it is edited in a `<choice>`.
+ *
+ * @param {Document|null} atRegSvgDom - AT SVG rendered with choices resolved to reg.
+ * @param {Document} atMeiDom - Edited AT MEI DOM.
+ * @param {string} atId - Id of the hairpin in the fluid transcript.
+ * @param {Object} logger - Logger instance.
+ * @returns {Object|null} Legs of the hairpin, or null if the reg rendering has no such hairpin.
+ */
 function getRegulationLegs (atRegSvgDom, atMeiDom, atId, logger) {
   if (!atRegSvgDom) return null
 
