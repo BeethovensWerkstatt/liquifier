@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { JSDOM } from 'jsdom'
 
-import { liquifyBeams } from '../src/preparation/liquify/beams.js'
+import { liquifyBeams, regulateBeamLines } from '../src/preparation/liquify/beams.js'
 
 const parser = new (new JSDOM().window.DOMParser)()
 
@@ -364,4 +364,61 @@ test('liquifyBeams uses regulation engraving geometry at interventions', () => {
   assert.deepEqual(parsePoints(animationCalls[0].states.interventions.val), [
     { x: 0, y: 40 }, { x: 10, y: 40 }, { x: 10, y: 42 }, { x: 0, y: 42 }
   ])
+})
+
+const regulateBeam = (ftBeam, regBeam, stemDir = 'up') => {
+  const ftSvg = parser.parseFromString(`<svg xmlns="http://www.w3.org/2000/svg">${ftBeam}</svg>`, 'image/svg+xml').documentElement
+  const atRegSvgDom = parser.parseFromString(`<svg xmlns="http://www.w3.org/2000/svg">${regBeam}</svg>`, 'image/svg+xml')
+  const atMeiDom = parser.parseFromString(`<mei xmlns="http://www.music-encoding.org/ns/mei"><beam xml:id="beam-1"><note stem.dir="${stemDir}"/></beam></mei>`, 'text/xml')
+  const calls = []
+
+  regulateBeamLines(ftSvg, ftSvg.querySelector('g.beam'), atMeiDom, { atRegSvgDom, setAnimation: descriptor => calls.push(descriptor) })
+
+  return { ftSvg, calls }
+}
+
+test('regulateBeamLines reshapes a beam to the polygons of the reg rendering', () => {
+  const { calls } = regulateBeam(
+    '<g class="beam" data-id="beam-1"><polygon points="0,0 100,0 100,10 0,10"/></g>',
+    '<g class="beam" data-id="beam-1"><polygon points="0,0 80,0 80,10 0,10"/></g>'
+  )
+
+  assert.equal(calls.length, 1)
+  assert.equal(calls[0].states.supplements.val, '0,0 100,0 100,10 0,10')
+  assert.equal(calls[0].states.interventions.val, '0,0 80,0 80,10 0,10')
+})
+
+test('regulateBeamLines recycles the primary line and adds the second line of a beam that turns into sixteenth notes', () => {
+  const { ftSvg, calls } = regulateBeam(
+    '<g class="beam" data-id="beam-1"><polygon fill="#000" points="0,0 100,0 100,10 0,10"/></g>',
+    '<g class="beam" data-id="beam-1"><polygon points="0,20 80,20 80,30 0,30"/><polygon points="0,0 80,0 80,10 0,10"/></g>'
+  )
+
+  // for stems up the top line is the primary one
+  const recycled = ftSvg.querySelector('g.beam > polygon')
+  assert.equal(calls.find(call => call.element === recycled).states.interventions.val, '0,0 80,0 80,10 0,10')
+  const added = ftSvg.querySelector('g.beam > .choice > .reg > polygon')
+  assert.equal(calls.find(call => call.element === added && call.states.interventions.type === 'points').states.interventions.val, '0,20 80,20 80,30 0,30')
+})
+
+test('regulateBeamLines takes the bottom line as the primary one for stems down', () => {
+  const { ftSvg, calls } = regulateBeam(
+    '<g class="beam" data-id="beam-1"><polygon points="0,20 100,20 100,30 0,30"/></g>',
+    '<g class="beam" data-id="beam-1"><polygon points="0,0 80,0 80,10 0,10"/><polygon points="0,20 80,20 80,30 0,30"/></g>',
+    'down'
+  )
+
+  const recycled = ftSvg.querySelector('g.beam > polygon')
+  assert.equal(calls.find(call => call.element === recycled).states.interventions.val, '0,20 80,20 80,30 0,30')
+  const added = ftSvg.querySelector('g.beam > .choice > .reg > polygon')
+  assert.equal(calls.find(call => call.element === added && call.states.interventions.type === 'points').states.interventions.val, '0,0 80,0 80,10 0,10')
+})
+
+test('regulateBeamLines ignores beams that the reg rendering does not have', () => {
+  const { calls } = regulateBeam(
+    '<g class="beam" data-id="beam-1"><polygon points="0,0 100,0 100,10 0,10"/></g>',
+    '<g class="beam" data-id="other"><polygon points="0,0 80,0 80,10 0,10"/></g>'
+  )
+
+  assert.equal(calls.length, 0)
 })

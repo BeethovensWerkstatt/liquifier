@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { JSDOM } from 'jsdom'
 
 import { liquifyCurves } from '../src/preparation/liquify/curves.js'
+import { isRegulationHandled } from '../src/utils/ft/regulation.js'
 
 const parser = new (new JSDOM().window.DOMParser)()
 
@@ -19,13 +20,15 @@ test('liquifyCurves uses regulation path geometry at interventions', () => {
   `, 'image/svg+xml').documentElement
   const calls = []
 
-  liquifyCurves(ftSvg, dtSvg, atMeiDom, {
+  const tools = {
     atRegSvgDom,
     convertD: (atPath, dtPath) => dtPath,
     correspMappings: new Map([['at-slur', ['dt-slur']]]),
     setAnimation: descriptor => calls.push(descriptor)
-  })
+  }
+
+  liquifyCurves(ftSvg, dtSvg, atMeiDom, tools)
 
   assert.equal(calls[0].states.interventions.val, 'M10 10 C20 5 30 5 40 10')
-  assert.equal(ftSvg.querySelector('g.slur').getAttribute('data-bw-regulation-layout'), 'true')
+  assert.equal(isRegulationHandled(tools, ftSvg.querySelector('g.slur')), true)
 })

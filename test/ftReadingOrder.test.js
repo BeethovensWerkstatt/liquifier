@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { JSDOM } from 'jsdom'
 
 import { animateFtReadingOrderSystems, animateFtStaffLines, trimDtStaffLinesToContent } from '../src/utils/ft/staffLines.js'
+import { setStaffLineBlock } from '../src/utils/ft/bookkeeping.js'
 
 const parser = new (new JSDOM().window.DOMParser)()
 
@@ -125,8 +126,8 @@ test('animateFtReadingOrderSystems uses per-system spans for shared rastrums', (
 test('animateFtStaffLines keeps separate content spans for systems sharing one rastrum', () => {
   const atLayer = parser.parseFromString(`
     <g xmlns="http://www.w3.org/2000/svg">
-      <path class="rastrum" data-bw-block="0" data-bw-line-index="0" d="M0 10 L200 10"/>
-      <path class="rastrum" data-bw-block="1" data-bw-line-index="0" d="M0 30 L200 30"/>
+      <path class="rastrum" d="M0 10 L200 10"/>
+      <path class="rastrum" d="M0 30 L200 30"/>
     </g>
   `, 'image/svg+xml').documentElement
   const dtLayer = parser.parseFromString(`
@@ -137,6 +138,9 @@ test('animateFtStaffLines keeps separate content spans for systems sharing one r
     </g>
   `, 'image/svg+xml').documentElement
   const recorded = []
+  const [firstLine, secondLine] = Array.from(atLayer.querySelectorAll('path.rastrum'))
+  setStaffLineBlock(firstLine, 0, 0)
+  setStaffLineBlock(secondLine, 1, 0)
 
   trimDtStaffLinesToContent(dtLayer, 0, { debug: () => {} })
   animateFtStaffLines(atLayer, dtLayer, {
@@ -148,9 +152,58 @@ test('animateFtStaffLines keeps separate content spans for systems sharing one r
     blockToDtSystemId: new Map([[0, 'dt-left'], [1, 'dt-right']])
   })
 
-  const block0 = recorded.find(({ element }) => element.getAttribute('data-bw-block') === '0')
-  const block1 = recorded.find(({ element }) => element.getAttribute('data-bw-block') === '1')
+  const block0 = recorded.find(({ element }) => element === firstLine)
+  const block1 = recorded.find(({ element }) => element === secondLine)
   assert.equal(block0.states.digitalFacsimile.val, 'M10 50 L40 50')
   assert.equal(block1.states.digitalFacsimile.val, 'M120 50 L150 50')
   assert.equal(dtLayer.querySelector('g.rastrum[data-id="shared"] path').getAttribute('d'), 'M0 50 L200 50')
+})
+
+test('animateFtStaffLines ends staff lines at the reg rendering in the interventions phase', () => {
+  const atLayer = parser.parseFromString(`
+    <g xmlns="http://www.w3.org/2000/svg"><path class="rastrum" d="M0 10 L200 10"/></g>
+  `, 'image/svg+xml').documentElement
+  const dtLayer = parser.parseFromString(`
+    <g xmlns="http://www.w3.org/2000/svg"><g class="rastrum" data-id="shared"><path d="M0 50 L200 50"/></g></g>
+  `, 'image/svg+xml').documentElement
+  const atRegSvgDom = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg"><path class="rastrum" d="M0 10 L150 10"/></svg>
+  `, 'image/svg+xml')
+  const recorded = []
+
+  animateFtStaffLines(atLayer, dtLayer, {
+    getNewPos: (at, dt) => dt,
+    setAnimation: descriptor => recorded.push(descriptor),
+    logger: { warn: () => {} },
+    atRegSvgDom
+  })
+
+  assert.equal(recorded[0].states.supplements.val, 'M0 10 L200 10')
+  assert.equal(recorded[0].states.interventions.val, 'M0 10 L150 10')
+})
+
+test('animateFtStaffLines moves staff lines of unmatched systems to the reg layout', () => {
+  const atLayer = parser.parseFromString(`
+    <g xmlns="http://www.w3.org/2000/svg">
+      <path class="rastrum" d="M100 10 L900 10"/>
+      <path class="rastrum" d="M100 20 L900 20"/>
+    </g>
+  `, 'image/svg+xml').documentElement
+  const dtLayer = parser.parseFromString('<g xmlns="http://www.w3.org/2000/svg"/>', 'image/svg+xml').documentElement
+  const atRegSvgDom = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg"><path class="rastrum" d="M90 10 L820 10"/><path class="rastrum" d="M100 20 L900 20"/></svg>
+  `, 'image/svg+xml')
+  const recorded = []
+
+  animateFtStaffLines(atLayer, dtLayer, {
+    getNewPos: (at, dt) => dt,
+    setAnimation: descriptor => recorded.push(descriptor),
+    logger: { warn: () => {} },
+    atRegSvgDom
+  })
+
+  // only the line that changes is animated
+  assert.equal(recorded.length, 1)
+  assert.equal(recorded[0].states.supplements.val, 'M100 10 L900 10')
+  assert.equal(recorded[0].states.interventions.val, 'M90 10 L820 10')
 })

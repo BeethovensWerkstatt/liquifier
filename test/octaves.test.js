@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { JSDOM } from 'jsdom'
 
 import { liquifyOctaves } from '../src/preparation/liquify/octaves.js'
+import { isRegulationHandled } from '../src/utils/ft/regulation.js'
 
 const parser = new (new JSDOM().window.DOMParser)()
 const logger = { debug () {}, info () {}, warn () {}, error () {} }
@@ -59,19 +60,21 @@ test('liquifyOctaves uses regulation anchor and extender geometry at interventio
   `, 'image/svg+xml').documentElement
   const calls = []
 
-  liquifyOctaves(ftSvg, dtSvg, null, {
+  const tools = {
     atRegSvgDom,
     getNewPos: (atPoint, dtPoint) => dtPoint,
     correspMappings: new Map([['at-octave', ['dt-octave']]]),
     setAnimation: descriptor => calls.push(descriptor),
     applyUnmatchedClass () {},
     logger
-  })
+  }
+
+  liquifyOctaves(ftSvg, dtSvg, null, tools)
 
   assert.equal(calls[0].states.interventions.val, '100 100')
   assert.equal(calls[1].states.interventions.val, 'M110 0 L250 0')
   assert.equal(calls[2].states.interventions.val, '250,180 250,0 110,0')
-  assert.equal(ftSvg.querySelector('g.octave').getAttribute('data-bw-regulation-layout'), 'true')
+  assert.equal(isRegulationHandled(tools, ftSvg.querySelector('g.octave')), true)
 })
 
 test('liquifyOctaves supports number-only octave markings', () => {

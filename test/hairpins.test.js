@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { JSDOM } from 'jsdom'
 
 import { liquifyHairpins } from '../src/preparation/liquify/hairpins.js'
+import { isRegulationHandled } from '../src/utils/ft/regulation.js'
 
 const parser = new (new JSDOM().window.DOMParser)()
 
@@ -22,16 +23,18 @@ test('liquifyHairpins uses regulation leg geometry at interventions', () => {
   const calls = []
   const logger = { debug () {}, info () {}, warn () {}, error () {} }
 
-  liquifyHairpins(ftSvg, dtSvg, atMeiDom, {
+  const tools = {
     atRegSvgDom,
     correspMappings: new Map([['at-hairpin', ['dt-hairpin']]]),
     getNewPos: (atPoint, dtPoint) => dtPoint,
     setAnimation: descriptor => calls.push(descriptor),
     applyUnmatchedClass () {},
     logger
-  })
+  }
+
+  liquifyHairpins(ftSvg, dtSvg, atMeiDom, tools)
 
   assert.equal(calls[0].states.interventions.val, '20,0 30,5')
   assert.equal(calls[1].states.interventions.val, '20,10 30,5')
-  assert.equal(ftSvg.querySelector('g.hairpin').getAttribute('data-bw-regulation-layout'), 'true')
+  assert.equal(isRegulationHandled(tools, ftSvg.querySelector('g.hairpin')), true)
 })

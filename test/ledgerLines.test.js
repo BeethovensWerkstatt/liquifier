@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { JSDOM } from 'jsdom'
 
-import { liquifyLedgerLines } from '../src/preparation/liquify/liquifyLedgerLines.js'
+import { liquifyLedgerLines } from '../src/preparation/liquify/ledgerLines.js'
 
 const parser = new (new JSDOM().window.DOMParser)()
 
@@ -89,15 +89,58 @@ test('liquifyLedgerLines reconciles orig-only and reg-only ledger lines at inter
   `, 'image/svg+xml').documentElement.ownerDocument
   const calls = []
 
+  const originalLines = Array.from(ftSvg.querySelectorAll('.lineDash'))
+
   liquifyLedgerLines(ftSvg, null, atMeiDom, { atRegSvgDom, setAnimation: descriptor => calls.push(descriptor) })
 
-  const regulationLine = ftSvg.querySelector('.lineDash[data-bw-regulation-ledger="true"]')
-  assert.ok(regulationLine)
-  const regulationLines = ftSvg.querySelectorAll('.lineDash[data-bw-regulation-ledger="true"]')
-  assert.equal(regulationLines.length, 3)
-  assert.deepEqual(Array.from(regulationLines).map(line => line.querySelector('path')?.getAttribute('d')), ['M30 30 L40 30', 'M30 40 L40 40', 'M30 50 L40 50'])
-  assert.ok(calls.filter(call => call.element.getAttribute('data-bw-regulation-ledger') === 'true').every(call => call.states.interventions.val === '1'))
-  assert.ok(calls.filter(call => call.element.getAttribute('data-related') === '#orig-note' || call.element.getAttribute('data-related') === '#orig-removed').every(call => call.states.interventions.val === '0'))
+  // the first two orig lines move to their reg lines, the third reg line is new, and the unmatched orig line fades
+  const regulationLines = Array.from(ftSvg.querySelectorAll('.lineDash')).filter(line => !originalLines.includes(line))
+  assert.deepEqual(regulationLines.map(line => line.querySelector('path')?.getAttribute('d')), ['M30 50 L40 50'])
+  const moves = calls.filter(call => call.states.interventions.type === 'd')
+  assert.deepEqual(moves.map(call => call.states.interventions.val), ['M30 30 L40 30', 'M30 40 L40 40'])
+  assert.deepEqual(moves.map(call => call.states.supplements.val), ['M10 10 L20 10', 'M10 20 L20 20'])
+  assert.ok(calls.filter(call => regulationLines.includes(call.element)).every(call => call.states.interventions.val === '1'))
+  const fades = calls.filter(call => call.states.interventions.type === 'opacity' && !regulationLines.includes(call.element))
+  assert.deepEqual(fades.map(call => call.element.getAttribute('data-related')), ['#orig-removed'])
+  assert.equal(fades[0].states.interventions.val, '0')
+})
+
+test('liquifyLedgerLines lets paired lines follow the note and only animates the remaining difference', () => {
+  const ftSvg = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg">
+      <g class="ledgerLines below">
+        <g class="lineDash" data-related="#orig-note"><path d="M100 200 L300 200"/></g>
+        <g class="lineDash" data-related="#orig-other"><path d="M500 200 L700 200"/></g>
+      </g>
+      <g class="note" data-id="orig-note"><animateTransform attributeName="transform" type="translate" values="9 9;9 9;9 9;9 9;9 9;0 0;0 0;-40 -10"/></g>
+      <g class="note" data-id="orig-other"><animateTransform attributeName="transform" type="translate" values="0 0;0 0;0 0;0 0;0 0;0 0;0 0;-40 -10"/></g>
+    </svg>
+  `, 'image/svg+xml').documentElement
+  const atMeiDom = parser.parseFromString(`
+    <mei>
+      <choice><orig><note xml:id="orig-note"/></orig><reg><note xml:id="reg-note"/></reg></choice>
+      <choice><orig><note xml:id="orig-other"/></orig><reg><note xml:id="reg-other"/></reg></choice>
+    </mei>
+  `, 'text/xml')
+  const atRegSvgDom = parser.parseFromString(`
+    <svg xmlns="http://www.w3.org/2000/svg">
+      <g class="ledgerLines below">
+        <g class="lineDash" data-related="#reg-note"><path d="M60 190 L260 190"/></g>
+        <g class="lineDash" data-related="#reg-other"><path d="M460 190 L640 195"/></g>
+      </g>
+    </svg>
+  `, 'image/svg+xml').documentElement.ownerDocument
+  const calls = []
+
+  const lineCount = ftSvg.querySelectorAll('.lineDash').length
+
+  liquifyLedgerLines(ftSvg, null, atMeiDom, { atRegSvgDom, setAnimation: descriptor => calls.push(descriptor) })
+
+  // the first line already ends at the reg line through the note animation; the second needs a corrected end
+  assert.equal(ftSvg.querySelectorAll('.lineDash').length, lineCount)
+  assert.equal(calls.length, 1)
+  assert.equal(calls[0].element.parentNode.getAttribute('data-related'), '#orig-other')
+  assert.equal(calls[0].states.interventions.val, 'M500 200 L680 205')
 })
 
 test('liquifyLedgerLines finds a regulation note through nested orig markup', () => {
